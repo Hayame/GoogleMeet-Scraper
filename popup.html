@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Google Meet Transcript Scraper</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h2>Google Meet Recorder</h2>
+        
+        <div class="status-section">
+            <div id="status" class="status-message">✨ Gotowy do nagrywania</div>
+        </div>
+
+        <div class="button-group">
+            <button id="realtimeBtn" class="btn btn-realtime">
+                <span class="icon">🔴</span>
+                <span id="realtimeText">Rozpocznij nagrywanie</span>
+            </button>
+            
+            <button id="exportTxtBtn" class="btn btn-secondary" disabled>
+                <span class="icon">💾</span>
+                Eksportuj TXT
+            </button>
+            
+            <button id="clearBtn" class="btn btn-danger" style="display: none;">
+                <span class="icon">🗑️</span>
+                Wyczyść
+            </button>
+        </div>
+
+        <div class="preview-section">
+            <h3>Podgląd transkrypcji</h3>
+            <div id="preview" class="preview-box">
+                <p class="empty-state">Brak pobranej transkrypcji</p>
+            </div>
+        </div>
+
+        <div class="stats-section" id="stats" style="display: none;">
+            <p><strong>Liczba wypowiedzi</strong> <span id="entryCount">0</span></p>
+            <p><strong>Liczba uczestników</strong> <span id="participantCount">0</span></p>
+            <p id="realtimeStatus" style="display: none;"><strong>Status</strong> <span id="statusText">🔴 Nagrywanie...</span></p>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

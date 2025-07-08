@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generator Ikon - Google Meet Transcript Scraper</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f0f23;
+            color: #fff;
+            padding: 40px;
+            margin: 0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .icons-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .icon-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .icon-preview {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 150px;
+        }
+
+        .icon-label {
+            font-size: 14px;
+            color: #b8b8d1;
+            margin-bottom: 10px;
+        }
+
+        canvas {
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        canvas:hover {
+            transform: scale(1.05);
+        }
+
+        .download-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .style-selector {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 40px;
+            flex-wrap: wrap;
+        }
+
+        .style-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .style-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: transparent;
+        }
+
+        .style-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .instructions {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 40px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Generator Ikon dla Google Meet Transcript Scraper</h1>
+        
+        <div class="style-selector">
+            <button class="style-btn active" onclick="setStyle('gradient')">Gradient</button>
+            <button class="style-btn" onclick="setStyle('flat')">Flat</button>
+            <button class="style-btn" onclick="setStyle('glass')">Glassmorphism</button>
+            <button class="style-btn" onclick="setStyle('neon')">Neon</button>
+            <button class="style-btn" onclick="setStyle('minimal')">Minimalistyczny</button>
+        </div>
+
+        <div class="icons-grid">
+            <div class="icon-card">
+                <div class="icon-label">16x16 (Pasek narzędzi)</div>
+                <div class="icon-preview">
+                    <canvas id="icon16" width="16" height="16"></canvas>
+                </div>
+                <button class="download-btn" onclick="downloadIcon('icon16', 16)">Pobierz icon16.png</button>
+            </div>
+
+            <div class="icon-card">
+                <div class="icon-label">48x48 (Menu rozszerzeń)</div>
+                <div class="icon-preview">
+                    <canvas id="icon48" width="48" height="48"></canvas>
+                </div>
+                <button class="download-btn" onclick="downloadIcon('icon48', 48)">Pobierz icon48.png</button>
+            </div>
+
+            <div class="icon-card">
+                <div class="icon-label">128x128 (Sklep Chrome)</div>
+                <div class="icon-preview">
+                    <canvas id="icon128" width="128" height="128"></canvas>
+                </div>
+                <button class="download-btn" onclick="downloadIcon('icon128', 128)">Pobierz icon128.png</button>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h3>📋 Instrukcja użycia:</h3>
+            <p>1. Wybierz styl ikony klikając przyciski powyżej</p>
+            <p>2. Kliknij "Pobierz" pod każdą ikoną, aby zapisać ją w odpowiednim rozmiarze</p>
+            <p>3. Umieść pobrane pliki w folderze z rozszerzeniem</p>
+        </div>
+    </div>
+
+    <script>
+        let currentStyle = 'gradient';
+
+        function drawIcon(canvasId, size) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            
+            // Skalowanie dla wysokiej jakości
+            const scale = 2;
+            canvas.width = size * scale;
+            canvas.height = size * scale;
+            canvas.style.width = size + 'px';
+            canvas.style.height = size + 'px';
+            ctx.scale(scale, scale);
+            
+            // Czyść canvas
+            ctx.clearRect(0, 0, size, size);
+            
+            if (currentStyle === 'gradient') {
+                drawGradientIcon(ctx, size);
+            } else if (currentStyle === 'flat') {
+                drawFlatIcon(ctx, size);
+            } else if (currentStyle === 'glass') {
+                drawGlassIcon(ctx, size);
+            } else if (currentStyle === 'neon') {
+                drawNeonIcon(ctx, size);
+            } else if (currentStyle === 'minimal') {
+                drawMinimalIcon(ctx, size);
+            }
+        }
+
+        function drawGradientIcon(ctx, size) {
+            // Tło z gradientem
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#667eea');
+            gradient.addColorStop(1, '#764ba2');
+            
+            ctx.fillStyle = gradient;
+            roundRect(ctx, 0, 0, size, size, size * 0.2);
+            ctx.fill();
+            
+            // Ikona dokumentu
+            ctx.fillStyle = 'white';
+            const padding = size * 0.25;
+            const docWidth = size - padding * 2;
+            const docHeight = docWidth * 1.2;
+            const docX = padding;
+            const docY = (size - docHeight) / 2;
+            
+            // Dokument
+            ctx.beginPath();
+            ctx.moveTo(docX, docY);
+            ctx.lineTo(docX + docWidth * 0.7, docY);
+            ctx.lineTo(docX + docWidth, docY + docHeight * 0.3);
+            ctx.lineTo(docX + docWidth, docY + docHeight);
+            ctx.lineTo(docX, docY + docHeight);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Zagięcie
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.beginPath();
+            ctx.moveTo(docX + docWidth * 0.7, docY);
+            ctx.lineTo(docX + docWidth * 0.7, docY + docHeight * 0.3);
+            ctx.lineTo(docX + docWidth, docY + docHeight * 0.3);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Linie tekstu
+            ctx.fillStyle = gradient;
+            const lineHeight = docHeight * 0.08;
+            const lineY = docY + docHeight * 0.4;
+            for (let i = 0; i < 3; i++) {
+                const lineWidth = docWidth * (0.7 - i * 0.1);
+                roundRect(ctx, docX + docWidth * 0.1, lineY + i * lineHeight * 2, lineWidth, lineHeight, lineHeight/2);
+                ctx.fill();
+            }
+        }
+
+        function drawFlatIcon(ctx, size) {
+            // Tło
+            ctx.fillStyle = '#4285f4';
+            roundRect(ctx, 0, 0, size, size, size * 0.2);
+            ctx.fill();
+            
+            // Chat bubble
+            const bubbleSize = size * 0.6;
+            const bubbleX = (size - bubbleSize) / 2;
+            const bubbleY = (size - bubbleSize) / 2;
+            
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            roundRect(ctx, bubbleX, bubbleY, bubbleSize, bubbleSize * 0.8, bubbleSize * 0.15);
+            ctx.fill();
+            
+            // Tail
+            ctx.beginPath();
+            ctx.moveTo(bubbleX + bubbleSize * 0.2, bubbleY + bubbleSize * 0.8);
+            ctx.lineTo(bubbleX + bubbleSize * 0.1, bubbleY + bubbleSize);
+            ctx.lineTo(bubbleX + bubbleSize * 0.4, bubbleY + bubbleSize * 0.8);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Dots
+            ctx.fillStyle = '#4285f4';
+            for (let i = 0; i < 3; i++) {
+                ctx.beginPath();
+                ctx.arc(
+                    bubbleX + bubbleSize * 0.25 + i * bubbleSize * 0.25,
+                    bubbleY + bubbleSize * 0.4,
+                    size * 0.04,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+            }
+        }
+
+        function drawGlassIcon(ctx, size) {
+            // Gradient tło
+            const bgGradient = ctx.createLinearGradient(0, 0, size, size);
+            bgGradient.addColorStop(0, '#1a1a3e');
+            bgGradient.addColorStop(1, '#0f0f23');
+            ctx.fillStyle = bgGradient;
+            roundRect(ctx, 0, 0, size, size, size * 0.2);
+            ctx.fill();
+            
+            // Glass effect
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+            roundRect(ctx, size * 0.1, size * 0.1, size * 0.8, size * 0.8, size * 0.15);
+            ctx.fill();
+            
+            // Icon
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.lineWidth = size * 0.06;
+            ctx.lineCap = 'round';
+            
+            // Transcript lines
+            const startY = size * 0.3;
+            const lineSpacing = size * 0.15;
+            
+            for (let i = 0; i < 3; i++) {
+                const lineWidth = size * (0.5 - i * 0.1);
+                const x = (size - lineWidth) / 2;
+                ctx.beginPath();
+                ctx.moveTo(x, startY + i * lineSpacing);
+                ctx.lineTo(x + lineWidth, startY + i * lineSpacing);
+                ctx.stroke();
+            }
+        }
+
+        function drawNeonIcon(ctx, size) {
+            // Dark background
+            ctx.fillStyle = '#0a0a0a';
+            roundRect(ctx, 0, 0, size, size, size * 0.2);
+            ctx.fill();
+            
+            // Neon glow
+            ctx.shadowColor = '#00ffff';
+            ctx.shadowBlur = size * 0.3;
+            
+            // Neon lines
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = size * 0.04;
+            ctx.lineCap = 'round';
+            
+            // Draw M for Meet
+            const mSize = size * 0.5;
+            const mX = (size - mSize) / 2;
+            const mY = (size - mSize) / 2;
+            
+            ctx.beginPath();
+            ctx.moveTo(mX, mY + mSize);
+            ctx.lineTo(mX, mY);
+            ctx.lineTo(mX + mSize * 0.3, mY + mSize * 0.3);
+            ctx.lineTo(mX + mSize * 0.5, mY);
+            ctx.lineTo(mX + mSize * 0.7, mY + mSize * 0.3);
+            ctx.lineTo(mX + mSize, mY);
+            ctx.lineTo(mX + mSize, mY + mSize);
+            ctx.stroke();
+        }
+
+        function drawMinimalIcon(ctx, size) {
+            // White background
+            ctx.fillStyle = '#ffffff';
+            roundRect(ctx, 0, 0, size, size, size * 0.15);
+            ctx.fill();
+            
+            // Minimal transcript icon
+            ctx.fillStyle = '#333333';
+            const iconSize = size * 0.6;
+            const iconX = (size - iconSize) / 2;
+            const iconY = (size - iconSize) / 2;
+            
+            // Speech bubble
+            roundRect(ctx, iconX, iconY, iconSize, iconSize * 0.7, iconSize * 0.1);
+            ctx.fill();
+            
+            // Lines inside
+            ctx.fillStyle = '#ffffff';
+            const lineHeight = iconSize * 0.06;
+            const lineSpacing = iconSize * 0.15;
+            const startY = iconY + iconSize * 0.15;
+            
+            for (let i = 0; i < 3; i++) {
+                const lineWidth = iconSize * (0.7 - i * 0.15);
+                const x = iconX + (iconSize - lineWidth) / 2;
+                roundRect(ctx, x, startY + i * lineSpacing, lineWidth, lineHeight, lineHeight/2);
+                ctx.fill();
+            }
+        }
+
+        function roundRect(ctx, x, y, width, height, radius) {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+            ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+        }
+
+        function setStyle(style) {
+            currentStyle = style;
+            
+            // Update active button
+            document.querySelectorAll('.style-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Redraw all icons
+            drawIcon('icon16', 16);
+            drawIcon('icon48', 48);
+            drawIcon('icon128', 128);
+        }
+
+        function downloadIcon(canvasId, size) {
+            const canvas = document.getElementById(canvasId);
+            const link = document.createElement('a');
+            link.download = `icon${size}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        // Initial draw
+        window.onload = function() {
+            drawIcon('icon16', 16);
+            drawIcon('icon48', 48);
+            drawIcon('icon128', 128);
+        };
+    </script>
+</body>
+</html>
