@@ -9,6 +9,8 @@ let expandedEntries = new Set(); // Track which entries are expanded
 let sessionTotalDuration = 0; // Track total session duration across pauses
 let baselineEntryCount = 0; // Number of entries before recording starts
 let lastSeenEntry = null; // Last entry before recording starts
+let isFirstUpdate = false; // Track if this is the first update after recording starts
+let recordingStopped = false; // Flag to ignore background updates after recording stops
 
 document.addEventListener('DOMContentLoaded', function() {
     // Debug: Sprawdź rzeczywiste wymiary
@@ -180,7 +182,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!isContinuation) {
             console.log('Taking baseline snapshot before recording');
             await takeBaselineSnapshot();
+            isFirstUpdate = true; // Mark that we need to filter the first update
         }
+        
+        // Reset recording stopped flag
+        recordingStopped = false;
         
         realtimeMode = true;
         realtimeBtn.classList.add('active');
@@ -274,15 +280,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // Stop duration timer
         stopDurationTimer();
         
-        // Always save session when stopping recording
-        if (transcriptData && transcriptData.entries.length > 0) {
-            saveCurrentSessionToHistory();
-        }
+        // Set flag to ignore background updates
+        recordingStopped = true;
         
-        // Zapisz stan
-        chrome.storage.local.set({ realtimeMode: false, recordingStartTime: null });
-        
-        // Zatrzymaj skanowanie w tle
+        // Zatrzymaj skanowanie w tle PRZED zapisem sesji
         chrome.runtime.sendMessage({
             action: 'stopBackgroundScanning'
         }, (response) => {
@@ -292,6 +293,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('❌ Failed to stop background scanning');
             }
         });
+        
+        // Always save session when stopping recording
+        if (transcriptData && transcriptData.entries.length > 0) {
+            saveCurrentSessionToHistory();
+        }
+        
+        // Zapisz stan
+        chrome.storage.local.set({ realtimeMode: false, recordingStartTime: null });
         
         // Wyczyść interwał
         if (realtimeInterval) {
@@ -369,10 +378,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         // Filter out baseline entries for new recordings
                         let entriesToProcess = response.data.entries;
                         
-                        if (baselineEntryCount > 0 && !transcriptData) {
+                        if (isFirstUpdate && baselineEntryCount > 0) {
                             // First scrape after recording started - skip baseline entries
                             console.log(`Filtering out first ${baselineEntryCount} baseline entries`);
                             entriesToProcess = response.data.entries.slice(baselineEntryCount);
+                            isFirstUpdate = false; // Reset flag after first update
                             
                             if (entriesToProcess.length === 0) {
                                 console.log('No new entries after baseline');
@@ -471,6 +481,16 @@ document.addEventListener('DOMContentLoaded', function() {
     function handleBackgroundScanUpdate(data) {
         console.log('🔄 Handling background scan update:', data);
         
+        if (!realtimeMode) {
+            console.log('⚠️ Ignoring background scan update - not in realtime mode');
+            return;
+        }
+        
+        if (recordingStopped) {
+            console.log('⚠️ Ignoring background scan update - recording stopped');
+            return;
+        }
+        
         if (!data || !data.entries || data.entries.length === 0) {
             console.log('⚠️ No entries in background scan update');
             return;
@@ -478,12 +498,29 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const exportTxtBtn = document.getElementById('exportTxtBtn');
         
+        // Apply baseline filtering if this is the first update
+        let entriesToProcess = data.entries;
+        if (isFirstUpdate && baselineEntryCount > 0) {
+            console.log(`📋 First update: filtering out ${baselineEntryCount} baseline entries`);
+            entriesToProcess = data.entries.slice(baselineEntryCount);
+            isFirstUpdate = false; // Reset flag after first update
+            
+            if (entriesToProcess.length === 0) {
+                console.log('No new entries after baseline filtering');
+                return;
+            }
+        }
+        
         if (!transcriptData) {
-            transcriptData = data;
+            transcriptData = {
+                entries: entriesToProcess,
+                scrapedAt: data.scrapedAt,
+                meetingUrl: data.meetingUrl
+            };
             console.log('✅ Initialized transcript data from background scan');
         } else {
             // Merge new entries with existing ones
-            const newEntries = data.entries;
+            const newEntries = entriesToProcess;
             let hasChanges = false;
             
             console.log(`🔄 Processing ${newEntries.length} entries from background scan`);
@@ -552,15 +589,28 @@ document.addEventListener('DOMContentLoaded', function() {
                     deactivateRealtimeMode();
                 }
                 
+                // Stop any active timer
+                stopDurationTimer();
+                
+                // Reset ALL transcript-related variables
                 transcriptData = null;
                 currentSessionId = null;
+                recordingStartTime = null;
+                sessionTotalDuration = 0;
+                baselineEntryCount = 0;
+                lastSeenEntry = null;
+                isFirstUpdate = false;
+                recordingStopped = false;
+                
+                // Update UI
                 displayTranscript({ entries: [] });
                 updateStats({ entries: [] });
+                updateDurationDisplay(); // Reset duration display
                 if (exportTxtBtn) exportTxtBtn.disabled = true;
                 updateStatus('Transkrypcja wyczyszczona', 'info');
                 
                 // Wyczyść z pamięci
-                chrome.storage.local.remove(['transcriptData', 'currentSessionId']);
+                chrome.storage.local.remove(['transcriptData', 'currentSessionId', 'recordingStartTime']);
             }
         });
         console.log('Clear button handler added');
@@ -778,6 +828,24 @@ function displayTranscript(data) {
     reinitializeEnhancedInteractions();
 }
 
+function getFilteredStatsData(data) {
+    if (!data || !data.entries) {
+        return { entries: [] };
+    }
+    
+    // Filter out baseline entries for stats
+    let filteredEntries = data.entries;
+    if (baselineEntryCount > 0 && data.entries.length > baselineEntryCount) {
+        filteredEntries = data.entries.slice(baselineEntryCount);
+    }
+    
+    return {
+        entries: filteredEntries,
+        scrapedAt: data.scrapedAt,
+        meetingUrl: data.meetingUrl
+    };
+}
+
 function updateStats(data) {
     const statsDiv = document.getElementById('transcriptStats');
     const entryCountSpan = document.getElementById('entryCount');
@@ -794,10 +862,12 @@ function updateStats(data) {
         return;
     }
 
-    const uniqueParticipants = new Set(data.entries.map(e => e.speaker)).size;
+    // Get filtered data for stats (exclude baseline entries)
+    const filteredData = getFilteredStatsData(data);
+    const uniqueParticipants = new Set(filteredData.entries.map(e => e.speaker)).size;
 
-    // Update stats
-    entryCountSpan.textContent = data.entries.length;
+    // Update stats with filtered data
+    entryCountSpan.textContent = filteredData.entries.length;
     participantCountSpan.textContent = uniqueParticipants;
     
     // Duration is now handled by the continuous timer
@@ -968,6 +1038,8 @@ function performNewSessionCreation() {
     sessionTotalDuration = 0; // Reset total duration for new session
     baselineEntryCount = 0; // Reset baseline for new session
     lastSeenEntry = null;
+    isFirstUpdate = false; // Reset first update flag
+    recordingStopped = false; // Reset recording stopped flag
     
     // Stop any existing timer
     stopDurationTimer();
@@ -1045,8 +1117,20 @@ function saveCurrentSessionToHistory() {
         return;
     }
     
+    // Validate and filter baseline entries if they somehow got through
+    let validEntries = transcriptData.entries;
+    if (baselineEntryCount > 0 && transcriptData.entries.length > baselineEntryCount) {
+        console.log(`⚠️ Warning: Found ${transcriptData.entries.length} entries but baseline was ${baselineEntryCount}. Filtering baseline entries.`);
+        validEntries = transcriptData.entries.slice(baselineEntryCount);
+        
+        if (validEntries.length === 0) {
+            console.log('No valid entries after baseline filtering - not saving session');
+            return;
+        }
+    }
+    
     const sessionId = currentSessionId || generateSessionId();
-    const uniqueParticipants = new Set(transcriptData.entries.map(e => e.speaker)).size;
+    const uniqueParticipants = new Set(validEntries.map(e => e.speaker)).size;
     
     // Calculate current total duration
     let currentTotalDuration = sessionTotalDuration;
@@ -1061,8 +1145,12 @@ function saveCurrentSessionToHistory() {
         title: generateSessionTitle(),
         date: new Date().toISOString(),
         participantCount: uniqueParticipants,
-        entryCount: transcriptData.entries.length,
-        transcript: transcriptData,
+        entryCount: validEntries.length,
+        transcript: {
+            entries: validEntries,
+            scrapedAt: transcriptData.scrapedAt,
+            meetingUrl: transcriptData.meetingUrl
+        },
         totalDuration: currentTotalDuration
     };
     
@@ -1625,6 +1713,8 @@ function initializeResumeModalEventListeners() {
                     sessionTotalDuration = 0;
                     baselineEntryCount = 0; // Reset baseline
                     lastSeenEntry = null;
+                    isFirstUpdate = false; // Reset first update flag
+                    recordingStopped = false; // Reset recording stopped flag
                     displayTranscript({ entries: [] });
                     updateStats({ entries: [] });
                     chrome.storage.local.set({ 
