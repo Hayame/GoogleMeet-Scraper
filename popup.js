@@ -7,6 +7,8 @@ let recordingStartTime = null;
 let durationTimer = null;
 let expandedEntries = new Set(); // Track which entries are expanded
 let sessionTotalDuration = 0; // Track total session duration across pauses
+let baselineEntryCount = 0; // Number of entries before recording starts
+let lastSeenEntry = null; // Last entry before recording starts
 
 document.addEventListener('DOMContentLoaded', function() {
     // Debug: Sprawdź rzeczywiste wymiary
@@ -174,6 +176,12 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
+        // Take baseline snapshot for new recordings
+        if (!isContinuation) {
+            console.log('Taking baseline snapshot before recording');
+            await takeBaselineSnapshot();
+        }
+        
         realtimeMode = true;
         realtimeBtn.classList.add('active');
         document.querySelector('.record-text').textContent = 'Zatrzymaj nagrywanie';
@@ -292,6 +300,45 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    async function takeBaselineSnapshot() {
+        try {
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (!tab || !tab.url.includes('meet.google.com')) {
+                console.log('Not on Google Meet, skipping baseline');
+                baselineEntryCount = 0;
+                lastSeenEntry = null;
+                return;
+            }
+            
+            return new Promise((resolve) => {
+                chrome.tabs.sendMessage(tab.id, { action: 'scrapeTranscript', realtime: false }, (response) => {
+                    if (chrome.runtime.lastError || !response || !response.success) {
+                        console.log('Could not get baseline, starting fresh');
+                        baselineEntryCount = 0;
+                        lastSeenEntry = null;
+                        resolve();
+                        return;
+                    }
+                    
+                    if (response.data && response.data.entries) {
+                        baselineEntryCount = response.data.entries.length;
+                        if (baselineEntryCount > 0) {
+                            lastSeenEntry = response.data.entries[baselineEntryCount - 1];
+                            console.log(`Baseline: ${baselineEntryCount} entries, last: "${lastSeenEntry.speaker}: ${lastSeenEntry.text.substring(0, 50)}..."`);
+                        } else {
+                            console.log('Baseline: No existing entries');
+                        }
+                    }
+                    resolve();
+                });
+            });
+        } catch (error) {
+            console.error('Error taking baseline:', error);
+            baselineEntryCount = 0;
+            lastSeenEntry = null;
+        }
+    }
+
     async function performRealtimeScrape() {
         console.log('🔄 performRealtimeScrape called');
         try {
@@ -319,12 +366,30 @@ document.addEventListener('DOMContentLoaded', function() {
                     console.log('✅ Data received:', response.data);
                     
                     if (response.data.entries.length > 0) {
-                        // Scal nowe dane z istniejącymi
+                        // Filter out baseline entries for new recordings
+                        let entriesToProcess = response.data.entries;
+                        
+                        if (baselineEntryCount > 0 && !transcriptData) {
+                            // First scrape after recording started - skip baseline entries
+                            console.log(`Filtering out first ${baselineEntryCount} baseline entries`);
+                            entriesToProcess = response.data.entries.slice(baselineEntryCount);
+                            
+                            if (entriesToProcess.length === 0) {
+                                console.log('No new entries after baseline');
+                                return;
+                            }
+                        }
+                        
+                        // Merge new data with existing
                         if (!transcriptData) {
-                            transcriptData = response.data;
+                            transcriptData = {
+                                entries: entriesToProcess,
+                                scrapedAt: response.data.scrapedAt,
+                                meetingUrl: response.data.meetingUrl
+                            };
                         } else {
                             // Inteligentne scalanie - sprawdź czy ostatni wpis należy do tej samej osoby
-                            const newEntries = response.data.entries;
+                            const newEntries = entriesToProcess;
                             let hasChanges = false;
                             
                             console.log(`🔄 Przetwarzam ${newEntries.length} nowych wpisów`);
@@ -901,6 +966,8 @@ function performNewSessionCreation() {
     currentSessionId = generateSessionId();
     recordingStartTime = null;
     sessionTotalDuration = 0; // Reset total duration for new session
+    baselineEntryCount = 0; // Reset baseline for new session
+    lastSeenEntry = null;
     
     // Stop any existing timer
     stopDurationTimer();
@@ -1556,6 +1623,8 @@ function initializeResumeModalEventListeners() {
                     currentSessionId = generateSessionId();
                     recordingStartTime = null;
                     sessionTotalDuration = 0;
+                    baselineEntryCount = 0; // Reset baseline
+                    lastSeenEntry = null;
                     displayTranscript({ entries: [] });
                     updateStats({ entries: [] });
                     chrome.storage.local.set({ 
