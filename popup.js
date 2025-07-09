@@ -153,14 +153,27 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    function continueCurrentSession() {
+    async function continueCurrentSession() {
         console.log('Continuing current session');
+        console.log('Current state:', {
+            realtimeMode,
+            currentSessionId,
+            transcriptData: transcriptData ? transcriptData.entries.length : 0,
+            sessionTotalDuration
+        });
         // Don't reset sessionTotalDuration or create new session
-        activateRealtimeMode(true); // true = isContinuation
+        await activateRealtimeMode(true); // true = isContinuation
     }
 
     async function activateRealtimeMode(isContinuation = false) {
         console.log('Activating realtime mode', isContinuation ? '(continuation)' : '(new)');
+        
+        const realtimeBtn = document.getElementById('recordBtn');
+        if (!realtimeBtn) {
+            console.error('Record button not found!');
+            return;
+        }
+        
         realtimeMode = true;
         realtimeBtn.classList.add('active');
         document.querySelector('.record-text').textContent = 'Zatrzymaj nagrywanie';
@@ -231,6 +244,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function deactivateRealtimeMode() {
         console.log('Deactivating realtime mode');
+        
+        const realtimeBtn = document.getElementById('recordBtn');
+        if (!realtimeBtn) {
+            console.error('Record button not found!');
+            return;
+        }
+        
         realtimeMode = false;
         realtimeBtn.classList.remove('active');
         document.querySelector('.record-text').textContent = 'Rozpocznij nagrywanie';
