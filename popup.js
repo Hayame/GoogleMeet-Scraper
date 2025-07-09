@@ -93,6 +93,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize enhanced interactions
     initializeEnhancedInteractions();
     
+    // Restore state from storage (recording status, timer, etc.)
+    restoreStateFromStorage();
+    
     // Listen for background scan updates
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {        
         if (request.action === 'backgroundScanUpdate') {
@@ -196,6 +199,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Start duration timer
         startDurationTimer();
+        
+        // Save recording start time to storage
+        chrome.storage.local.set({ recordingStartTime: recordingStartTime.toISOString() });
         
         // Create new session ID if none exists (session will be added to history when first entry appears)
         if (!currentSessionId) {
@@ -473,7 +479,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                         
                         // Use the same filtered data for stats to avoid re-filtering with stale lastSeenEntry
-                        updateStats(transcriptData, filteredResult);
+                        // Update stats after brief delay to ensure chat renders first
+                        setTimeout(() => updateStats(transcriptData, filteredResult), 10);
                         exportTxtBtn.disabled = false;
                         
                         // Zapisz dane
@@ -501,6 +508,97 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!realtimeMode) {
                 processingScan = false;
             }
+        }
+    }
+
+    async function getCurrentTabId() {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        return tab.id;
+    }
+
+    async function restoreStateFromStorage() {
+        try {
+            console.log('🔄 [RESTORE] Restoring state from storage');
+            
+            const result = await chrome.storage.local.get([
+                'realtimeMode', 
+                'recordingStartTime', 
+                'transcriptData',
+                'currentSessionId',
+                'sessionTotalDuration',
+                'baselineEntryCount',
+                'lastSeenEntry'
+            ]);
+            
+            // Restore recording state
+            if (result.realtimeMode) {
+                console.log('🔄 [RESTORE] Restoring recording state');
+                realtimeMode = true;
+                
+                // Restore recording start time and timer
+                if (result.recordingStartTime) {
+                    recordingStartTime = new Date(result.recordingStartTime);
+                    console.log('🔄 [RESTORE] Restored recording start time:', recordingStartTime);
+                    startDurationTimer();
+                }
+                
+                // Restore session data
+                if (result.currentSessionId) {
+                    currentSessionId = result.currentSessionId;
+                }
+                
+                if (result.sessionTotalDuration) {
+                    sessionTotalDuration = result.sessionTotalDuration;
+                }
+                
+                // Restore baseline data
+                if (result.baselineEntryCount) {
+                    baselineEntryCount = result.baselineEntryCount;
+                }
+                
+                if (result.lastSeenEntry) {
+                    lastSeenEntry = result.lastSeenEntry;
+                }
+                
+                // Update UI to show recording state
+                const realtimeBtn = document.getElementById('recordBtn');
+                if (realtimeBtn) {
+                    realtimeBtn.classList.add('active');
+                    document.querySelector('.record-text').textContent = 'Zatrzymaj nagrywanie';
+                }
+                
+                updateStatus('Nagrywanie wznowione', 'success');
+            }
+            
+            // Restore transcript data
+            if (result.transcriptData) {
+                console.log('🔄 [RESTORE] Restoring transcript data');
+                transcriptData = result.transcriptData;
+                displayTranscript(transcriptData);
+                updateStats(transcriptData);
+                
+                const exportTxtBtn = document.getElementById('exportTxtBtn');
+                if (exportTxtBtn && transcriptData.entries.length > 0) {
+                    exportTxtBtn.disabled = false;
+                }
+            }
+            
+            // If recording is active, also check for latest background scan data
+            if (result.realtimeMode) {
+                console.log('🔄 [RESTORE] Checking for latest background scan data');
+                const bgScanResult = await chrome.storage.local.get(['backgroundScan_' + await getCurrentTabId()]);
+                const bgScanKey = Object.keys(bgScanResult)[0];
+                
+                if (bgScanKey && bgScanResult[bgScanKey]) {
+                    console.log('🔄 [RESTORE] Found background scan data, processing...');
+                    handleBackgroundScanUpdate(bgScanResult[bgScanKey].data);
+                }
+            }
+            
+            console.log('🔄 [RESTORE] State restoration completed');
+            
+        } catch (error) {
+            console.error('🔄 [RESTORE] Error restoring state:', error);
         }
     }
 
@@ -593,7 +691,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 // Only update display if there are actual changes
                 displayTranscript(transcriptData);
-                updateStats(transcriptData, filteredResult);
+                // Update stats after brief delay to ensure chat renders first
+                setTimeout(() => updateStats(transcriptData, filteredResult), 10);
                 
                 if (exportTxtBtn) {
                     exportTxtBtn.disabled = false;
