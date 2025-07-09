@@ -1491,6 +1491,9 @@ function showResumeOptions() {
     
     showModal('resumeRecordingModal');
     
+    // Initialize event listeners when showing modal
+    initializeResumeModalEventListeners();
+    
     // Set up cancel handler
     if (resumeCancel) {
         // Remove existing listeners to prevent duplicates
@@ -1507,42 +1510,52 @@ function hideResumeModal() {
     hideModal('resumeRecordingModal');
 }
 
-function initializeResumeRecordingModal() {
-    console.log('Initializing resume recording modal');
+function initializeResumeModalEventListeners() {
+    console.log('Initializing resume modal event listeners');
     
     const resumeOptions = document.querySelectorAll('.resume-option');
+    console.log('Found resume options:', resumeOptions.length);
     
     if (resumeOptions.length === 0) {
         console.error('No resume options found');
         return;
     }
     
+    // Remove existing listeners to prevent duplicates
     resumeOptions.forEach(option => {
-        option.addEventListener('click', () => {
-            console.log('Resume option clicked:', option.getAttribute('data-action'));
+        const newOption = option.cloneNode(true);
+        option.parentNode.replaceChild(newOption, option);
+    });
+    
+    // Get fresh references after cloning
+    const freshOptions = document.querySelectorAll('.resume-option');
+    
+    freshOptions.forEach((option, index) => {
+        console.log(`Adding click listener to option ${index}:`, option.getAttribute('data-action'));
+        option.addEventListener('click', function() {
+            const action = this.getAttribute('data-action');
+            console.log('Resume option clicked:', action);
             
             // Remove selection from all options
-            resumeOptions.forEach(opt => opt.classList.remove('selected'));
+            freshOptions.forEach(opt => opt.classList.remove('selected'));
             // Add selection to clicked option
-            option.classList.add('selected');
-            
-            const action = option.getAttribute('data-action');
+            this.classList.add('selected');
             
             setTimeout(() => {
                 hideModal('resumeRecordingModal');
                 
                 if (action === 'continue') {
                     // Continue current session
-                    console.log('Continuing current session');
+                    console.log('Continuing current session from modal');
                     continueCurrentSession();
                 } else if (action === 'new') {
                     // Start new session
-                    console.log('Starting new session');
+                    console.log('Starting new session from modal');
                     saveCurrentSessionToHistory();
                     transcriptData = null;
                     currentSessionId = generateSessionId();
                     recordingStartTime = null;
-                    sessionTotalDuration = 0; // Reset total duration for new session
+                    sessionTotalDuration = 0;
                     displayTranscript({ entries: [] });
                     updateStats({ entries: [] });
                     chrome.storage.local.set({ 
@@ -1550,13 +1563,17 @@ function initializeResumeRecordingModal() {
                         recordingStartTime: null,
                         realtimeMode: false
                     });
-                    activateRealtimeMode(); // false = not continuation (default)
+                    activateRealtimeMode();
                 }
             }, 300);
         });
     });
-    
-    console.log('Resume recording modal initialized with', resumeOptions.length, 'options');
+}
+
+function initializeResumeRecordingModal() {
+    // Event listeners are now initialized when modal is shown
+    // This function is kept for backward compatibility
+    console.log('Resume recording modal initialization (deferred to show)');
 }
 
 function initializeConfirmModal() {
