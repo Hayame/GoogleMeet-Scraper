@@ -17,12 +17,9 @@ if (typeof chrome === 'undefined' || !chrome.runtime) {
 
 // Nasłuchuj wiadomości z popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    console.log('📨 Received message:', request);
-    
     if (request.action === 'scrapeTranscript') {
         try {
             const transcriptData = scrapeTranscript();
-            console.log('📝 Scraped data:', transcriptData);
             sendResponse({ success: true, data: transcriptData });
         } catch (error) {
             console.error('❌ Scraping error:', error);
@@ -38,7 +35,6 @@ function scrapeTranscript() {
     // Szukaj głównego kontenera transkrypcji
     const mainContainer = document.querySelector('div[jscontroller="D1tHje"]');
     if (!mainContainer) {
-        console.log('❌ Nie znaleziono głównego kontenera transkrypcji (jscontroller="D1tHje")');
         return {
             entries: [],
             scrapedAt: new Date().toISOString(),
@@ -48,10 +44,8 @@ function scrapeTranscript() {
     
     // Znajdź wszystkie elementy z napisami
     const captionElements = mainContainer.querySelectorAll('div[aria-label="Napisy"]');
-    console.log(`🔍 Znaleziono ${captionElements.length} elementów z napisami`);
     
     if (captionElements.length === 0) {
-        console.log('❌ Brak elementów z napisami');
         return {
             entries: [],
             scrapedAt: new Date().toISOString(),
@@ -61,23 +55,18 @@ function scrapeTranscript() {
     
     // Przetwarzaj każdy element z napisami
     captionElements.forEach((captionElement, index) => {
-        console.log(`\n🔍 Przetwarzam element ${index + 1}/${captionElements.length}:`);
-        
         try {
             // Wyciągnij nazwę osoby mówiącej
             const speakerElement = captionElement.querySelector('.NWpY1d');
             const speaker = speakerElement ? speakerElement.textContent.trim() : 'Nieznany';
-            console.log(`👤 Osoba mówiąca: "${speaker}"`);
             
             // Wyciągnij tekst transkrypcji
             const textElement = captionElement.querySelector('.ygicle.VbkSUe');
             const text = textElement ? textElement.textContent.trim() : '';
-            console.log(`💬 Tekst: "${text}"`);
             
             // Waliduj i dodaj wpis
             if (text && isValidTranscriptText(text, speaker)) {
                 const sanitizedText = sanitizeTranscriptText(text);
-                console.log(`🧹 Tekst po czyszczeniu: "${sanitizedText}"`);
                 
                 if (sanitizedText && isValidTranscriptText(sanitizedText, speaker)) {
                     const entry = {
@@ -86,30 +75,15 @@ function scrapeTranscript() {
                         timestamp: ''
                     };
                     entries.push(entry);
-                    console.log(`✅ Dodano wpis:`, entry);
-                } else {
-                    console.log(`❌ Odrzucono wpis - nieprawidłowy po czyszczeniu`);
                 }
-            } else {
-                console.log(`❌ Odrzucono wpis - nieprawidłowy tekst lub brak tekstu`);
             }
         } catch (error) {
             console.error(`❌ Błąd przetwarzania elementu ${index + 1}:`, error);
         }
     });
     
-    console.log(`\n📊 Podsumowanie skrobania:`);
-    console.log(`📝 Znalezionych wpisów przed deduplikacją: ${entries.length}`);
-    
     // Usuń duplikaty
     const uniqueEntries = removeDuplicates(entries);
-    console.log(`📝 Unikalnych wpisów: ${uniqueEntries.length}`);
-    
-    if (uniqueEntries.length > 0) {
-        console.log(`✅ Przykładowy wpis:`, uniqueEntries[0]);
-    } else {
-        console.log(`❌ Brak wpisów do zwrócenia`);
-    }
     
     const result = {
         entries: uniqueEntries,
@@ -117,7 +91,6 @@ function scrapeTranscript() {
         meetingUrl: window.location.href
     };
     
-    console.log(`📤 Zwracam rezultat:`, result);
     return result;
 }
 
@@ -141,7 +114,6 @@ function isLanguageSelectionText(text) {
                               text.length > 500; // Menu językowe jest bardzo długie
     
     if (isFullLanguageMenu) {
-        console.log('🔍 Wykryto pełne menu językowe (długie)');
         return true;
     }
     
@@ -165,55 +137,42 @@ function isLanguageSelectionText(text) {
     // Sprawdź tylko krótkie teksty UI
     const isShortUI = shortUIPatterns.some(pattern => pattern.test(text));
     if (isShortUI) {
-        console.log('🔍 Wykryto krótki tekst UI:', text);
         return true;
     }
     
-    console.log('✅ Tekst przeszedł walidację jako potencjalna transkrypcja');
     return false;
 }
 
 function isValidTranscriptText(text, speaker) {
-    console.log(`🔍 Walidacja tekstu: "${text}"`);
-    
     // Sprawdź czy tekst nie jest z menu wyboru języka
     if (isLanguageSelectionText(text)) {
-        console.log(`❌ Odrzucono - tekst z menu wyboru języka`);
         return false;
     }
     
     // Sprawdź czy tekst nie jest zbyt krótki (prawdopodobnie UI)
     if (text.length < 5) {
-        console.log(`❌ Odrzucono - tekst zbyt krótki (${text.length} znaków)`);
         return false;
     }
     
     // Sprawdź czy tekst nie składa się tylko z cyfr i znaków specjalnych
     if (/^[\d\s\-\(\)\[\]]+$/.test(text)) {
-        console.log(`❌ Odrzucono - tylko cyfry i znaki specjalne`);
         return false;
     }
     
     // Sprawdź czy tekst to pojedyncze słowa UI (ale nie odrzucaj jeśli są częścią dłuższego tekstu)
     if (text.length < 20 && /^(settings|arrow_downward|circle|format_size)$/i.test(text)) {
-        console.log(`❌ Odrzucono - ikona lub przycisk`);
         return false;
     }
     
     // Bardziej restrykcyjnie sprawdź czy to menu językowe - tylko jeśli zawiera wiele języków
     if (text.includes('polski (Polska)') && text.includes('afrikaans (Republika') && text.length > 200) {
-        console.log(`❌ Odrzucono - długa lista języków`);
         return false;
     }
     
-    console.log(`✅ Tekst jest prawidłowy`);
     return true;
 }
 
 function sanitizeTranscriptText(text) {
-    console.log(`🧹 Czyszczenie tekstu: "${text}"`);
-    const originalText = text;
-    
     // Usuń znaki specjalne i ikony
     text = text.replace(/[\u{1F600}-\u{1F6FF}]/gu, ''); // Emotikony
     text = text.replace(/[\u{2600}-\u{26FF}]/gu, ''); // Symbole
@@ -233,15 +192,7 @@ function sanitizeTranscriptText(text) {
     text = text.replace(/^\s*-\s*/, ''); // Usuń myślniki na początku
     text = text.replace(/\s*-\s*$/, ''); // Usuń myślniki na końcu
     
-    const cleanedText = text.trim();
-    
-    if (originalText !== cleanedText) {
-        console.log(`🧹 Tekst po czyszczeniu: "${cleanedText}"`);
-    } else {
-        console.log(`✅ Tekst nie wymagał czyszczenia`);
-    }
-    
-    return cleanedText;
+    return text.trim();
 }
 
 // Automatyczne wykrywanie początku spotkania

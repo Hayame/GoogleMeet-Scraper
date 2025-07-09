@@ -10,17 +10,10 @@ let sessionTotalDuration = 0; // Track total session duration across pauses
 let baselineEntryCount = 0; // Number of entries before recording starts
 let lastSeenEntry = null; // Last entry before recording starts
 let isFirstUpdate = false; // Track if this is the first update after recording starts
+let isFirstBackgroundScan = false; // Track if this is the first background scan after recording starts
 let recordingStopped = false; // Flag to ignore background updates after recording stops
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Debug: Sprawdź rzeczywiste wymiary
-    console.log('🔍 Popup dimensions:', {
-        width: window.innerWidth,
-        height: window.innerHeight,
-        bodyWidth: document.body.offsetWidth,
-        bodyHeight: document.body.offsetHeight
-    });
-    
     try {
         const realtimeBtn = document.getElementById('recordBtn');
         const exportTxtBtn = document.getElementById('exportTxtBtn');
@@ -54,33 +47,28 @@ document.addEventListener('DOMContentLoaded', function() {
     // Export button handling
     if (exportBtn) {
         exportBtn.addEventListener('click', () => {
-            console.log('Export button clicked');
             if (!transcriptData || !transcriptData.entries || transcriptData.entries.length === 0) {
                 updateStatus('Brak danych do eksportu', 'error');
                 return;
             }
             showModal('exportModal');
         });
-        console.log('Export button handler added');
     } else {
         console.error('Export button not found');
     }
     
     // Modal close handlers
     const modalCloseButtons = document.querySelectorAll('.modal-close');
-    console.log('Found', modalCloseButtons.length, 'modal close buttons');
     
     modalCloseButtons.forEach(closeBtn => {
         closeBtn.addEventListener('click', () => {
             const modalId = closeBtn.getAttribute('data-modal');
-            console.log('Modal close button clicked for modal:', modalId);
             hideModal(modalId);
         });
     });
     
     // Close modal when clicking outside
     const modals = document.querySelectorAll('.modal');
-    console.log('Found', modals.length, 'modals');
     
     modals.forEach(modal => {
         modal.addEventListener('click', (e) => {
@@ -105,9 +93,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeEnhancedInteractions();
     
     // Listen for background scan updates
-    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-        console.log('📨 Popup received message:', request);
-        
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {        
         if (request.action === 'backgroundScanUpdate') {
             console.log('🔄 Background scan update received');
             handleBackgroundScanUpdate(request.data);
@@ -121,7 +107,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadExpandedState();
     
     // Przywróć stan trybu rzeczywistego
-    chrome.storage.local.get(['realtimeMode', 'transcriptData', 'currentSessionId', 'recordingStartTime'], (result) => {
+    chrome.storage.local.get(['realtimeMode', 'transcriptData', 'currentSessionId', 'recordingStartTime', 'baselineEntryCount'], (result) => {
         if (result.currentSessionId) {
             currentSessionId = result.currentSessionId;
         }
@@ -134,6 +120,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 startDurationTimer();
             }
             activateRealtimeMode();
+        }
+        if (result.baselineEntryCount) {
+            baselineEntryCount = result.baselineEntryCount;
         }
         if (result.transcriptData) {
             transcriptData = result.transcriptData;
@@ -170,7 +159,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function activateRealtimeMode(isContinuation = false) {
-        console.log('Activating realtime mode', isContinuation ? '(continuation)' : '(new)');
+        const activationTime = new Date().toISOString();
+        console.log('🟢 [ACTIVATION DEBUG] Starting realtime mode at:', activationTime);
+        console.log('🟢 [ACTIVATION DEBUG] Is continuation:', isContinuation);
         
         const realtimeBtn = document.getElementById('recordBtn');
         if (!realtimeBtn) {
@@ -180,13 +171,19 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Take baseline snapshot for new recordings
         if (!isContinuation) {
-            console.log('Taking baseline snapshot before recording');
+            console.log('🟢 [ACTIVATION DEBUG] Taking baseline snapshot before recording');
             await takeBaselineSnapshot();
             isFirstUpdate = true; // Mark that we need to filter the first update
+            isFirstBackgroundScan = true; // Mark that we need to filter the first background scan
+            console.log('🟢 [ACTIVATION DEBUG] Baseline snapshot complete, isFirstUpdate set to:', isFirstUpdate);
+            console.log('🟢 [ACTIVATION DEBUG] isFirstBackgroundScan set to:', isFirstBackgroundScan);
+        } else {
+            console.log('🟢 [ACTIVATION DEBUG] Skipping baseline snapshot for continuation');
         }
         
         // Reset recording stopped flag
         recordingStopped = false;
+        console.log('🟢 [ACTIVATION DEBUG] recordingStopped reset to:', recordingStopped);
         
         realtimeMode = true;
         realtimeBtn.classList.add('active');
@@ -224,30 +221,39 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Zapisz stan
-        chrome.storage.local.set({ realtimeMode: true, recordingStartTime: recordingStartTime.toISOString() });
+        chrome.storage.local.set({ 
+            realtimeMode: true, 
+            recordingStartTime: recordingStartTime.toISOString(),
+            baselineEntryCount: baselineEntryCount
+        });
         
         // Uruchom skanowanie w tle
         try {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             if (tab && tab.url.includes('meet.google.com')) {
+                console.log('🟢 [ACTIVATION DEBUG] Starting background scanning for tab:', tab.id);
+                
                 // Rozpocznij skanowanie w tle
                 chrome.runtime.sendMessage({
                     action: 'startBackgroundScanning',
                     tabId: tab.id
                 }, (response) => {
+                    const scanStartTime = new Date().toISOString();
                     if (response && response.success) {
-                        console.log('✅ Background scanning started');
+                        console.log('🟢 [ACTIVATION DEBUG] Background scanning started at:', scanStartTime);
                         updateStatus('Nagrywanie aktywne - skanowanie w tle', 'success');
                     } else {
-                        console.error('❌ Failed to start background scanning');
+                        console.error('🟢 [ACTIVATION DEBUG] Failed to start background scanning at:', scanStartTime);
                         updateStatus('Błąd uruchomienia skanowania w tle', 'error');
                     }
                 });
                 
                 // Natychmiastowe pierwsze pobranie
+                console.log('🟢 [ACTIVATION DEBUG] Performing immediate first scrape');
                 performRealtimeScrape();
                 
                 // Ustaw interwał pobierania co 2 sekundy (jako backup)
+                console.log('🟢 [ACTIVATION DEBUG] Setting up 2-second interval backup');
                 realtimeInterval = setInterval(performRealtimeScrape, 2000);
             }
         } catch (error) {
@@ -256,9 +262,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function deactivateRealtimeMode() {
-        console.log('Deactivating realtime mode');
-        
+    function deactivateRealtimeMode() {        
         const realtimeBtn = document.getElementById('recordBtn');
         if (!realtimeBtn) {
             console.error('Record button not found!');
@@ -299,8 +303,18 @@ document.addEventListener('DOMContentLoaded', function() {
             saveCurrentSessionToHistory();
         }
         
+        // Clear transcript data and baseline info from storage
+        transcriptData = null;
+        baselineEntryCount = 0;
+        lastSeenEntry = null;
+        
         // Zapisz stan
-        chrome.storage.local.set({ realtimeMode: false, recordingStartTime: null });
+        chrome.storage.local.set({ 
+            realtimeMode: false, 
+            recordingStartTime: null,
+            transcriptData: null,
+            baselineEntryCount: 0
+        });
         
         // Wyczyść interwał
         if (realtimeInterval) {
@@ -310,19 +324,27 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function takeBaselineSnapshot() {
+        const startTime = Date.now();
+        console.log('🔵 [BASELINE DEBUG] Starting baseline snapshot at:', new Date().toISOString());
+        
         try {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             if (!tab || !tab.url.includes('meet.google.com')) {
-                console.log('Not on Google Meet, skipping baseline');
+                console.log('🔵 [BASELINE DEBUG] Not on Google Meet, skipping baseline');
                 baselineEntryCount = 0;
                 lastSeenEntry = null;
                 return;
             }
             
+            console.log('🔵 [BASELINE DEBUG] Sending scrapeTranscript message to tab:', tab.id);
+            
             return new Promise((resolve) => {
                 chrome.tabs.sendMessage(tab.id, { action: 'scrapeTranscript', realtime: false }, (response) => {
+                    const endTime = Date.now();
+                    const duration = endTime - startTime;
+                    
                     if (chrome.runtime.lastError || !response || !response.success) {
-                        console.log('Could not get baseline, starting fresh');
+                        console.log('🔵 [BASELINE DEBUG] Could not get baseline, starting fresh. Duration:', duration + 'ms');
                         baselineEntryCount = 0;
                         lastSeenEntry = null;
                         resolve();
@@ -333,23 +355,33 @@ document.addEventListener('DOMContentLoaded', function() {
                         baselineEntryCount = response.data.entries.length;
                         if (baselineEntryCount > 0) {
                             lastSeenEntry = response.data.entries[baselineEntryCount - 1];
-                            console.log(`Baseline: ${baselineEntryCount} entries, last: "${lastSeenEntry.speaker}: ${lastSeenEntry.text.substring(0, 50)}..."`);
+                            console.log('🔵 [BASELINE DEBUG] Baseline captured successfully:');
+                            console.log('   - Entry count:', baselineEntryCount);
+                            console.log('   - Last entry speaker:', lastSeenEntry.speaker);
+                            console.log('   - Last entry text preview:', lastSeenEntry.text.substring(0, 50) + '...');
+                            console.log('   - Duration:', duration + 'ms');
+                            console.log('   - Timestamp:', new Date().toISOString());
                         } else {
-                            console.log('Baseline: No existing entries');
+                            console.log('🔵 [BASELINE DEBUG] Baseline: No existing entries found. Duration:', duration + 'ms');
                         }
+                    } else {
+                        console.log('🔵 [BASELINE DEBUG] No data in response. Duration:', duration + 'ms');
+                        baselineEntryCount = 0;
+                        lastSeenEntry = null;
                     }
+                    
+                    console.log('🔵 [BASELINE DEBUG] Baseline snapshot completed at:', new Date().toISOString());
                     resolve();
                 });
             });
         } catch (error) {
-            console.error('Error taking baseline:', error);
+            console.error('🔵 [BASELINE DEBUG] Error taking baseline:', error);
             baselineEntryCount = 0;
             lastSeenEntry = null;
         }
     }
 
     async function performRealtimeScrape() {
-        console.log('🔄 performRealtimeScrape called');
         try {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             console.log('📍 Current tab:', tab.url);
@@ -360,7 +392,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            console.log('📤 Sending scrapeTranscript message to tab:', tab.id);
             chrome.tabs.sendMessage(tab.id, { action: 'scrapeTranscript', realtime: true }, (response) => {
                 console.log('📥 Response received:', response);
                 
@@ -371,21 +402,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
 
-                if (response && response.success) {
-                    console.log('✅ Data received:', response.data);
-                    
+                if (response && response.success) {                    
                     if (response.data.entries.length > 0) {
                         // Filter out baseline entries for new recordings
                         let entriesToProcess = response.data.entries;
                         
                         if (isFirstUpdate && baselineEntryCount > 0) {
                             // First scrape after recording started - skip baseline entries
-                            console.log(`Filtering out first ${baselineEntryCount} baseline entries`);
                             entriesToProcess = response.data.entries.slice(baselineEntryCount);
                             isFirstUpdate = false; // Reset flag after first update
                             
                             if (entriesToProcess.length === 0) {
-                                console.log('No new entries after baseline');
                                 return;
                             }
                         }
@@ -401,12 +428,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             // Inteligentne scalanie - sprawdź czy ostatni wpis należy do tej samej osoby
                             const newEntries = entriesToProcess;
                             let hasChanges = false;
-                            
-                            console.log(`🔄 Przetwarzam ${newEntries.length} nowych wpisów`);
-                            
-                            for (const newEntry of newEntries) {
-                                console.log(`🔍 Sprawdzam wpis: "${newEntry.speaker}": "${newEntry.text.substring(0, 50)}..."`);
-                                
+                                                        
+                            for (const newEntry of newEntries) {                                
                                 const existingIndex = transcriptData.entries.findIndex(e => 
                                     (e.speaker === newEntry.speaker && e.timestamp === newEntry.timestamp) ||
                                     (e.speaker === newEntry.speaker && e.text === newEntry.text)
@@ -415,12 +438,9 @@ document.addEventListener('DOMContentLoaded', function() {
                                 if (existingIndex >= 0) {
                                     // Aktualizuj istniejący wpis jeśli tekst się zmienił
                                     if (transcriptData.entries[existingIndex].text !== newEntry.text) {
-                                        console.log(`🔄 Aktualizuję istniejący wpis #${existingIndex}`);
                                         transcriptData.entries[existingIndex].text = newEntry.text;
                                         transcriptData.entries[existingIndex].timestamp = newEntry.timestamp;
                                         hasChanges = true;
-                                    } else {
-                                        console.log(`⚫ Wpis #${existingIndex} bez zmian`);
                                     }
                                 } else {
                                     // Sprawdź czy to kontynuacja ostatniego wpisu tej samej osoby
@@ -428,13 +448,11 @@ document.addEventListener('DOMContentLoaded', function() {
                                     if (lastEntry && lastEntry.speaker === newEntry.speaker && 
                                         !lastEntry.timestamp && !newEntry.timestamp) {
                                         // Aktualizuj ostatni wpis zamiast dodawać nowy
-                                        console.log(`🔄 Aktualizuję kontynuację ostatniego wpisu: "${lastEntry.speaker}"`);
                                         lastEntry.text = newEntry.text;
                                         lastEntry.timestamp = newEntry.timestamp;
                                         hasChanges = true;
                                     } else {
                                         // Dodaj nowy wpis
-                                        console.log(`➕ Dodaję nowy wpis: "${newEntry.speaker}"`);
                                         transcriptData.entries.push(newEntry);
                                         hasChanges = true;
                                     }
@@ -479,36 +497,63 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function handleBackgroundScanUpdate(data) {
-        console.log('🔄 Handling background scan update:', data);
+        const timestamp = new Date().toISOString();
+        console.log('🟡 [BACKGROUND DEBUG] Handling background scan update at:', timestamp);
+        console.log('🟡 [BACKGROUND DEBUG] Data entries length:', data ? data.entries?.length : 'undefined');
         
         if (!realtimeMode) {
-            console.log('⚠️ Ignoring background scan update - not in realtime mode');
+            console.log('🟡 [BACKGROUND DEBUG] Ignoring - not in realtime mode');
             return;
         }
         
         if (recordingStopped) {
-            console.log('⚠️ Ignoring background scan update - recording stopped');
+            console.log('🟡 [BACKGROUND DEBUG] Ignoring - recording stopped');
             return;
         }
         
         if (!data || !data.entries || data.entries.length === 0) {
-            console.log('⚠️ No entries in background scan update');
+            console.log('🟡 [BACKGROUND DEBUG] No entries in background scan update');
             return;
         }
         
         const exportTxtBtn = document.getElementById('exportTxtBtn');
         
-        // Apply baseline filtering if this is the first update
+        // Debug baseline filtering state
+        console.log('🟡 [BACKGROUND DEBUG] Baseline filtering state:');
+        console.log('   - isFirstUpdate:', isFirstUpdate);
+        console.log('   - isFirstBackgroundScan:', isFirstBackgroundScan);
+        console.log('   - baselineEntryCount:', baselineEntryCount);
+        console.log('   - lastSeenEntry:', lastSeenEntry ? `${lastSeenEntry.speaker}: ${lastSeenEntry.text.substring(0, 30)}...` : 'null');
+        console.log('   - data.entries.length:', data.entries.length);
+        
+        // Reset first background scan flag after first scan
+        if (isFirstBackgroundScan) {
+            isFirstBackgroundScan = false;
+            console.log('🟡 [BACKGROUND DEBUG] isFirstBackgroundScan reset to:', isFirstBackgroundScan);
+        }
+        
+        // Apply baseline filtering for all background scans during recording
         let entriesToProcess = data.entries;
-        if (isFirstUpdate && baselineEntryCount > 0) {
-            console.log(`📋 First update: filtering out ${baselineEntryCount} baseline entries`);
-            entriesToProcess = data.entries.slice(baselineEntryCount);
-            isFirstUpdate = false; // Reset flag after first update
+        if (baselineEntryCount > 0 && data.entries.length > 0) {
+            console.log('🟡 [BACKGROUND DEBUG] APPLYING BASELINE FILTERING:');
+            console.log('   - Original entries count:', data.entries.length);
+            console.log('   - Baseline entries to filter:', baselineEntryCount);
+            
+            if (data.entries.length > baselineEntryCount) {
+                entriesToProcess = data.entries.slice(baselineEntryCount);
+            } else {
+                entriesToProcess = [];
+            }
+            
+            console.log('   - Filtered entries count:', entriesToProcess.length);
             
             if (entriesToProcess.length === 0) {
-                console.log('No new entries after baseline filtering');
+                console.log('🟡 [BACKGROUND DEBUG] No new entries after baseline filtering - RETURNING');
                 return;
             }
+        } else {
+            console.log('🟡 [BACKGROUND DEBUG] NO BASELINE FILTERING APPLIED:');
+            console.log('   - Reason: baselineEntryCount=' + baselineEntryCount + ', data.entries.length=' + data.entries.length);
         }
         
         if (!transcriptData) {
@@ -522,9 +567,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Merge new entries with existing ones
             const newEntries = entriesToProcess;
             let hasChanges = false;
-            
-            console.log(`🔄 Processing ${newEntries.length} entries from background scan`);
-            
+                        
             for (const newEntry of newEntries) {
                 const existingIndex = transcriptData.entries.findIndex(e => 
                     (e.speaker === newEntry.speaker && e.timestamp === newEntry.timestamp) ||
@@ -534,14 +577,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (existingIndex >= 0) {
                     // Update existing entry if text changed
                     if (transcriptData.entries[existingIndex].text !== newEntry.text) {
-                        console.log(`🔄 Updating existing entry #${existingIndex}`);
                         transcriptData.entries[existingIndex].text = newEntry.text;
                         transcriptData.entries[existingIndex].timestamp = newEntry.timestamp;
                         hasChanges = true;
                     }
                 } else {
                     // Add new entry
-                    console.log(`➕ Adding new entry: "${newEntry.speaker}"`);
                     transcriptData.entries.push(newEntry);
                     hasChanges = true;
                 }
@@ -549,8 +590,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (hasChanges) {
                 transcriptData.scrapedAt = data.scrapedAt;
-                console.log('✅ Background scan brought new changes');
-                
+
                 // Only update display if there are actual changes
                 displayTranscript(transcriptData);
                 updateStats(transcriptData);
@@ -573,16 +613,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Save to storage
-        chrome.storage.local.set({ transcriptData: transcriptData });
-        
-        console.log('🔄 Background scan update processed successfully');
+        chrome.storage.local.set({ transcriptData: transcriptData });        
     }
 
     // Wyczyść transkrypcję
     if (clearBtn) {
         clearBtn.addEventListener('click', () => {
-            console.log('Clear button clicked');
-            
             if (confirm('Czy na pewno chcesz wyczyścić całą transkrypcję?')) {
                 // Stop recording if active (auto-save will handle the session)
                 if (realtimeMode) {
@@ -600,6 +636,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 baselineEntryCount = 0;
                 lastSeenEntry = null;
                 isFirstUpdate = false;
+                isFirstBackgroundScan = false;
                 recordingStopped = false;
                 
                 // Update UI
@@ -613,7 +650,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 chrome.storage.local.remove(['transcriptData', 'currentSessionId', 'recordingStartTime']);
             }
         });
-        console.log('Clear button handler added');
     } else {
         console.error('Clear button not found');
     }
@@ -830,13 +866,21 @@ function displayTranscript(data) {
 
 function getFilteredStatsData(data) {
     if (!data || !data.entries) {
+        console.log('📊 [STATS DEBUG] No data or entries');
         return { entries: [] };
     }
     
+    console.log('📊 [STATS DEBUG] Filtering stats data:');
+    console.log('   - Original entries count:', data.entries.length);
+    console.log('   - baselineEntryCount:', baselineEntryCount);
+    
     // Filter out baseline entries for stats
     let filteredEntries = data.entries;
-    if (baselineEntryCount > 0 && data.entries.length > baselineEntryCount) {
+    if (baselineEntryCount > 0 && data.entries.length >= baselineEntryCount) {
         filteredEntries = data.entries.slice(baselineEntryCount);
+        console.log('   - Filtered entries count:', filteredEntries.length);
+    } else {
+        console.log('   - No filtering applied');
     }
     
     return {
@@ -880,9 +924,7 @@ function updateStats(data) {
     
 }
 
-function startDurationTimer() {
-    console.log('Starting duration timer');
-    
+function startDurationTimer() {    
     // Clear any existing timer
     if (durationTimer) {
         clearInterval(durationTimer);
@@ -895,9 +937,7 @@ function startDurationTimer() {
     durationTimer = setInterval(updateDurationDisplay, 1000);
 }
 
-function stopDurationTimer() {
-    console.log('Stopping duration timer');
-    
+function stopDurationTimer() {    
     if (durationTimer) {
         clearInterval(durationTimer);
         durationTimer = null;
@@ -947,9 +987,7 @@ function loadExpandedState() {
     });
 }
 
-function downloadFile(content, filename, mimeType) {
-    console.log('Downloading file:', filename, 'Type:', mimeType);
-    
+function downloadFile(content, filename, mimeType) {    
     try {
         const blob = new Blob([content], { type: mimeType });
         const url = URL.createObjectURL(blob);
@@ -963,7 +1001,6 @@ function downloadFile(content, filename, mimeType) {
                 console.error('Download error:', chrome.runtime.lastError);
                 updateStatus('Błąd podczas pobierania pliku', 'error');
             } else {
-                console.log('Download started with ID:', downloadId);
                 updateStatus('Plik został pomyślnie pobrany!', 'success');
             }
             
@@ -987,14 +1024,11 @@ function generateSessionTitle() {
     return `Spotkanie o ${time}`;
 }
 
-function initializeSessionHistory() {
-    console.log('Initializing session history');
-    
+function initializeSessionHistory() {    
     // Load session history from storage
     chrome.storage.local.get(['sessionHistory'], (result) => {
         try {
             sessionHistory = result.sessionHistory || [];
-            console.log('Loaded session history:', sessionHistory.length, 'sessions');
             renderSessionHistory();
         } catch (error) {
             console.error('Error loading session history:', error);
@@ -1009,15 +1043,12 @@ function initializeSessionHistory() {
         // Remove existing event listeners to prevent duplicates
         newSessionBtn.removeEventListener('click', createNewSession);
         newSessionBtn.addEventListener('click', createNewSession);
-        console.log('New session button event listener added');
     } else {
         console.error('New session button not found');
     }
 }
 
-function createNewSession() {
-    console.log('Creating new session');
-    
+function createNewSession() {    
     // Stop recording if active (auto-save will handle the session)
     if (realtimeMode) {
         deactivateRealtimeMode();
@@ -1028,9 +1059,7 @@ function createNewSession() {
 }
 
 
-function performNewSessionCreation() {
-    console.log('Performing new session creation');
-    
+function performNewSessionCreation() {    
     // Clear current data
     transcriptData = null;
     currentSessionId = generateSessionId();
@@ -1039,6 +1068,7 @@ function performNewSessionCreation() {
     baselineEntryCount = 0; // Reset baseline for new session
     lastSeenEntry = null;
     isFirstUpdate = false; // Reset first update flag
+    isFirstBackgroundScan = false; // Reset first background scan flag
     recordingStopped = false; // Reset recording stopped flag
     
     // Stop any existing timer
@@ -1059,9 +1089,7 @@ function performNewSessionCreation() {
         realtimeMode: false
     });
     
-    updateStatus('Utworzono nową sesję', 'success');
-    
-    console.log('New session created with ID:', currentSessionId);
+    updateStatus('Utworzono nową sesję', 'success');    
 }
 
 function autoSaveCurrentSession() {
@@ -1069,8 +1097,26 @@ function autoSaveCurrentSession() {
         return;
     }
     
+    console.log('🔄 [AUTOSAVE DEBUG] autoSaveCurrentSession called');
+    console.log('   - Original entries count:', transcriptData.entries.length);
+    console.log('   - baselineEntryCount:', baselineEntryCount);
+    
+    // Filter baseline entries for auto-save
+    let validEntries = transcriptData.entries;
+    if (baselineEntryCount > 0 && transcriptData.entries.length >= baselineEntryCount) {
+        validEntries = transcriptData.entries.slice(baselineEntryCount);
+        console.log('🔄 [AUTOSAVE DEBUG] Filtered entries count:', validEntries.length);
+        
+        if (validEntries.length === 0) {
+            console.log('🔄 [AUTOSAVE DEBUG] No valid entries after filtering - not auto-saving');
+            return;
+        }
+    } else {
+        console.log('🔄 [AUTOSAVE DEBUG] No baseline filtering applied');
+    }
+    
     const sessionId = currentSessionId || generateSessionId();
-    const uniqueParticipants = new Set(transcriptData.entries.map(e => e.speaker)).size;
+    const uniqueParticipants = new Set(validEntries.map(e => e.speaker)).size;
     
     // Check if session already exists and preserve its original date
     const existingIndex = sessionHistory.findIndex(s => s.id === sessionId);
@@ -1084,13 +1130,19 @@ function autoSaveCurrentSession() {
         currentTotalDuration += currentSessionDuration;
     }
     
+    const filteredTranscriptData = {
+        entries: validEntries,
+        scrapedAt: transcriptData.scrapedAt,
+        meetingUrl: transcriptData.meetingUrl
+    };
+    
     const session = {
         id: sessionId,
         title: generateSessionTitle(),
         date: originalDate, // Preserve original date or set new one
         participantCount: uniqueParticipants,
-        entryCount: transcriptData.entries.length,
-        transcript: transcriptData,
+        entryCount: validEntries.length,
+        transcript: filteredTranscriptData,
         totalDuration: currentTotalDuration
     };
     
@@ -1112,21 +1164,29 @@ function autoSaveCurrentSession() {
 }
 
 function saveCurrentSessionToHistory() {
+    console.log('💾 [SAVE DEBUG] saveCurrentSessionToHistory called');
+    
     if (!transcriptData || transcriptData.entries.length === 0) {
-        console.log('No transcript data to save');
+        console.log('💾 [SAVE DEBUG] No transcript data to save');
         return;
     }
     
+    console.log('💾 [SAVE DEBUG] Saving session:');
+    console.log('   - Original entries count:', transcriptData.entries.length);
+    console.log('   - baselineEntryCount:', baselineEntryCount);
+    
     // Validate and filter baseline entries if they somehow got through
     let validEntries = transcriptData.entries;
-    if (baselineEntryCount > 0 && transcriptData.entries.length > baselineEntryCount) {
-        console.log(`⚠️ Warning: Found ${transcriptData.entries.length} entries but baseline was ${baselineEntryCount}. Filtering baseline entries.`);
+    if (baselineEntryCount > 0 && transcriptData.entries.length >= baselineEntryCount) {
         validEntries = transcriptData.entries.slice(baselineEntryCount);
+        console.log('💾 [SAVE DEBUG] Filtered entries count:', validEntries.length);
         
         if (validEntries.length === 0) {
-            console.log('No valid entries after baseline filtering - not saving session');
+            console.log('💾 [SAVE DEBUG] No valid entries after filtering - not saving');
             return;
         }
+    } else {
+        console.log('💾 [SAVE DEBUG] No baseline filtering applied');
     }
     
     const sessionId = currentSessionId || generateSessionId();
@@ -1153,37 +1213,29 @@ function saveCurrentSessionToHistory() {
         },
         totalDuration: currentTotalDuration
     };
-    
-    console.log('Saving session to history:', session.title);
-    
+        
     // Check if session already exists and update it
     const existingIndex = sessionHistory.findIndex(s => s.id === sessionId);
     if (existingIndex >= 0) {
         sessionHistory[existingIndex] = session;
-        console.log('Updated existing session at index:', existingIndex);
     } else {
         // Add new session at the beginning
         sessionHistory.unshift(session);
-        console.log('Added new session to history');
     }
     
     // Limit history to 50 sessions
     if (sessionHistory.length > 50) {
         sessionHistory = sessionHistory.slice(0, 50);
-        console.log('Trimmed history to 50 sessions');
     }
     
     // Save to storage
     chrome.storage.local.set({ sessionHistory: sessionHistory }, () => {
         renderSessionHistory();
         updateStatus('Sesja zapisana w historii', 'success');
-        console.log('Session saved to storage');
     });
 }
 
-function loadSessionFromHistory(sessionId) {
-    console.log('Loading session from history:', sessionId);
-    
+function loadSessionFromHistory(sessionId) {    
     const session = sessionHistory.find(s => s.id === sessionId);
     if (!session) {
         console.error('Session not found:', sessionId);
@@ -1222,7 +1274,6 @@ function loadSessionFromHistory(sessionId) {
     });
     
     updateStatus(`Wczytano sesję: ${session.title}`, 'success');
-    console.log('Session loaded successfully:', session.title);
 }
 
 function deleteSessionFromHistory(sessionId, event) {
@@ -1231,9 +1282,7 @@ function deleteSessionFromHistory(sessionId, event) {
     showDeleteConfirmation(sessionId);
 }
 
-function renderSessionHistory() {
-    console.log('Rendering session history:', sessionHistory.length, 'sessions');
-    
+function renderSessionHistory() {    
     const historyContainer = document.getElementById('sessionList');
     if (!historyContainer) {
         console.error('Session list container not found');
@@ -1284,9 +1333,7 @@ function renderSessionHistory() {
         
         historyContainer.appendChild(sessionDiv);
     });
-    
-    console.log('Session history rendered successfully');
-    
+        
     // Reinitialize enhanced interactions for session items
     reinitializeEnhancedInteractions();
 }
@@ -1436,7 +1483,6 @@ function initializeTheme() {
     // Theme toggle click handler
     if (themeToggle) {
         themeToggle.addEventListener('click', toggleTheme);
-        console.log('Theme toggle handler added');
     } else {
         console.warn('Theme toggle button not found');
     }
@@ -1492,22 +1538,16 @@ function updateThemeToggleTitle(theme) {
 }
 
 // Modal System Functions
-function initializeModalSystem() {
-    console.log('Initializing modal system');
-    
+function initializeModalSystem() {    
     // ESC key handler
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             const openModal = document.querySelector('.modal.show');
             if (openModal) {
-                console.log('ESC key pressed, closing modal:', openModal.id);
                 hideModal(openModal.id);
             }
         }
     });
-    
-    // Initialize resume recording modal
-    initializeResumeRecordingModal();
     
     // Initialize confirm modal
     initializeConfirmModal();
@@ -1517,7 +1557,6 @@ function initializeModalSystem() {
 }
 
 function showModal(modalId, data = {}) {
-    console.log('Showing modal:', modalId);
     const modal = document.getElementById(modalId);
     if (!modal) {
         console.error('Modal not found:', modalId);
@@ -1543,7 +1582,6 @@ function showModal(modalId, data = {}) {
 }
 
 function hideModal(modalId) {
-    console.log('Hiding modal:', modalId);
     const modal = document.getElementById(modalId);
     if (!modal) {
         console.error('Modal not found:', modalId);
@@ -1604,9 +1642,7 @@ function showDeleteConfirmation(sessionId) {
     showModal('confirmModal', { title: 'Usuń sesję' });
 }
 
-function performDeleteSession(sessionId) {
-    console.log('Deleting session:', sessionId);
-    
+function performDeleteSession(sessionId) {    
     sessionHistory = sessionHistory.filter(s => s.id !== sessionId);
     
     // If deleting current session, clear it
@@ -1622,20 +1658,16 @@ function performDeleteSession(sessionId) {
         }
         
         chrome.storage.local.remove(['transcriptData', 'currentSessionId']);
-        console.log('Cleared current session data');
     }
     
     // Save updated history
     chrome.storage.local.set({ sessionHistory: sessionHistory }, () => {
         renderSessionHistory();
         updateStatus('Sesja usunięta', 'success');
-        console.log('Session deleted successfully');
     });
 }
 
-function showResumeOptions() {
-    console.log('Showing resume options');
-    
+function showResumeOptions() {    
     const resumeModal = document.getElementById('resumeRecordingModal');
     const resumeCancel = document.getElementById('resumeCancel');
     
@@ -1654,22 +1686,17 @@ function showResumeOptions() {
         // Remove existing listeners to prevent duplicates
         resumeCancel.removeEventListener('click', hideResumeModal);
         resumeCancel.addEventListener('click', hideResumeModal);
-        console.log('Resume cancel handler added');
     } else {
         console.error('Resume cancel button not found');
     }
 }
 
 function hideResumeModal() {
-    console.log('Hiding resume modal');
     hideModal('resumeRecordingModal');
 }
 
-function initializeResumeModalEventListeners() {
-    console.log('Initializing resume modal event listeners');
-    
+function initializeResumeModalEventListeners() {    
     const resumeOptions = document.querySelectorAll('.resume-option');
-    console.log('Found resume options:', resumeOptions.length);
     
     if (resumeOptions.length === 0) {
         console.error('No resume options found');
@@ -1686,10 +1713,8 @@ function initializeResumeModalEventListeners() {
     const freshOptions = document.querySelectorAll('.resume-option');
     
     freshOptions.forEach((option, index) => {
-        console.log(`Adding click listener to option ${index}:`, option.getAttribute('data-action'));
         option.addEventListener('click', function() {
             const action = this.getAttribute('data-action');
-            console.log('Resume option clicked:', action);
             
             // Remove selection from all options
             freshOptions.forEach(opt => opt.classList.remove('selected'));
@@ -1701,11 +1726,9 @@ function initializeResumeModalEventListeners() {
                 
                 if (action === 'continue') {
                     // Continue current session
-                    console.log('Continuing current session from modal');
                     continueCurrentSession();
                 } else if (action === 'new') {
                     // Start new session
-                    console.log('Starting new session from modal');
                     saveCurrentSessionToHistory();
                     transcriptData = null;
                     currentSessionId = generateSessionId();
@@ -1714,6 +1737,7 @@ function initializeResumeModalEventListeners() {
                     baselineEntryCount = 0; // Reset baseline
                     lastSeenEntry = null;
                     isFirstUpdate = false; // Reset first update flag
+                    isFirstBackgroundScan = false; // Reset first background scan flag
                     recordingStopped = false; // Reset recording stopped flag
                     displayTranscript({ entries: [] });
                     updateStats({ entries: [] });
@@ -1729,45 +1753,25 @@ function initializeResumeModalEventListeners() {
     });
 }
 
-function initializeResumeRecordingModal() {
-    // Event listeners are now initialized when modal is shown
-    // This function is kept for backward compatibility
-    console.log('Resume recording modal initialization (deferred to show)');
-}
-
-function initializeConfirmModal() {
-    console.log('Initializing confirm modal');
-    
+function initializeConfirmModal() {    
     const confirmCancel = document.getElementById('confirmCancel');
     const confirmOk = document.getElementById('confirmOk');
     
     if (confirmCancel) {
         confirmCancel.addEventListener('click', () => {
-            console.log('Confirm cancel clicked');
             hideModal('confirmModal');
         });
-        console.log('Confirm cancel handler added');
     } else {
         console.error('Confirm cancel button not found');
     }
-    
-    if (confirmOk) {
-        console.log('Confirm OK button found');
-    } else {
-        console.error('Confirm OK button not found');
-    }
 }
 
-function initializeExportModal() {
-    console.log('Initializing export modal');
-    
+function initializeExportModal() {    
     // Set up export button handlers directly on existing buttons
     setupExportButtonHandlers();
 }
 
-function setupExportButtonHandlers() {
-    console.log('Setting up export button handlers');
-    
+function setupExportButtonHandlers() {    
     const exportTxtBtn = document.getElementById('exportTxtBtn');
     const exportJsonBtn = document.getElementById('exportJsonBtn');
     
@@ -1777,7 +1781,6 @@ function setupExportButtonHandlers() {
         const newExportTxtBtn = document.getElementById('exportTxtBtn');
         
         newExportTxtBtn.addEventListener('click', () => {
-            console.log('Export TXT button clicked');
             if (!transcriptData) {
                 updateStatus('Brak danych do eksportu', 'error');
                 return;
@@ -1798,7 +1801,6 @@ function setupExportButtonHandlers() {
         const newExportJsonBtn = document.getElementById('exportJsonBtn');
         
         newExportJsonBtn.addEventListener('click', () => {
-            console.log('Export JSON button clicked');
             if (!transcriptData) {
                 updateStatus('Brak danych do eksportu', 'error');
                 return;
@@ -1814,9 +1816,7 @@ function setupExportButtonHandlers() {
     }
 }
 
-function generateTxtContent() {
-    console.log('Generating TXT content');
-    
+function generateTxtContent() {    
     if (!transcriptData || !transcriptData.entries) {
         console.error('No transcript data available');
         return '';
@@ -1835,13 +1835,10 @@ function generateTxtContent() {
         txtContent += `:\n${entry.text}\n\n`;
     });
 
-    console.log('TXT content generated, length:', txtContent.length);
     return txtContent;
 }
 
-function generateJsonContent() {
-    console.log('Generating JSON content');
-    
+function generateJsonContent() {    
     if (!transcriptData || !transcriptData.entries) {
         console.error('No transcript data available');
         return '{}';
@@ -1859,7 +1856,6 @@ function generateJsonContent() {
     };
 
     const jsonContent = JSON.stringify(jsonData, null, 2);
-    console.log('JSON content generated, length:', jsonContent.length);
     return jsonContent;
 }
 

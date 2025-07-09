@@ -1,5 +1,4 @@
 // Background script (Service Worker) dla Chrome Manifest V3
-console.log('🚀 Background script loaded');
 
 // Stany skanowania
 let isScanning = false;
@@ -8,16 +7,12 @@ let scanInterval = null;
 
 // Nasłuchuj na instalację rozszerzenia
 chrome.runtime.onInstalled.addListener(() => {
-    console.log('✅ Extension installed');
-    
     // Wstrzyknij content script do wszystkich otwartych kart Google Meet
     chrome.tabs.query({ url: 'https://meet.google.com/*' }, (tabs) => {
         tabs.forEach(tab => {
             chrome.scripting.executeScript({
                 target: { tabId: tab.id },
                 files: ['content.js']
-            }).then(() => {
-                console.log(`Content script injected into tab ${tab.id}`);
             }).catch(err => {
                 console.error(`Failed to inject content script into tab ${tab.id}:`, err);
             });
@@ -36,9 +31,7 @@ chrome.action.onClicked.addListener((tab) => {
 });
 
 // Nasłuchuj wiadomości z popup
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    console.log('📨 Background received message:', request);
-    
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {    
     if (request.action === 'startBackgroundScanning') {
         startBackgroundScanning(request.tabId);
         sendResponse({ success: true });
@@ -56,18 +49,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 function startBackgroundScanning(tabId) {
-    console.log('🔄 Starting background scanning for tab:', tabId);
+    const startTime = new Date().toISOString();
+    console.log('🔶 [BACKGROUND DEBUG] Starting background scanning for tab:', tabId, 'at:', startTime);
     
     if (isScanning) {
-        console.log('⚠️ Already scanning, stopping previous scan');
+        console.log('🔶 [BACKGROUND DEBUG] Already scanning, stopping previous scan');
         stopBackgroundScanning();
     }
     
     isScanning = true;
     scanningTabId = tabId;
     
+    let scanCount = 0;
+    
     // Skanuj co 2 sekundy
     scanInterval = setInterval(async () => {
+        scanCount++;
+        const scanTime = new Date().toISOString();
+        console.log(`🔶 [BACKGROUND DEBUG] Scan #${scanCount} starting at:`, scanTime);
+        
         if (!isScanning) {
             clearInterval(scanInterval);
             return;
@@ -77,7 +77,7 @@ function startBackgroundScanning(tabId) {
             // Sprawdź czy karta nadal istnieje
             const tab = await chrome.tabs.get(tabId);
             if (!tab || !tab.url.includes('meet.google.com')) {
-                console.log('❌ Tab not found or not on Meet page, stopping scan');
+                console.log('🔶 [BACKGROUND DEBUG] Tab not found or not on Meet page, stopping scan');
                 stopBackgroundScanning();
                 return;
             }
@@ -86,7 +86,8 @@ function startBackgroundScanning(tabId) {
             const result = await chrome.tabs.sendMessage(tabId, { action: 'scrapeTranscript' });
             
             if (result && result.success && result.data && result.data.entries.length > 0) {
-                console.log('📝 Background scan found', result.data.entries.length, 'entries');
+                console.log(`🔶 [BACKGROUND DEBUG] Scan #${scanCount} found`, result.data.entries.length, 'entries');
+                console.log('🔶 [BACKGROUND DEBUG] First entry:', result.data.entries[0] ? `${result.data.entries[0].speaker}: ${result.data.entries[0].text.substring(0, 30)}...` : 'none');
                 
                 // Zapisz wyniki do storage
                 await chrome.storage.local.set({
@@ -102,29 +103,31 @@ function startBackgroundScanning(tabId) {
                         action: 'backgroundScanUpdate',
                         data: result.data
                     });
+                    console.log(`🔶 [BACKGROUND DEBUG] Scan #${scanCount} sent to popup successfully`);
                 } catch (error) {
                     // Popup prawdopodobnie nie jest otwarte, to normalne
-                    console.log('📱 Popup not open, data saved to storage');
+                    console.log('🔶 [BACKGROUND DEBUG] Popup not open, data saved to storage');
                 }
+            } else {
+                console.log(`🔶 [BACKGROUND DEBUG] Scan #${scanCount} found no entries`);
             }
         } catch (error) {
-            console.error('❌ Background scan error:', error);
+            console.error('🔶 [BACKGROUND DEBUG] Scan error:', error);
             
             // Jeśli błąd to brak content script, spróbuj ponownie za 5 sekund
             if (error.message.includes('Could not establish connection')) {
-                console.log('🔄 Content script not ready, will retry...');
+                console.log('🔶 [BACKGROUND DEBUG] Content script not ready, will retry...');
             } else {
-                console.log('❌ Stopping background scan due to error');
+                console.log('🔶 [BACKGROUND DEBUG] Stopping background scan due to error');
                 stopBackgroundScanning();
             }
         }
     }, 2000);
     
-    console.log('✅ Background scanning started');
+    console.log('🔶 [BACKGROUND DEBUG] Background scanning started at:', startTime);
 }
 
 function stopBackgroundScanning() {
-    console.log('⏹️ Stopping background scanning');
     isScanning = false;
     scanningTabId = null;
     if (scanInterval) {
@@ -136,7 +139,6 @@ function stopBackgroundScanning() {
 // Zatrzymaj skanowanie gdy karta jest zamknięta
 chrome.tabs.onRemoved.addListener((tabId) => {
     if (tabId === scanningTabId) {
-        console.log('🗑️ Scanning tab closed, stopping background scan');
         stopBackgroundScanning();
     }
 });
@@ -144,7 +146,6 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 // Zatrzymaj skanowanie gdy karta jest zaktualizowana (odświeżona)
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (tabId === scanningTabId && changeInfo.status === 'loading') {
-        console.log('🔄 Scanning tab refreshed, stopping background scan');
         stopBackgroundScanning();
     }
 });
