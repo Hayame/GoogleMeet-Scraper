@@ -109,8 +109,8 @@
 }
 
 body {
-    width: 640px;
-    height: 600px;
+    width: 780px;
+    height: 580px;
     margin: 0;
     padding: 0;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
@@ -134,7 +134,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px 20px;
+    padding: 12px 16px;
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-primary);
     transition: var(--transition-theme);
@@ -261,7 +261,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px 20px;
+    padding: 12px 16px;
     border-bottom: 1px solid var(--border-primary);
 }
 
@@ -341,7 +341,7 @@ body {
 
 /* Recording Controls */
 .recording-controls {
-    padding: 20px;
+    padding: 16px;
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-primary);
     display: flex;
@@ -354,18 +354,18 @@ body {
     background: var(--btn-record-bg);
     color: white;
     border: none;
-    padding: 14px 28px;
-    border-radius: 12px;
+    padding: 10px 20px;
+    border-radius: 10px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     transition: all 0.2s ease;
     position: relative;
     overflow: hidden;
-    min-height: 48px;
+    min-height: 40px;
     letter-spacing: 0.02em;
     box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
 }
@@ -401,8 +401,8 @@ body {
 }
 
 .record-icon {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     fill: currentColor;
 }
 
@@ -437,7 +437,7 @@ body {
 .transcript-stats {
     display: flex;
     gap: 20px;
-    padding: 16px 20px;
+    padding: 12px 16px;
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-primary);
     transition: var(--transition-theme);
@@ -476,7 +476,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 18px 24px;
+    padding: 14px 18px;
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-primary);
     transition: var(--transition-theme);
@@ -532,7 +532,7 @@ body {
 /* Transcript Content */
 .transcript-content {
     flex: 1;
-    padding: 24px;
+    padding: 18px;
     overflow-y: auto;
     background: var(--bg-primary);
     transition: var(--transition-theme);
@@ -745,7 +745,7 @@ body {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     backdrop-filter: blur(10px);
     z-index: 1000;
-    max-width: 320px;
+    max-width: 400px;
     width: calc(100% - 40px);
 }
 
@@ -957,8 +957,8 @@ body {
 .modal-content {
     background: var(--bg-secondary);
     border-radius: 12px;
-    min-width: 320px;
-    max-width: 480px;
+    min-width: 380px;
+    max-width: 560px;
     max-height: 90vh;
     overflow: hidden;
     box-shadow: var(--shadow-xl);

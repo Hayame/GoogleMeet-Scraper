@@ -5,6 +5,14 @@ let currentSessionId = null;
 let sessionHistory = [];
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Debug: Sprawdź rzeczywiste wymiary
+    console.log('🔍 Popup dimensions:', {
+        width: window.innerWidth,
+        height: window.innerHeight,
+        bodyWidth: document.body.offsetWidth,
+        bodyHeight: document.body.offsetHeight
+    });
+    
     try {
         const realtimeBtn = document.getElementById('recordBtn');
         const exportTxtBtn = document.getElementById('exportTxtBtn');
