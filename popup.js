@@ -466,13 +466,14 @@ document.addEventListener('DOMContentLoaded', function() {
                                 preview.scrollTop = preview.scrollHeight;
                                 
                                 // Auto-save session to history on every update
-                                autoSaveCurrentSession();
+                                autoSaveCurrentSession(filteredResult);
                                 
                                 updateStatus(`Nagrywanie... (${transcriptData.entries.length} wpisów)`, 'info');
                                                 }
                         }
                         
-                        updateStats(transcriptData);
+                        // Use the same filtered data for stats to avoid re-filtering with stale lastSeenEntry
+                        updateStats(transcriptData, filteredResult);
                         exportTxtBtn.disabled = false;
                         
                         // Zapisz dane
@@ -592,7 +593,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 // Only update display if there are actual changes
                 displayTranscript(transcriptData);
-                updateStats(transcriptData);
+                updateStats(transcriptData, filteredResult);
                 
                 if (exportTxtBtn) {
                     exportTxtBtn.disabled = false;
@@ -605,7 +606,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
                 // Auto-save session to history on every update
-                autoSaveCurrentSession();
+                autoSaveCurrentSession(filteredResult);
                 
                 updateStatus(`Nagrywanie w tle... (${transcriptData.entries.length} wpisów)`, 'info');
             }
@@ -927,7 +928,7 @@ function getFilteredStatsData(data) {
     return getFilteredEntries(data, '📊 [STATS DEBUG]');
 }
 
-function updateStats(data) {
+function updateStats(data, preFilteredData = null) {
     const statsDiv = document.getElementById('transcriptStats');
     const entryCountSpan = document.getElementById('entryCount');
     const participantCountSpan = document.getElementById('participantCount');
@@ -943,8 +944,8 @@ function updateStats(data) {
         return;
     }
 
-    // Get filtered data for stats (exclude baseline entries)
-    const filteredData = getFilteredStatsData(data);
+    // Use pre-filtered data if provided, otherwise filter now
+    const filteredData = preFilteredData || getFilteredStatsData(data);
     const uniqueParticipants = new Set(filteredData.entries.map(e => e.speaker)).size;
 
     // Update stats with filtered data
@@ -1129,13 +1130,13 @@ function performNewSessionCreation() {
     updateStatus('Utworzono nową sesję', 'success');    
 }
 
-function autoSaveCurrentSession() {
+function autoSaveCurrentSession(preFilteredData = null) {
     if (!transcriptData || transcriptData.entries.length === 0) {
         return;
     }
     
-    // Use centralized filtering function
-    const filteredResult = getFilteredEntries(transcriptData, '🔄 [AUTOSAVE DEBUG]');
+    // Use pre-filtered data if provided, otherwise filter now
+    const filteredResult = preFilteredData || getFilteredEntries(transcriptData, '🔄 [AUTOSAVE DEBUG]');
     
     if (filteredResult.entries.length === 0) {
         console.log('🔄 [AUTOSAVE DEBUG] No valid entries after filtering - not auto-saving');
