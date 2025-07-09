@@ -380,6 +380,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!tab.url.includes('meet.google.com')) {
                 deactivateRealtimeMode();
                 updateStatus('Opuściłeś Google Meet - nagrywanie zatrzymane', 'error');
+                processingScan = false; // Release mutex
                 return;
             }
 
@@ -401,6 +402,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         
                         if (filteredResult.entries.length === 0) {
                             console.log('🔵 [MANUAL SCRAPE DEBUG] No new entries after baseline filtering');
+                            processingScan = false; // Release mutex
                             return;
                         }
                         
@@ -478,10 +480,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     } else {
                         console.log('⚠️ No entries found in transcript');
                         updateStatus('Czekam na napisy... Upewnij się, że są włączone', 'info');
+                        processingScan = false; // Release mutex
                     }
                 } else {
                     console.log('❌ Response not successful:', response);
                     updateStatus('Nie znaleziono napisów. Włącz napisy (CC) w Google Meet', 'error');
+                    processingScan = false; // Release mutex
                 }
                 
                 // Release mutex after processing
