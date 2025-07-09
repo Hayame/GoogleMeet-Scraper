@@ -153,38 +153,47 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    async function activateRealtimeMode() {
-        console.log('Activating realtime mode');
+    function continueCurrentSession() {
+        console.log('Continuing current session');
+        // Don't reset sessionTotalDuration or create new session
+        activateRealtimeMode(true); // true = isContinuation
+    }
+
+    async function activateRealtimeMode(isContinuation = false) {
+        console.log('Activating realtime mode', isContinuation ? '(continuation)' : '(new)');
         realtimeMode = true;
         realtimeBtn.classList.add('active');
         document.querySelector('.record-text').textContent = 'Zatrzymaj nagrywanie';
         updateStatus('Nagrywanie aktywne - skanowanie w tle', 'info');
         
-        // Set recording start time
+        // Set recording start time only for new recordings
         recordingStartTime = new Date();
         
         // Start duration timer
         startDurationTimer();
         
-        // Create new session if none exists
+        // Create new session if none exists (only for new recordings)
         if (!currentSessionId) {
             currentSessionId = generateSessionId();
             chrome.storage.local.set({ currentSessionId: currentSessionId });
             
-            // Create initial session entry in history
-            const initialSession = {
-                id: currentSessionId,
-                title: generateSessionTitle(),
-                date: new Date().toISOString(),
-                participantCount: 0,
-                entryCount: 0,
-                transcript: { entries: [] }
-            };
-            
-            sessionHistory.unshift(initialSession);
-            chrome.storage.local.set({ sessionHistory: sessionHistory }, () => {
-                renderSessionHistory();
-            });
+            // Create initial session entry in history only for new sessions
+            if (!isContinuation) {
+                const initialSession = {
+                    id: currentSessionId,
+                    title: generateSessionTitle(),
+                    date: new Date().toISOString(),
+                    participantCount: 0,
+                    entryCount: 0,
+                    transcript: { entries: [] },
+                    totalDuration: 0
+                };
+                
+                sessionHistory.unshift(initialSession);
+                chrome.storage.local.set({ sessionHistory: sessionHistory }, () => {
+                    renderSessionHistory();
+                });
+            }
         }
         
         // Zapisz stan
@@ -1505,7 +1514,7 @@ function initializeResumeRecordingModal() {
                 if (action === 'continue') {
                     // Continue current session
                     console.log('Continuing current session');
-                    activateRealtimeMode();
+                    continueCurrentSession();
                 } else if (action === 'new') {
                     // Start new session
                     console.log('Starting new session');
@@ -1513,6 +1522,7 @@ function initializeResumeRecordingModal() {
                     transcriptData = null;
                     currentSessionId = generateSessionId();
                     recordingStartTime = null;
+                    sessionTotalDuration = 0; // Reset total duration for new session
                     displayTranscript({ entries: [] });
                     updateStats({ entries: [] });
                     chrome.storage.local.set({ 
@@ -1520,7 +1530,7 @@ function initializeResumeRecordingModal() {
                         recordingStartTime: null,
                         realtimeMode: false
                     });
-                    activateRealtimeMode();
+                    activateRealtimeMode(); // false = not continuation (default)
                 }
             }, 300);
         });
