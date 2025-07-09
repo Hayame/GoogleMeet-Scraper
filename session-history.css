@@ -20,7 +20,7 @@
 
 .session-item.active {
     background: var(--status-info-bg);
-    border-color: #3b82f6;
+    border-color: var(--btn-primary-bg);
     color: var(--status-info-text);
 }
 
@@ -62,8 +62,8 @@
 }
 
 .delete-btn:hover {
-    background: var(--btn-danger-hover-bg);
-    color: var(--btn-danger-text);
+    background: var(--status-error-bg);
+    color: var(--btn-danger-bg);
 }
 
 .empty-sessions {

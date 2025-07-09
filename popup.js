@@ -5,38 +5,73 @@ let currentSessionId = null;
 let sessionHistory = [];
 
 document.addEventListener('DOMContentLoaded', function() {
-    const realtimeBtn = document.getElementById('recordBtn');
-    const exportTxtBtn = document.getElementById('exportTxtBtn');
-    const clearBtn = document.getElementById('clearBtn');
-    const statusDiv = document.getElementById('recordingStatus');
-    const previewDiv = document.getElementById('transcriptContent');
-    const statsDiv = document.getElementById('transcriptStats');
-    const exportBtn = document.getElementById('exportBtn');
-    const floatingPanel = document.getElementById('floatingPanel');
-    const floatingActionPanel = document.getElementById('floatingActionPanel');
-    const exportModal = document.getElementById('exportModal');
-    const themeToggle = document.getElementById('themeToggle');
+    try {
+        const realtimeBtn = document.getElementById('recordBtn');
+        const exportTxtBtn = document.getElementById('exportTxtBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const statusDiv = document.getElementById('recordingStatus');
+        const previewDiv = document.getElementById('transcriptContent');
+        const statsDiv = document.getElementById('transcriptStats');
+        const exportBtn = document.getElementById('exportBtn');
+        const floatingPanel = document.getElementById('floatingPanel');
+        const floatingActionPanel = document.getElementById('floatingActionPanel');
+        const exportModal = document.getElementById('exportModal');
+        const themeToggle = document.getElementById('themeToggle');
+        
+        // Check for essential DOM elements
+        if (!realtimeBtn) {
+            console.error('Critical error: Record button not found');
+            return;
+        }
+        
+        if (!statusDiv) {
+            console.error('Critical error: Status div not found');
+            return;
+        }
+        
+        if (!previewDiv) {
+            console.error('Critical error: Preview div not found');
+            return;
+        }
     
     // Initialize modal system
     initializeModalSystem();
     
     // Export button handling
-    exportBtn.addEventListener('click', () => {
-        showModal('exportModal');
-    });
+    if (exportBtn) {
+        exportBtn.addEventListener('click', () => {
+            console.log('Export button clicked');
+            if (!transcriptData || !transcriptData.entries || transcriptData.entries.length === 0) {
+                updateStatus('Brak danych do eksportu', 'error');
+                return;
+            }
+            showModal('exportModal');
+        });
+        console.log('Export button handler added');
+    } else {
+        console.error('Export button not found');
+    }
     
     // Modal close handlers
-    document.querySelectorAll('.modal-close').forEach(closeBtn => {
+    const modalCloseButtons = document.querySelectorAll('.modal-close');
+    console.log('Found', modalCloseButtons.length, 'modal close buttons');
+    
+    modalCloseButtons.forEach(closeBtn => {
         closeBtn.addEventListener('click', () => {
             const modalId = closeBtn.getAttribute('data-modal');
+            console.log('Modal close button clicked for modal:', modalId);
             hideModal(modalId);
         });
     });
     
     // Close modal when clicking outside
-    document.querySelectorAll('.modal').forEach(modal => {
+    const modals = document.querySelectorAll('.modal');
+    console.log('Found', modals.length, 'modals');
+    
+    modals.forEach(modal => {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
+                console.log('Modal backdrop clicked for modal:', modal.id);
                 hideModal(modal.id);
             }
         });
@@ -70,7 +105,7 @@ document.addEventListener('DOMContentLoaded', function() {
             transcriptData = result.transcriptData;
             displayTranscript(transcriptData);
             updateStats(transcriptData);
-            exportTxtBtn.disabled = false;
+            if (exportTxtBtn) exportTxtBtn.disabled = false;
             showFloatingActionPanel();
         }
     });
@@ -245,37 +280,57 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Wyczyść transkrypcję
-    clearBtn.addEventListener('click', () => {
-        if (confirm('Czy na pewno chcesz wyczyścić całą transkrypcję?')) {
-            // Save current session before clearing if it has data
-            if (transcriptData && transcriptData.entries.length > 0) {
-                saveCurrentSessionToHistory();
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            console.log('Clear button clicked');
+            if (confirm('Czy na pewno chcesz wyczyścić całą transkrypcję?')) {
+                // Save current session before clearing if it has data
+                if (transcriptData && transcriptData.entries.length > 0) {
+                    saveCurrentSessionToHistory();
+                }
+                
+                transcriptData = null;
+                currentSessionId = null;
+                displayTranscript({ entries: [] });
+                updateStats({ entries: [] });
+                if (exportTxtBtn) exportTxtBtn.disabled = true;
+                hideFloatingActionPanel();
+                updateStatus('Transkrypcja wyczyszczona', 'info');
+                
+                // Wyczyść z pamięci
+                chrome.storage.local.remove(['transcriptData', 'currentSessionId']);
+                
+                if (realtimeMode) {
+                    deactivateRealtimeMode(false);
+                }
             }
-            
-            transcriptData = null;
-            currentSessionId = null;
-            displayTranscript({ entries: [] });
-            updateStats({ entries: [] });
-            exportTxtBtn.disabled = true;
-            hideFloatingActionPanel();
-            updateStatus('Transkrypcja wyczyszczona', 'info');
-            
-            // Wyczyść z pamięci
-            chrome.storage.local.remove(['transcriptData', 'currentSessionId']);
-            
-            if (realtimeMode) {
-                deactivateRealtimeMode(false);
-            }
-        }
-    });
+        });
+        console.log('Clear button handler added');
+    } else {
+        console.error('Clear button not found');
+    }
 
     // Export handlers will be set up by the modal system
+    } catch (error) {
+        console.error('Error during popup initialization:', error);
+        updateStatus('Błąd inicjalizacji interfejsu', 'error');
+    }
 });
 
 function updateStatus(message, type = '') {
     const statusDiv = document.getElementById('recordingStatus');
+    if (!statusDiv) {
+        console.error('Status div not found');
+        return;
+    }
+    
     const statusText = statusDiv.querySelector('.status-text');
     const statusDot = statusDiv.querySelector('.status-dot');
+    
+    if (!statusText || !statusDot) {
+        console.error('Status elements not found');
+        return;
+    }
     
     statusText.textContent = message;
     statusDiv.className = 'recording-status';
@@ -296,9 +351,14 @@ function updateStatus(message, type = '') {
 
 function displayTranscript(data) {
     const previewDiv = document.getElementById('transcriptContent');
+    if (!previewDiv) {
+        console.error('Transcript content div not found');
+        return;
+    }
+    
     previewDiv.innerHTML = '';
 
-    if (data.entries.length === 0) {
+    if (!data || !data.entries || data.entries.length === 0) {
         previewDiv.innerHTML = `
             <div class="empty-transcript">
                 <svg class="empty-icon" width="48" height="48" viewBox="0 0 24 24">
@@ -401,6 +461,16 @@ function updateStats(data) {
     const participantCountSpan = document.getElementById('participantCount');
     const durationSpan = document.getElementById('duration');
 
+    if (!statsDiv || !entryCountSpan || !participantCountSpan || !durationSpan) {
+        console.error('Stats elements not found');
+        return;
+    }
+
+    if (!data || !data.entries) {
+        console.error('Invalid data provided to updateStats');
+        return;
+    }
+
     const uniqueParticipants = new Set(data.entries.map(e => e.speaker)).size;
 
     // Update stats
@@ -438,6 +508,7 @@ function downloadFile(content, filename, mimeType) {
                 updateStatus('Błąd podczas pobierania pliku', 'error');
             } else {
                 console.log('Download started with ID:', downloadId);
+                updateStatus('Plik został pomyślnie pobrany!', 'success');
             }
             
             // Zwolnij URL po pobraniu
@@ -465,9 +536,15 @@ function initializeSessionHistory() {
     
     // Load session history from storage
     chrome.storage.local.get(['sessionHistory'], (result) => {
-        sessionHistory = result.sessionHistory || [];
-        console.log('Loaded session history:', sessionHistory.length, 'sessions');
-        renderSessionHistory();
+        try {
+            sessionHistory = result.sessionHistory || [];
+            console.log('Loaded session history:', sessionHistory.length, 'sessions');
+            renderSessionHistory();
+        } catch (error) {
+            console.error('Error loading session history:', error);
+            sessionHistory = [];
+            renderSessionHistory();
+        }
     });
     
     // Add event listeners for history UI
@@ -684,6 +761,8 @@ setInterval(() => {
 
 // Floating Action Panel Management
 function showFloatingActionPanel() {
+    console.log('Showing floating action panel');
+    
     const panel = document.getElementById('floatingActionPanel');
     if (panel) {
         panel.style.display = 'flex';
@@ -694,10 +773,15 @@ function showFloatingActionPanel() {
         
         // Update floating panel stats
         updateFloatingPanelStats();
+        console.log('Floating action panel shown');
+    } else {
+        console.error('Floating action panel not found');
     }
 }
 
 function hideFloatingActionPanel() {
+    console.log('Hiding floating action panel');
+    
     const panel = document.getElementById('floatingActionPanel');
     if (panel) {
         panel.classList.add('hide');
@@ -706,6 +790,9 @@ function hideFloatingActionPanel() {
         setTimeout(() => {
             panel.style.display = 'none';
         }, 300);
+        console.log('Floating action panel hidden');
+    } else {
+        console.error('Floating action panel not found');
     }
 }
 
@@ -835,6 +922,9 @@ function initializeTheme() {
     // Theme toggle click handler
     if (themeToggle) {
         themeToggle.addEventListener('click', toggleTheme);
+        console.log('Theme toggle handler added');
+    } else {
+        console.warn('Theme toggle button not found');
     }
 }
 
@@ -859,7 +949,9 @@ function toggleTheme() {
     // Brief status update to show theme change
     updateStatus(`Przełączono na ${newTheme === 'dark' ? 'ciemny' : 'jasny'} motyw`, 'info');
     setTimeout(() => {
-        updateStatus('Gotowy do nagrywania', '');
+        if (!realtimeMode) {
+            updateStatus('Gotowy do nagrywania', '');
+        }
     }, 1500);
 }
 
@@ -894,6 +986,7 @@ function initializeModalSystem() {
         if (e.key === 'Escape') {
             const openModal = document.querySelector('.modal.show');
             if (openModal) {
+                console.log('ESC key pressed, closing modal:', openModal.id);
                 hideModal(openModal.id);
             }
         }
@@ -1139,7 +1232,11 @@ function setupExportButtonHandlers() {
     const exportJsonBtn = document.getElementById('exportJsonBtn');
     
     if (exportTxtBtn) {
-        exportTxtBtn.addEventListener('click', () => {
+        // Remove existing event listeners to prevent duplication
+        exportTxtBtn.replaceWith(exportTxtBtn.cloneNode(true));
+        const newExportTxtBtn = document.getElementById('exportTxtBtn');
+        
+        newExportTxtBtn.addEventListener('click', () => {
             console.log('Export TXT button clicked');
             if (!transcriptData) {
                 updateStatus('Brak danych do eksportu', 'error');
@@ -1151,10 +1248,16 @@ function setupExportButtonHandlers() {
             updateStatus('Wyeksportowano do pliku TXT!', 'success');
             hideModal('exportModal');
         });
+    } else {
+        console.error('Export TXT button not found');
     }
     
     if (exportJsonBtn) {
-        exportJsonBtn.addEventListener('click', () => {
+        // Remove existing event listeners to prevent duplication
+        exportJsonBtn.replaceWith(exportJsonBtn.cloneNode(true));
+        const newExportJsonBtn = document.getElementById('exportJsonBtn');
+        
+        newExportJsonBtn.addEventListener('click', () => {
             console.log('Export JSON button clicked');
             if (!transcriptData) {
                 updateStatus('Brak danych do eksportu', 'error');
@@ -1167,7 +1270,7 @@ function setupExportButtonHandlers() {
             hideModal('exportModal');
         });
     } else {
-        console.error('Export buttons not found');
+        console.error('Export JSON button not found');
     }
 }
 
@@ -1275,66 +1378,9 @@ function setupFloatingActionPanelHandlers() {
 // Enhanced floating action panel management
 function updateFloatingPanelStats() {
     const floatingEntryCount = document.getElementById('floatingEntryCount');
-    if (floatingEntryCount && transcriptData) {
+    if (floatingEntryCount && transcriptData && transcriptData.entries) {
         floatingEntryCount.textContent = transcriptData.entries.length;
     }
-}
-
-// Enhanced Button Interactions
-function addButtonLoadingState(button) {
-    button.classList.add('loading');
-    button.disabled = true;
-    
-    // Remove loading state after 1 second (adjust as needed)
-    setTimeout(() => {
-        button.classList.remove('loading');
-        button.disabled = false;
-    }, 1000);
-}
-
-// Add ripple effect to buttons
-function addRippleEffect(button) {
-    button.addEventListener('click', function(e) {
-        const ripple = document.createElement('span');
-        const rect = this.getBoundingClientRect();
-        const size = Math.max(rect.width, rect.height);
-        const x = e.clientX - rect.left - size / 2;
-        const y = e.clientY - rect.top - size / 2;
-        
-        ripple.style.cssText = `
-            position: absolute;
-            width: ${size}px;
-            height: ${size}px;
-            left: ${x}px;
-            top: ${y}px;
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            transform: scale(0);
-            animation: ripple 0.6s linear;
-            pointer-events: none;
-        `;
-        
-        this.appendChild(ripple);
-        
-        setTimeout(() => {
-            ripple.remove();
-        }, 600);
-    });
-}
-
-// Add CSS for ripple animation
-if (!document.querySelector('#ripple-styles')) {
-    const style = document.createElement('style');
-    style.id = 'ripple-styles';
-    style.textContent = `
-        @keyframes ripple {
-            to {
-                transform: scale(2);
-                opacity: 0;
-            }
-        }
-    `;
-    document.head.appendChild(style);
 }
 
 // Initialize enhanced interactions
