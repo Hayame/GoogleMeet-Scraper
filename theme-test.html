@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Theme Test - Google Meet Recorder</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header Section -->
+        <header class="app-header">
+            <div class="header-left">
+                <h1 class="app-title">Google Meet Recorder</h1>
+            </div>
+            <div class="header-right">
+                <button id="themeToggle" class="theme-toggle" title="Switch to dark theme">
+                    <svg class="theme-icon theme-icon-light" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="theme-icon theme-icon-dark" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Left Sidebar - Session History -->
+            <aside class="sidebar">
+                <div class="sidebar-header">
+                    <h2 class="sidebar-title">Session History</h2>
+                    <button class="new-session-btn" title="New session">
+                        <svg width="16" height="16" viewBox="0 0 24 24">
+                            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="session-list">
+                    <div class="session-item">
+                        <div class="session-info">
+                            <div class="session-title">Meeting at 2:30 PM</div>
+                            <div class="session-meta">Today 2:30 PM • 3 participants • 45 entries</div>
+                        </div>
+                        <button class="delete-btn">🗑</button>
+                    </div>
+                    <div class="session-item active">
+                        <div class="session-info">
+                            <div class="session-title">Team Standup</div>
+                            <div class="session-meta">Today 10:00 AM • 5 participants • 89 entries</div>
+                        </div>
+                        <button class="delete-btn">🗑</button>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Right Content - Current Transcript -->
+            <section class="content-area">
+                <!-- Recording Controls -->
+                <div class="recording-controls">
+                    <button class="record-button">
+                        <svg class="record-icon" width="24" height="24" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="8"/>
+                        </svg>
+                        <span class="record-text">Start Recording</span>
+                    </button>
+                    <div class="recording-status">
+                        <span class="status-dot"></span>
+                        <span class="status-text">Ready to record</span>
+                    </div>
+                </div>
+
+                <!-- Transcript Stats -->
+                <div class="transcript-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">Entries:</span>
+                        <span class="stat-value">45</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Participants:</span>
+                        <span class="stat-value">3</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Duration:</span>
+                        <span class="stat-value">15:30</span>
+                    </div>
+                </div>
+
+                <!-- Transcript Preview -->
+                <div class="transcript-container">
+                    <div class="transcript-header">
+                        <h3 class="transcript-title">Transcript</h3>
+                        <div class="transcript-actions">
+                            <button class="icon-button" title="Search">
+                                <svg width="20" height="20" viewBox="0 0 24 24">
+                                    <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                                </svg>
+                            </button>
+                            <button class="icon-button" title="Filter">
+                                <svg width="20" height="20" viewBox="0 0 24 24">
+                                    <path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="transcript-content">
+                        <div class="transcript-entry">
+                            <div class="avatar color-1">J</div>
+                            <div class="message-content">
+                                <div class="message-header">
+                                    <span class="speaker-name">John Doe</span>
+                                    <span class="timestamp">2:30 PM</span>
+                                </div>
+                                <div class="message-bubble">
+                                    <p class="transcript-text">Hello everyone, welcome to our meeting today. Let's start with the agenda.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="transcript-entry">
+                            <div class="avatar color-2">A</div>
+                            <div class="message-content">
+                                <div class="message-header">
+                                    <span class="speaker-name">Alice Smith</span>
+                                    <span class="timestamp">2:31 PM</span>
+                                </div>
+                                <div class="message-bubble">
+                                    <p class="transcript-text">Thanks John. I'd like to discuss the new project requirements first.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="transcript-entry">
+                            <div class="avatar color-3">B</div>
+                            <div class="message-content">
+                                <div class="message-header">
+                                    <span class="speaker-name">Bob Johnson</span>
+                                    <span class="timestamp">2:32 PM</span>
+                                </div>
+                                <div class="message-bubble">
+                                    <p class="transcript-text">Great idea Alice. I have some thoughts on the technical implementation.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // Simple theme toggle for testing
+        document.getElementById('themeToggle').addEventListener('click', function() {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            this.title = newTheme === 'light' ? 'Switch to dark theme' : 'Switch to light theme';
+        });
+    </script>
+</body>
+</html>
