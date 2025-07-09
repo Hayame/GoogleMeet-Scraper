@@ -21,8 +21,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const previewDiv = document.getElementById('transcriptContent');
         const statsDiv = document.getElementById('transcriptStats');
         const exportBtn = document.getElementById('exportBtn');
-        const floatingPanel = document.getElementById('floatingPanel');
-        const floatingActionPanel = document.getElementById('floatingActionPanel');
         const exportModal = document.getElementById('exportModal');
         const themeToggle = document.getElementById('themeToggle');
         
@@ -110,8 +108,6 @@ document.addEventListener('DOMContentLoaded', function() {
         return true;
     });
     
-    // Setup floating action panel handlers
-    setupFloatingActionPanelHandlers();
     
     // Przywróć stan trybu rzeczywistego
     chrome.storage.local.get(['realtimeMode', 'transcriptData', 'currentSessionId'], (result) => {
@@ -126,7 +122,6 @@ document.addEventListener('DOMContentLoaded', function() {
             displayTranscript(transcriptData);
             updateStats(transcriptData);
             if (exportTxtBtn) exportTxtBtn.disabled = false;
-            showFloatingActionPanel();
         }
     });
 
@@ -150,7 +145,6 @@ document.addEventListener('DOMContentLoaded', function() {
         realtimeBtn.classList.add('active');
         document.querySelector('.record-text').textContent = 'Zatrzymaj nagrywanie';
         updateStatus('Nagrywanie aktywne - skanowanie w tle', 'info');
-        showFloatingActionPanel();
         
         // Create new session if none exists
         if (!currentSessionId) {
@@ -309,8 +303,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 preview.scrollTop = preview.scrollHeight;
                                 
                                 updateStatus(`Nagrywanie... (${transcriptData.entries.length} wpisów)`, 'info');
-                                showFloatingActionPanel();
-                            }
+                                                }
                         }
                         
                         updateStats(transcriptData);
@@ -396,7 +389,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         updateStatus(`Nagrywanie w tle... (${transcriptData.entries.length} wpisów)`, 'info');
-        showFloatingActionPanel();
         
         // Save to storage
         chrome.storage.local.set({ transcriptData: transcriptData });
@@ -419,7 +411,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 displayTranscript({ entries: [] });
                 updateStats({ entries: [] });
                 if (exportTxtBtn) exportTxtBtn.disabled = true;
-                hideFloatingActionPanel();
                 updateStatus('Transkrypcja wyczyszczona', 'info');
                 
                 // Wyczyść z pamięci
@@ -492,7 +483,6 @@ function displayTranscript(data) {
                 <p>Brak transkrypcji</p>
                 <p class="empty-subtitle">Rozpocznij nagrywanie, aby zobaczyć transkrypcję</p>
             </div>`;
-        hideFloatingActionPanel();
         return;
     }
 
@@ -612,8 +602,6 @@ function updateStats(data) {
     
     statsDiv.style.display = 'block';
     
-    // Update floating panel stats
-    updateFloatingPanelStats();
 }
 
 function downloadFile(content, filename, mimeType) {
@@ -705,7 +693,6 @@ function createNewSession() {
         exportTxtBtn.disabled = true;
     }
     
-    hideFloatingActionPanel();
     
     // Save new session ID
     chrome.storage.local.set({ currentSessionId: currentSessionId });
@@ -787,8 +774,6 @@ function loadSessionFromHistory(sessionId) {
     if (exportTxtBtn) {
         exportTxtBtn.disabled = false;
     }
-    
-    showFloatingActionPanel();
     
     // Update storage
     chrome.storage.local.set({ 
@@ -884,42 +869,6 @@ setInterval(() => {
     }
 }, 30000); // Auto-save every 30 seconds
 
-// Floating Action Panel Management
-function showFloatingActionPanel() {
-    console.log('Showing floating action panel');
-    
-    const panel = document.getElementById('floatingActionPanel');
-    if (panel) {
-        panel.style.display = 'flex';
-        // Trigger reflow to ensure the element is rendered
-        panel.offsetHeight;
-        panel.classList.add('show');
-        panel.classList.remove('hide');
-        
-        // Update floating panel stats
-        updateFloatingPanelStats();
-        console.log('Floating action panel shown');
-    } else {
-        console.error('Floating action panel not found');
-    }
-}
-
-function hideFloatingActionPanel() {
-    console.log('Hiding floating action panel');
-    
-    const panel = document.getElementById('floatingActionPanel');
-    if (panel) {
-        panel.classList.add('hide');
-        panel.classList.remove('show');
-        // Hide the panel after animation completes
-        setTimeout(() => {
-            panel.style.display = 'none';
-        }, 300);
-        console.log('Floating action panel hidden');
-    } else {
-        console.error('Floating action panel not found');
-    }
-}
 
 // Enhanced Button Interactions
 function addButtonLoadingState(button) {
@@ -981,7 +930,7 @@ if (!document.querySelector('#ripple-styles')) {
 // Initialize enhanced interactions
 function initializeEnhancedInteractions() {
     // Add ripple effects to buttons
-    document.querySelectorAll('.floating-action-button, .btn, .record-button').forEach(button => {
+    document.querySelectorAll('.btn, .record-button').forEach(button => {
         addRippleEffect(button);
     });
     
@@ -1006,7 +955,7 @@ function initializeEnhancedInteractions() {
 // Initialize enhanced interactions when elements are added
 function reinitializeEnhancedInteractions() {
     // Re-add ripple effects to newly created buttons
-    document.querySelectorAll('.floating-action-button:not([data-ripple]), .btn:not([data-ripple]), .record-button:not([data-ripple])').forEach(button => {
+    document.querySelectorAll('.btn:not([data-ripple]), .record-button:not([data-ripple])').forEach(button => {
         button.setAttribute('data-ripple', 'true');
         addRippleEffect(button);
     });
@@ -1232,7 +1181,6 @@ function performDeleteSession(sessionId) {
             exportTxtBtn.disabled = true;
         }
         
-        hideFloatingActionPanel();
         chrome.storage.local.remove(['transcriptData', 'currentSessionId']);
         console.log('Cleared current session data');
     }
@@ -1448,70 +1396,12 @@ function generateJsonContent() {
     return jsonContent;
 }
 
-// Setup floating action panel handlers
-function setupFloatingActionPanelHandlers() {
-    console.log('Setting up floating action panel handlers');
-    
-    const floatingExportBtn = document.getElementById('floatingExportBtn');
-    const floatingClearBtn = document.getElementById('floatingClearBtn');
-    
-    if (floatingExportBtn) {
-        floatingExportBtn.addEventListener('click', () => {
-            console.log('Floating export button clicked');
-            addButtonLoadingState(floatingExportBtn);
-            showModal('exportModal');
-        });
-        console.log('Floating export button handler added');
-    } else {
-        console.error('Floating export button not found');
-    }
-    
-    if (floatingClearBtn) {
-        floatingClearBtn.addEventListener('click', () => {
-            console.log('Floating clear button clicked');
-            if (confirm('Czy na pewno chcesz wyczyścić całą transkrypcję?')) {
-                addButtonLoadingState(floatingClearBtn);
-                
-                // Save current session before clearing if it has data
-                if (transcriptData && transcriptData.entries.length > 0) {
-                    saveCurrentSessionToHistory();
-                }
-                
-                transcriptData = null;
-                currentSessionId = null;
-                displayTranscript({ entries: [] });
-                updateStats({ entries: [] });
-                const exportTxtBtn = document.getElementById('exportTxtBtn');
-                if (exportTxtBtn) exportTxtBtn.disabled = true;
-                hideFloatingActionPanel();
-                updateStatus('Transkrypcja wyczyszczona', 'info');
-                
-                // Wyczyść z pamięci
-                chrome.storage.local.remove(['transcriptData', 'currentSessionId']);
-                
-                if (realtimeMode) {
-                    deactivateRealtimeMode(false);
-                }
-            }
-        });
-        console.log('Floating clear button handler added');
-    } else {
-        console.error('Floating clear button not found');
-    }
-}
 
-// Enhanced floating action panel management
-function updateFloatingPanelStats() {
-    const floatingEntryCount = document.getElementById('floatingEntryCount');
-    if (floatingEntryCount && transcriptData && transcriptData.entries) {
-        floatingEntryCount.textContent = transcriptData.entries.length;
-    }
-}
 
 // Initialize enhanced interactions
 function initializeEnhancedInteractions() {
     // Add ripple effects to buttons
-    document.querySelectorAll('.floating-action-button, .btn, .record-button').forEach(button => {
+    document.querySelectorAll('.btn, .record-button').forEach(button => {
         addRippleEffect(button);
     });
     
@@ -1536,7 +1426,7 @@ function initializeEnhancedInteractions() {
 // Initialize enhanced interactions when elements are added
 function reinitializeEnhancedInteractions() {
     // Re-add ripple effects to newly created buttons
-    document.querySelectorAll('.floating-action-button:not([data-ripple]), .btn:not([data-ripple]), .record-button:not([data-ripple])').forEach(button => {
+    document.querySelectorAll('.btn:not([data-ripple]), .record-button:not([data-ripple])').forEach(button => {
         button.setAttribute('data-ripple', 'true');
         addRippleEffect(button);
     });

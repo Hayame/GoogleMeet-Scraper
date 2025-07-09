@@ -32,10 +32,10 @@
             <aside class="sidebar">
                 <div class="sidebar-header">
                     <h2 class="sidebar-title">Historia sesji</h2>
+                </div>
+                <div class="sidebar-actions">
                     <button id="newSessionBtn" class="new-session-btn" title="Nowa sesja">
-                        <svg width="16" height="16" viewBox="0 0 24 24">
-                            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-                        </svg>
+                        + Nowa sesja
                     </button>
                 </div>
                 <div class="session-list" id="sessionList">
@@ -82,16 +82,31 @@
                     <div class="transcript-header">
                         <h3 class="transcript-title">Transkrypcja</h3>
                         <div class="transcript-actions">
-                            <button id="searchBtn" class="icon-button" title="Szukaj">
-                                <svg width="20" height="20" viewBox="0 0 24 24">
-                                    <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-                                </svg>
-                            </button>
-                            <button id="filterBtn" class="icon-button" title="Filtruj">
-                                <svg width="20" height="20" viewBox="0 0 24 24">
-                                    <path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/>
-                                </svg>
-                            </button>
+                            <div class="action-group-left">
+                                <button id="searchBtn" class="icon-button" title="Szukaj">
+                                    <svg width="20" height="20" viewBox="0 0 24 24">
+                                        <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                                    </svg>
+                                </button>
+                                <button id="filterBtn" class="icon-button" title="Filtruj">
+                                    <svg width="20" height="20" viewBox="0 0 24 24">
+                                        <path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="action-separator"></div>
+                            <div class="action-group-right">
+                                <button id="exportBtn" class="icon-button" title="Eksportuj">
+                                    <svg width="20" height="20" viewBox="0 0 24 24">
+                                        <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                                    </svg>
+                                </button>
+                                <button id="clearBtn" class="icon-button icon-button-danger" title="Wyczyść">
+                                    <svg width="20" height="20" viewBox="0 0 24 24">
+                                        <path fill="currentColor" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <div id="transcriptContent" class="transcript-content">
@@ -107,39 +122,6 @@
             </section>
         </main>
 
-        <!-- Floating Action Panel -->
-        <div id="floatingPanel" class="floating-panel" style="display: none;">
-            <button id="exportBtn" class="floating-button" title="Eksportuj">
-                <svg width="24" height="24" viewBox="0 0 24 24">
-                    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
-                </svg>
-            </button>
-            <button id="clearBtn" class="floating-button" title="Wyczyść">
-                <svg width="24" height="24" viewBox="0 0 24 24">
-                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                </svg>
-            </button>
-        </div>
-
-        <!-- Enhanced Floating Action Panel -->
-        <div id="floatingActionPanel" class="floating-action-panel">
-            <div class="floating-panel-stats">
-                <span class="stats-dot"></span>
-                <span id="floatingEntryCount">0</span> wpisów
-            </div>
-            <button id="floatingExportBtn" class="floating-action-button" title="Eksportuj transkrypcję">
-                <svg width="18" height="18" viewBox="0 0 24 24">
-                    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
-                </svg>
-                <span class="button-text">Eksportuj</span>
-            </button>
-            <button id="floatingClearBtn" class="floating-action-button secondary" title="Wyczyść transkrypcję">
-                <svg width="18" height="18" viewBox="0 0 24 24">
-                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                </svg>
-                <span class="button-text">Wyczyść</span>
-            </button>
-        </div>
     </div>
 
     <!-- Modal Containers -->
