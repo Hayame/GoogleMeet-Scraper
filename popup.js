@@ -3,6 +3,9 @@ let realtimeMode = false;
 let realtimeInterval = null;
 let currentSessionId = null;
 let sessionHistory = [];
+let recordingStartTime = null;
+let durationTimer = null;
+let expandedEntries = new Set(); // Track which entries are expanded
 
 document.addEventListener('DOMContentLoaded', function() {
     // Debug: Sprawdź rzeczywiste wymiary
@@ -109,12 +112,22 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     
+    // Load expanded state
+    loadExpandedState();
+    
     // Przywróć stan trybu rzeczywistego
-    chrome.storage.local.get(['realtimeMode', 'transcriptData', 'currentSessionId'], (result) => {
+    chrome.storage.local.get(['realtimeMode', 'transcriptData', 'currentSessionId', 'recordingStartTime'], (result) => {
         if (result.currentSessionId) {
             currentSessionId = result.currentSessionId;
         }
+        if (result.recordingStartTime) {
+            recordingStartTime = new Date(result.recordingStartTime);
+        }
         if (result.realtimeMode) {
+            // If resuming realtime mode, start the timer first
+            if (recordingStartTime) {
+                startDurationTimer();
+            }
             activateRealtimeMode();
         }
         if (result.transcriptData) {
@@ -146,6 +159,12 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelector('.record-text').textContent = 'Zatrzymaj nagrywanie';
         updateStatus('Nagrywanie aktywne - skanowanie w tle', 'info');
         
+        // Set recording start time
+        recordingStartTime = new Date();
+        
+        // Start duration timer
+        startDurationTimer();
+        
         // Create new session if none exists
         if (!currentSessionId) {
             currentSessionId = generateSessionId();
@@ -153,7 +172,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Zapisz stan
-        chrome.storage.local.set({ realtimeMode: true });
+        chrome.storage.local.set({ realtimeMode: true, recordingStartTime: recordingStartTime.toISOString() });
         
         // Uruchom skanowanie w tle
         try {
@@ -192,13 +211,16 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelector('.record-text').textContent = 'Rozpocznij nagrywanie';
         updateStatus('Nagrywanie zatrzymane', 'success');
         
+        // Stop duration timer
+        stopDurationTimer();
+        
         // Save current session to history if there's data
         if (saveSession && transcriptData && transcriptData.entries.length > 0) {
             saveCurrentSessionToHistory();
         }
         
         // Zapisz stan
-        chrome.storage.local.set({ realtimeMode: false });
+        chrome.storage.local.set({ realtimeMode: false, recordingStartTime: null });
         
         // Zatrzymaj skanowanie w tle
         chrome.runtime.sendMessage({
@@ -371,24 +393,24 @@ document.addEventListener('DOMContentLoaded', function() {
             if (hasChanges) {
                 transcriptData.scrapedAt = data.scrapedAt;
                 console.log('✅ Background scan brought new changes');
+                
+                // Only update display if there are actual changes
+                displayTranscript(transcriptData);
+                updateStats(transcriptData);
+                
+                if (exportTxtBtn) {
+                    exportTxtBtn.disabled = false;
+                }
+                
+                // Scroll to bottom
+                const preview = document.getElementById('transcriptContent');
+                if (preview) {
+                    preview.scrollTop = preview.scrollHeight;
+                }
+                
+                updateStatus(`Nagrywanie w tle... (${transcriptData.entries.length} wpisów)`, 'info');
             }
         }
-        
-        // Update display
-        displayTranscript(transcriptData);
-        updateStats(transcriptData);
-        
-        if (exportTxtBtn) {
-            exportTxtBtn.disabled = false;
-        }
-        
-        // Scroll to bottom
-        const preview = document.getElementById('transcriptContent');
-        if (preview) {
-            preview.scrollTop = preview.scrollHeight;
-        }
-        
-        updateStatus(`Nagrywanie w tle... (${transcriptData.entries.length} wpisów)`, 'info');
         
         // Save to storage
         chrome.storage.local.set({ transcriptData: transcriptData });
@@ -534,7 +556,73 @@ function displayTranscript(data) {
         
         const textP = document.createElement('p');
         textP.className = 'transcript-text';
-        textP.textContent = entry.text;
+        
+        // Check if text is long enough to need collapsing
+        const isLongText = entry.text.length > 200;
+        
+        if (isLongText) {
+            // Generate unique entry ID
+            const entryId = generateEntryId(entry);
+            const isExpanded = expandedEntries.has(entryId);
+            
+            const shortText = entry.text.substring(0, 200);
+            const fullText = entry.text;
+            
+            // Create collapsed version
+            const collapsedSpan = document.createElement('span');
+            collapsedSpan.className = 'text-collapsed';
+            collapsedSpan.textContent = shortText + '...';
+            collapsedSpan.style.display = isExpanded ? 'none' : 'inline';
+            
+            // Create full version 
+            const expandedSpan = document.createElement('span');
+            expandedSpan.className = 'text-expanded';
+            expandedSpan.textContent = fullText;
+            expandedSpan.style.display = isExpanded ? 'inline' : 'none';
+            
+            // Create button container
+            const buttonContainer = document.createElement('div');
+            buttonContainer.className = 'expand-collapse-container';
+            
+            // Create expand button
+            const expandBtn = document.createElement('button');
+            expandBtn.className = 'expand-btn';
+            expandBtn.textContent = 'Więcej';
+            expandBtn.style.display = isExpanded ? 'none' : 'inline-block';
+            expandBtn.onclick = () => {
+                collapsedSpan.style.display = 'none';
+                expandedSpan.style.display = 'inline';
+                expandBtn.style.display = 'none';
+                collapseBtn.style.display = 'inline-block';
+                expandedEntries.add(entryId);
+                saveExpandedState();
+            };
+            
+            // Create collapse button
+            const collapseBtn = document.createElement('button');
+            collapseBtn.className = 'collapse-btn';
+            collapseBtn.textContent = 'Mniej';
+            collapseBtn.style.display = isExpanded ? 'inline-block' : 'none';
+            collapseBtn.onclick = () => {
+                collapsedSpan.style.display = 'inline';
+                expandedSpan.style.display = 'none';
+                expandBtn.style.display = 'inline-block';
+                collapseBtn.style.display = 'none';
+                expandedEntries.delete(entryId);
+                saveExpandedState();
+            };
+            
+            // Add elements to text paragraph
+            textP.appendChild(collapsedSpan);
+            textP.appendChild(expandedSpan);
+            
+            // Add button container to bubble
+            buttonContainer.appendChild(expandBtn);
+            buttonContainer.appendChild(collapseBtn);
+            bubbleDiv.appendChild(buttonContainer);
+        } else {
+            textP.textContent = entry.text;
+        }
         
         bubbleDiv.appendChild(textP);
         messageDiv.appendChild(headerDiv);
@@ -592,16 +680,78 @@ function updateStats(data) {
     entryCountSpan.textContent = data.entries.length;
     participantCountSpan.textContent = uniqueParticipants;
     
-    // Calculate duration (placeholder - could be enhanced)
-    const now = new Date();
-    const startTime = data.entries.length > 0 ? new Date(data.scrapedAt || now) : now;
-    const duration = Math.floor((now - startTime) / 1000);
-    const minutes = Math.floor(duration / 60);
-    const seconds = duration % 60;
-    durationSpan.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    // Duration is now handled by the continuous timer
+    // Only update duration if we're not in realtime mode
+    if (!realtimeMode) {
+        updateDurationDisplay();
+    }
     
     statsDiv.style.display = 'block';
     
+}
+
+function startDurationTimer() {
+    console.log('Starting duration timer');
+    
+    // Clear any existing timer
+    if (durationTimer) {
+        clearInterval(durationTimer);
+    }
+    
+    // Update duration display immediately
+    updateDurationDisplay();
+    
+    // Set up timer to update every second
+    durationTimer = setInterval(updateDurationDisplay, 1000);
+}
+
+function stopDurationTimer() {
+    console.log('Stopping duration timer');
+    
+    if (durationTimer) {
+        clearInterval(durationTimer);
+        durationTimer = null;
+    }
+}
+
+function updateDurationDisplay() {
+    const durationSpan = document.getElementById('duration');
+    if (!durationSpan) return;
+    
+    if (recordingStartTime) {
+        const now = new Date();
+        const duration = Math.floor((now - recordingStartTime) / 1000);
+        const minutes = Math.floor(duration / 60);
+        const seconds = duration % 60;
+        durationSpan.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    } else {
+        durationSpan.textContent = '00:00';
+    }
+}
+
+function generateEntryId(entry) {
+    // Generate a simple hash based on speaker and first 100 chars of text
+    const text = entry.speaker + entry.text.substring(0, 100);
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) {
+        const char = text.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32-bit integer
+    }
+    return hash.toString();
+}
+
+function saveExpandedState() {
+    const expandedArray = Array.from(expandedEntries);
+    chrome.storage.local.set({ expandedEntries: expandedArray });
+}
+
+function loadExpandedState() {
+    chrome.storage.local.get(['expandedEntries'], (result) => {
+        if (result.expandedEntries) {
+            expandedEntries = new Set(result.expandedEntries);
+        }
+    });
 }
 
 function downloadFile(content, filename, mimeType) {
@@ -685,6 +835,11 @@ function createNewSession() {
     // Clear current data
     transcriptData = null;
     currentSessionId = generateSessionId();
+    recordingStartTime = null;
+    
+    // Stop any existing timer
+    stopDurationTimer();
+    
     displayTranscript({ entries: [] });
     updateStats({ entries: [] });
     
@@ -695,7 +850,7 @@ function createNewSession() {
     
     
     // Save new session ID
-    chrome.storage.local.set({ currentSessionId: currentSessionId });
+    chrome.storage.local.set({ currentSessionId: currentSessionId, recordingStartTime: null });
     
     updateStatus('Utworzono nową sesję', 'success');
     
@@ -767,6 +922,11 @@ function loadSessionFromHistory(sessionId) {
     // Load the session
     transcriptData = session.transcript;
     currentSessionId = session.id;
+    recordingStartTime = null; // Historic sessions don't have active recording
+    
+    // Stop any existing timer
+    stopDurationTimer();
+    
     displayTranscript(transcriptData);
     updateStats(transcriptData);
     
@@ -778,7 +938,8 @@ function loadSessionFromHistory(sessionId) {
     // Update storage
     chrome.storage.local.set({ 
         transcriptData: transcriptData,
-        currentSessionId: currentSessionId
+        currentSessionId: currentSessionId,
+        recordingStartTime: null
     });
     
     updateStatus(`Wczytano sesję: ${session.title}`, 'success');
