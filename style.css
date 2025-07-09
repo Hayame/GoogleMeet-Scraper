@@ -109,7 +109,7 @@
 }
 
 body {
-    width: 520px;
+    width: 640px;
     height: 600px;
     margin: 0;
     padding: 0;
@@ -249,7 +249,7 @@ body {
 
 /* Sidebar */
 .sidebar {
-    width: 200px;
+    width: 220px;
     background: var(--bg-secondary);
     border-right: 1px solid var(--border-primary);
     display: flex;
@@ -341,7 +341,7 @@ body {
 
 /* Recording Controls */
 .recording-controls {
-    padding: 16px;
+    padding: 20px;
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-primary);
     display: flex;
@@ -436,8 +436,8 @@ body {
 /* Transcript Stats */
 .transcript-stats {
     display: flex;
-    gap: 16px;
-    padding: 12px 16px;
+    gap: 20px;
+    padding: 16px 20px;
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-primary);
     transition: var(--transition-theme);
@@ -476,7 +476,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px 20px;
+    padding: 18px 24px;
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-primary);
     transition: var(--transition-theme);
@@ -532,7 +532,7 @@ body {
 /* Transcript Content */
 .transcript-content {
     flex: 1;
-    padding: 20px;
+    padding: 24px;
     overflow-y: auto;
     background: var(--bg-primary);
     transition: var(--transition-theme);
@@ -1327,7 +1327,7 @@ body {
 }
 
 /* Responsive adjustments */
-@media (max-width: 480px) {
+@media (max-width: 600px) {
     .main-content {
         flex-direction: column;
     }
