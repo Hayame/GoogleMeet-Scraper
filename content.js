@@ -35,13 +35,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 function scrapeTranscript() {
     const entries = [];
     
-    // Szukamy różnych możliwych selektorów dla transkrypcji
+    // Szukamy różnych możliwych selektorów dla transkrypcji - bardziej specyficzne
     const selectors = [
-        // Główny kontener transkrypcji
-        '.a4cQT', // Kontener transkrypcji
-        '.yEicIe.VbkSUe', // Bloki transkrypcji
-        '[jscontroller="MZnM8e"]', // Alternatywny selektor
-        '[jscontroller="bzaDVe"]', // Kolejny możliwy selektor
+        // Główny kontener transkrypcji - bardziej specyficzne selektory
+        '.a4cQT:not([role="menu"]):not([role="listbox"])', // Kontener transkrypcji, ale nie menu
+        '.yEicIe.VbkSUe:not([role="menu"]):not([role="listbox"])', // Bloki transkrypcji - oryginalny selektor
+        '.ygiCle.VbkSUe:not([role="menu"]):not([role="listbox"])', // Nowy selektor z obrazka
+        '[jscontroller="MZnM8e"]:not([role="menu"]):not([role="listbox"])', // Alternatywny selektor
+        '[jscontroller="bzaDVe"]:not([role="menu"]):not([role="listbox"])', // Kolejny możliwy selektor
     ];
     
     let transcriptElements = null;
@@ -74,14 +75,23 @@ function scrapeTranscript() {
         try {
             // Próbuj znaleźć najbliższy kontener zawierający całą wypowiedź
             let container = element.closest('.yEicIe.VbkSUe') || 
+                           element.closest('.ygiCle.VbkSUe') ||
                            element.closest('[jscontroller]') || 
                            element.parentElement;
             
             if (!container) return;
             
-            // Pobierz nazwę osoby mówiącej
+            // Sprawdź czy kontener nie jest menu lub lista wyboru
+            if (container.getAttribute('role') === 'menu' || 
+                container.getAttribute('role') === 'listbox' ||
+                container.querySelector('[role="menu"], [role="listbox"]') ||
+                container.closest('[role="menu"], [role="listbox"]')) {
+                return;
+            }
+            
+            // Pobierz nazwę osoby mówiącej - ULEPSZONE z .NWpY1d
             let speaker = '';
-            const speakerElements = container.querySelectorAll('[jsname="hJNqvr"], .MBpOc, .NeplSy');
+            const speakerElements = container.querySelectorAll('[jsname="hJNqvr"], .MBpOc, .NeplSy, .NWpY1d');
             speakerElements.forEach(el => {
                 const text = el.textContent.trim();
                 if (text && !speaker) {
@@ -89,11 +99,22 @@ function scrapeTranscript() {
                 }
             });
             
-            // Jeśli nie znaleziono, szukaj w rodzicu
+            // Jeśli nie znaleziono, szukaj w rodzicu i sąsiadach
             if (!speaker) {
-                const parentSpeaker = container.parentElement?.querySelector('[jsname="hJNqvr"]');
+                const parentSpeaker = container.parentElement?.querySelector('[jsname="hJNqvr"], .NWpY1d');
                 if (parentSpeaker) {
                     speaker = parentSpeaker.textContent.trim();
+                }
+            }
+            
+            // Jeśli nadal nie znaleziono, szukaj w poprzednim elemencie (nazwa może być oddzielnie)
+            if (!speaker) {
+                const previousElement = container.previousElementSibling;
+                if (previousElement) {
+                    const prevSpeaker = previousElement.querySelector('[jsname="hJNqvr"], .NWpY1d, .MBpOc, .NeplSy');
+                    if (prevSpeaker) {
+                        speaker = prevSpeaker.textContent.trim();
+                    }
                 }
             }
             
@@ -134,13 +155,16 @@ function scrapeTranscript() {
                 timestamp = timestampElement.textContent.trim();
             }
             
-            // Dodaj wpis tylko jeśli ma tekst
-            if (text && text.trim()) {
-                entries.push({
-                    speaker: speaker || 'Nieznany',
-                    text: text.trim(),
-                    timestamp: timestamp
-                });
+            // Dodaj wpis tylko jeśli ma tekst i jest prawidłowy
+            if (text && text.trim() && isValidTranscriptText(text.trim(), speaker)) {
+                const sanitizedText = sanitizeTranscriptText(text.trim());
+                if (sanitizedText && isValidTranscriptText(sanitizedText, speaker)) {
+                    entries.push({
+                        speaker: speaker || 'Nieznany',
+                        text: sanitizedText,
+                        timestamp: timestamp
+                    });
+                }
             }
         } catch (error) {
             console.error('Błąd przetwarzania elementu:', error);
@@ -162,47 +186,84 @@ function scrapeTranscript() {
     };
 }
 
+
 function scrapeAlternativeMethod() {
     const entries = [];
     
-    // Szukaj wszystkich elementów z tekstem transkrypcji
-    const allTextElements = document.querySelectorAll('[jsname], [jscontroller]');
+    // Bardziej specyficzne selektory - unikaj menu i listy wyboru
+    const speakerSelectors = [
+        '[jsname="hJNqvr"]:not([role="menu"]):not([role="listbox"])',
+        '.MBpOc:not([role="menu"]):not([role="listbox"])',
+        '.NeplSy:not([role="menu"]):not([role="listbox"])',
+        '.NWpY1d:not([role="menu"]):not([role="listbox"])'
+    ];
+    
+    const textSelectors = [
+        '[jsname="YSAhf"]:not([role="menu"]):not([role="listbox"])',
+        '[jsname="MBpOc"]:not([role="menu"]):not([role="listbox"])',
+        '.VbkSUe:not([role="menu"]):not([role="listbox"])'
+    ];
+    
+    // Znajdź elementy tylko w kontenerach transkrypcji
+    const transcriptContainers = document.querySelectorAll('.a4cQT, .yEicIe.VbkSUe, .ygiCle.VbkSUe');
     
     let currentSpeaker = '';
     let currentText = '';
     
-    allTextElements.forEach(element => {
-        const jsname = element.getAttribute('jsname');
-        const text = element.textContent.trim();
-        
-        if (!text) return;
-        
-        // Rozpoznaj nazwę osoby mówiącej
-        if (jsname === 'hJNqvr' || element.classList.contains('MBpOc') || element.classList.contains('NeplSy')) {
-            // Jeśli mamy poprzedni wpis, dodaj go
-            if (currentSpeaker && currentText) {
-                entries.push({
-                    speaker: currentSpeaker,
-                    text: currentText,
-                    timestamp: ''
-                });
-            }
-            currentSpeaker = text;
-            currentText = '';
-        } 
-        // Rozpoznaj tekst wypowiedzi
-        else if (jsname === 'YSAhf' || jsname === 'MBpOc' || element.classList.contains('VbkSUe')) {
-            currentText += text + ' ';
+    // Przeszukaj tylko elementy w kontenerach transkrypcji
+    transcriptContainers.forEach(container => {
+        // Sprawdź czy kontener nie jest menu
+        if (container.getAttribute('role') === 'menu' || 
+            container.getAttribute('role') === 'listbox' ||
+            container.querySelector('[role="menu"], [role="listbox"]')) {
+            return;
         }
+        
+        // Znajdź elementy nazwisk
+        speakerSelectors.forEach(selector => {
+            const speakerElements = container.querySelectorAll(selector);
+            speakerElements.forEach(element => {
+                const text = element.textContent.trim();
+                if (text && isValidTranscriptText(text, '')) {
+                    // Jeśli mamy poprzedni wpis, dodaj go
+                    if (currentSpeaker && currentText && isValidTranscriptText(currentText.trim(), currentSpeaker)) {
+                        const sanitizedText = sanitizeTranscriptText(currentText.trim());
+                        if (sanitizedText && isValidTranscriptText(sanitizedText, currentSpeaker)) {
+                            entries.push({
+                                speaker: currentSpeaker,
+                                text: sanitizedText,
+                                timestamp: ''
+                            });
+                        }
+                    }
+                    currentSpeaker = text;
+                    currentText = '';
+                }
+            });
+        });
+        
+        // Znajdź elementy tekstu
+        textSelectors.forEach(selector => {
+            const textElements = container.querySelectorAll(selector);
+            textElements.forEach(element => {
+                const text = element.textContent.trim();
+                if (text && text !== currentSpeaker && isValidTranscriptText(text, currentSpeaker)) {
+                    currentText += text + ' ';
+                }
+            });
+        });
     });
     
     // Dodaj ostatni wpis
-    if (currentSpeaker && currentText) {
-        entries.push({
-            speaker: currentSpeaker,
-            text: currentText.trim(),
-            timestamp: ''
-        });
+    if (currentSpeaker && currentText && isValidTranscriptText(currentText.trim(), currentSpeaker)) {
+        const sanitizedText = sanitizeTranscriptText(currentText.trim());
+        if (sanitizedText && isValidTranscriptText(sanitizedText, currentSpeaker)) {
+            entries.push({
+                speaker: currentSpeaker,
+                text: sanitizedText,
+                timestamp: ''
+            });
+        }
     }
     
     return entries;
@@ -218,6 +279,95 @@ function removeDuplicates(entries) {
         seen.add(key);
         return true;
     });
+}
+
+function isLanguageSelectionText(text) {
+    // Wzorce charakterystyczne dla menu wyboru języka
+    const languagePatterns = [
+        /^\s*polski\s*\(Polska\)/i,
+        /^\s*afrikaans\s*\(Republika Południowej Afryki\)/i,
+        /^\s*albański\s*\(Albania\)/i,
+        /^\s*amharski\s*\(Etiopia\)/i,
+        /^\s*angielski\s*\(Australia\)/i,
+        /^\s*arabski\s*\(Egipt\)/i,
+        /^\s*azerski\s*\(Azerbejdżan\)/i,
+        /^\s*baskijski\s*\(Hiszpania\)/i,
+        /^\s*bengalski\s*\(Bangladesz\)/i,
+        /^\s*birmański\s*\(Mjanma\)/i,
+        /^\s*chiński[,\s]*mandaryński/i,
+        /^\s*czeski\s*\(Czechy\)/i,
+        /^\s*francuski\s*\(Kanada\)/i,
+        /^\s*grecki\s*\(Grecja\)/i,
+        /^\s*hiszpański\s*\(Hiszpania\)/i,
+        /^\s*japoński/i,
+        /^\s*koreański/i,
+        /^\s*niemiecki/i,
+        /^\s*rosyjski/i,
+        /^\s*włoski/i,
+        /BETA\s*$/i,
+        /^\s*format_size\s+/i,
+        /^\s*circle\s+/i,
+        /^\s*settings\s+/i,
+        /^\s*arrow_downward\s+/i,
+        /Przejdź na koniec/i,
+        /Domyślna\s+(Biały|Czarny|Niebieski|Zielony|Czerwony|Żółty)/i,
+        /Bardzo małe|Małe|Średni|Duże|Wielkie|Olbrzymie/i
+    ];
+    
+    // Sprawdź czy tekst pasuje do wzorców języków
+    return languagePatterns.some(pattern => pattern.test(text));
+}
+
+function isValidTranscriptText(text, speaker) {
+    // Sprawdź czy tekst nie jest z menu wyboru języka
+    if (isLanguageSelectionText(text)) {
+        return false;
+    }
+    
+    // Sprawdź czy tekst nie jest zbyt krótki (prawdopodobnie UI)
+    if (text.length < 3) {
+        return false;
+    }
+    
+    // Sprawdź czy tekst nie składa się tylko z cyfr i znaków specjalnych
+    if (/^[\d\s\-\(\)\[\]]+$/.test(text)) {
+        return false;
+    }
+    
+    // Sprawdź czy tekst nie jest ikoną lub przyciskiem
+    if (/^(settings|arrow_downward|circle|format_size)$/i.test(text)) {
+        return false;
+    }
+    
+    // Sprawdź czy tekst nie jest długą listą języków w jednej linii
+    if (text.includes('polski (Polska)') || text.includes('afrikaans (Republika')) {
+        return false;
+    }
+    
+    return true;
+}
+
+function sanitizeTranscriptText(text) {
+    // Usuń znaki specjalne i ikony
+    text = text.replace(/[\u{1F600}-\u{1F6FF}]/gu, ''); // Emotikony
+    text = text.replace(/[\u{2600}-\u{26FF}]/gu, ''); // Symbole
+    text = text.replace(/[\u{2700}-\u{27BF}]/gu, ''); // Znaki specjalne
+    
+    // Usuń wielokrotne spacje
+    text = text.replace(/\s+/g, ' ');
+    
+    // Usuń fragmenty menu językowego jeśli się przedostały
+    text = text.replace(/\b(afrikaans|albański|amharski|angielski|arabski|azerski|baskijski|bengalski|birmański|chiński|czeski|estoński|filipiński|fiński|francuski|galicyjski|grecki|gruziński|gudźarati|hebrajski|hindi|hiszpański|indonezyjski|islandzki|japoński|jawajski|kannada|kataloński|kazachski|khmerski|koreański|laotański|litewski|łotewski|macedoński|malajalam|malajski|marathi|mongolski|nepalski|niderlandzki|niemiecki|norweski|ormiański|perski|polski|portugalski|rosyjski|rumuński|serbski|słowacki|słoweński|suahili|szwedzki|tajski|tamilski|telugu|turecki|ukraiński|urdu|uzbecki|węgierski|wietnamski|włoski|xhosa|zulu)\s*\([^)]+\)\s*BETA?\s*/gi, '');
+    
+    // Usuń fragmenty UI
+    text = text.replace(/\b(format_size|circle|settings|arrow_downward|Przejdź na koniec|Domyślna|Bardzo małe|Małe|Średni|Duże|Wielkie|Olbrzymie|Biały|Czarny|Niebieski|Zielony|Czerwony|Żółty|Błękitny|Fuksja)\b/gi, '');
+    
+    // Usuń pozostałe artefakty
+    text = text.replace(/\bBETA\b/gi, '');
+    text = text.replace(/^\s*-\s*/, ''); // Usuń myślniki na początku
+    text = text.replace(/\s*-\s*$/, ''); // Usuń myślniki na końcu
+    
+    return text.trim();
 }
 
 // Automatyczne wykrywanie początku spotkania

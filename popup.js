@@ -101,21 +101,53 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (!transcriptData) {
                             transcriptData = response.data;
                         } else {
-                            // Dodaj tylko nowe wpisy
-                            const existingTexts = new Set(
-                                transcriptData.entries.map(e => `${e.speaker}:${e.text}`)
-                            );
+                            // Inteligentne scalanie - sprawdź czy ostatni wpis należy do tej samej osoby
+                            const newEntries = response.data.entries;
+                            let hasChanges = false;
                             
-                            const newEntries = response.data.entries.filter(
-                                entry => !existingTexts.has(`${entry.speaker}:${entry.text}`)
-                            );
+                            console.log(`🔄 Przetwarzam ${newEntries.length} nowych wpisów`);
                             
-                            if (newEntries.length > 0) {
-                                transcriptData.entries.push(...newEntries);
+                            for (const newEntry of newEntries) {
+                                console.log(`🔍 Sprawdzam wpis: "${newEntry.speaker}": "${newEntry.text.substring(0, 50)}..."`);
+                                
+                                const existingIndex = transcriptData.entries.findIndex(e => 
+                                    (e.speaker === newEntry.speaker && e.timestamp === newEntry.timestamp) ||
+                                    (e.speaker === newEntry.speaker && e.text === newEntry.text)
+                                );
+                                
+                                if (existingIndex >= 0) {
+                                    // Aktualizuj istniejący wpis jeśli tekst się zmienił
+                                    if (transcriptData.entries[existingIndex].text !== newEntry.text) {
+                                        console.log(`🔄 Aktualizuję istniejący wpis #${existingIndex}`);
+                                        transcriptData.entries[existingIndex].text = newEntry.text;
+                                        transcriptData.entries[existingIndex].timestamp = newEntry.timestamp;
+                                        hasChanges = true;
+                                    } else {
+                                        console.log(`⚫ Wpis #${existingIndex} bez zmian`);
+                                    }
+                                } else {
+                                    // Sprawdź czy to kontynuacja ostatniego wpisu tej samej osoby
+                                    const lastEntry = transcriptData.entries[transcriptData.entries.length - 1];
+                                    if (lastEntry && lastEntry.speaker === newEntry.speaker && 
+                                        !lastEntry.timestamp && !newEntry.timestamp) {
+                                        // Aktualizuj ostatni wpis zamiast dodawać nowy
+                                        console.log(`🔄 Aktualizuję kontynuację ostatniego wpisu: "${lastEntry.speaker}"`);
+                                        lastEntry.text = newEntry.text;
+                                        lastEntry.timestamp = newEntry.timestamp;
+                                        hasChanges = true;
+                                    } else {
+                                        // Dodaj nowy wpis
+                                        console.log(`➕ Dodaję nowy wpis: "${newEntry.speaker}"`);
+                                        transcriptData.entries.push(newEntry);
+                                        hasChanges = true;
+                                    }
+                                }
+                            }
+                            
+                            if (hasChanges) {
                                 transcriptData.scrapedAt = response.data.scrapedAt;
                                 
                                 // Animacja dla nowych wpisów
-                                const currentCount = document.querySelectorAll('.transcript-entry').length;
                                 displayTranscript(transcriptData);
                                 
                                 // Przewiń do nowych wpisów
@@ -303,7 +335,7 @@ function downloadFile(content, filename, mimeType) {
         url: url,
         filename: filename,
         saveAs: true
-    }, (downloadId) => {
+    }, () => {
         // Zwolnij URL po pobraniu
         setTimeout(() => URL.revokeObjectURL(url), 1000);
     });
