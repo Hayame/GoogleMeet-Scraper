@@ -6,6 +6,7 @@ let sessionHistory = [];
 let recordingStartTime = null;
 let durationTimer = null;
 let expandedEntries = new Set(); // Track which entries are expanded
+let sessionTotalDuration = 0; // Track total session duration across pauses
 
 document.addEventListener('DOMContentLoaded', function() {
     // Debug: Sprawdź rzeczywiste wymiary
@@ -169,6 +170,21 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!currentSessionId) {
             currentSessionId = generateSessionId();
             chrome.storage.local.set({ currentSessionId: currentSessionId });
+            
+            // Create initial session entry in history
+            const initialSession = {
+                id: currentSessionId,
+                title: generateSessionTitle(),
+                date: new Date().toISOString(),
+                participantCount: 0,
+                entryCount: 0,
+                transcript: { entries: [] }
+            };
+            
+            sessionHistory.unshift(initialSession);
+            chrome.storage.local.set({ sessionHistory: sessionHistory }, () => {
+                renderSessionHistory();
+            });
         }
         
         // Zapisz stan
@@ -204,18 +220,25 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function deactivateRealtimeMode(saveSession = true) {
+    function deactivateRealtimeMode() {
         console.log('Deactivating realtime mode');
         realtimeMode = false;
         realtimeBtn.classList.remove('active');
         document.querySelector('.record-text').textContent = 'Rozpocznij nagrywanie';
         updateStatus('Nagrywanie zatrzymane', 'success');
         
+        // Add current session duration to total
+        if (recordingStartTime) {
+            const now = new Date();
+            const currentSessionDuration = Math.floor((now - recordingStartTime) / 1000);
+            sessionTotalDuration += currentSessionDuration;
+        }
+        
         // Stop duration timer
         stopDurationTimer();
         
-        // Save current session to history if there's data
-        if (saveSession && transcriptData && transcriptData.entries.length > 0) {
+        // Always save session when stopping recording
+        if (transcriptData && transcriptData.entries.length > 0) {
             saveCurrentSessionToHistory();
         }
         
@@ -324,6 +347,9 @@ document.addEventListener('DOMContentLoaded', function() {
                                 const preview = document.getElementById('transcriptContent');
                                 preview.scrollTop = preview.scrollHeight;
                                 
+                                // Auto-save session to history on every update
+                                autoSaveCurrentSession();
+                                
                                 updateStatus(`Nagrywanie... (${transcriptData.entries.length} wpisów)`, 'info');
                                                 }
                         }
@@ -408,6 +434,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     preview.scrollTop = preview.scrollHeight;
                 }
                 
+                // Auto-save session to history on every update
+                autoSaveCurrentSession();
+                
                 updateStatus(`Nagrywanie w tle... (${transcriptData.entries.length} wpisów)`, 'info');
             }
         }
@@ -423,20 +452,10 @@ document.addEventListener('DOMContentLoaded', function() {
         clearBtn.addEventListener('click', () => {
             console.log('Clear button clicked');
             
-            let confirmMessage = 'Czy na pewno chcesz wyczyścić całą transkrypcję?';
-            if (realtimeMode) {
-                confirmMessage = 'Nagrywanie jest aktywne. Czy na pewno chcesz wyczyścić całą transkrypcję?\n\nNagrywanie zostanie zatrzymane i sesja zostanie zapisana.';
-            }
-            
-            if (confirm(confirmMessage)) {
-                // If recording is active, stop it and save session
+            if (confirm('Czy na pewno chcesz wyczyścić całą transkrypcję?')) {
+                // Stop recording if active (auto-save will handle the session)
                 if (realtimeMode) {
-                    deactivateRealtimeMode(true); // This will save the session
-                } else {
-                    // Save current session before clearing if it has data
-                    if (transcriptData && transcriptData.entries.length > 0) {
-                        saveCurrentSessionToHistory();
-                    }
+                    deactivateRealtimeMode();
                 }
                 
                 transcriptData = null;
@@ -727,12 +746,15 @@ function updateDurationDisplay() {
     
     if (recordingStartTime) {
         const now = new Date();
-        const duration = Math.floor((now - recordingStartTime) / 1000);
-        const minutes = Math.floor(duration / 60);
-        const seconds = duration % 60;
+        const currentSessionDuration = Math.floor((now - recordingStartTime) / 1000);
+        const totalDuration = sessionTotalDuration + currentSessionDuration;
+        const minutes = Math.floor(totalDuration / 60);
+        const seconds = totalDuration % 60;
         durationSpan.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     } else {
-        durationSpan.textContent = '00:00';
+        const minutes = Math.floor(sessionTotalDuration / 60);
+        const seconds = sessionTotalDuration % 60;
+        durationSpan.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     }
 }
 
@@ -832,65 +854,15 @@ function initializeSessionHistory() {
 function createNewSession() {
     console.log('Creating new session');
     
-    // Check if recording is active
+    // Stop recording if active (auto-save will handle the session)
     if (realtimeMode) {
-        // Recording is active, need to handle it properly
-        handleRecordingSessionSwitch();
-        return;
+        deactivateRealtimeMode();
     }
     
-    // Not recording, check if we have data to save
-    if (transcriptData && transcriptData.entries.length > 0) {
-        if (confirm('Czy chcesz zapisać bieżącą sesję przed utworzeniem nowej?')) {
-            saveCurrentSessionToHistory();
-        }
-    }
-    
-    // Create new session
+    // Create new session (no need to ask about saving - auto-save handles it)
     performNewSessionCreation();
 }
 
-function handleRecordingSessionSwitch() {
-    console.log('Handling session switch while recording');
-    
-    const message = `Nagrywanie jest aktywne. Co chcesz zrobić?\n\n` +
-                   `• Zatrzymaj nagrywanie i zapisz sesję\n` +
-                   `• Zatrzymaj nagrywanie bez zapisywania\n` +
-                   `• Anuluj`;
-    
-    const options = ['Zapisz i zatrzymaj', 'Zatrzymaj bez zapisu', 'Anuluj'];
-    const choice = showCustomDialog(message, options);
-    
-    if (choice === 0) {
-        // Save and stop recording
-        console.log('User chose to save and stop recording');
-        deactivateRealtimeMode(true); // This will save the session
-        performNewSessionCreation();
-    } else if (choice === 1) {
-        // Stop recording without saving
-        console.log('User chose to stop recording without saving');
-        deactivateRealtimeMode(false); // Don't save the session
-        performNewSessionCreation();
-    } else {
-        // Cancel - do nothing
-        console.log('User cancelled session switch');
-        return;
-    }
-}
-
-function showCustomDialog(message, options) {
-    // For now, use a simple confirm dialog
-    // In a full implementation, this could be a custom modal
-    const result = confirm(message + '\n\nKliknij OK aby zapisać i zatrzymać, Anuluj aby zatrzymać bez zapisu.');
-    
-    if (result) {
-        return 0; // Save and stop
-    } else {
-        // Ask again for cancel vs stop without saving
-        const stopWithoutSaving = confirm('Czy chcesz zatrzymać nagrywanie bez zapisywania?\n\nKliknij OK aby zatrzymać bez zapisu, Anuluj aby anulować całą akcję.');
-        return stopWithoutSaving ? 1 : 2; // 1 = stop without saving, 2 = cancel
-    }
-}
 
 function performNewSessionCreation() {
     console.log('Performing new session creation');
@@ -899,6 +871,7 @@ function performNewSessionCreation() {
     transcriptData = null;
     currentSessionId = generateSessionId();
     recordingStartTime = null;
+    sessionTotalDuration = 0; // Reset total duration for new session
     
     // Stop any existing timer
     stopDurationTimer();
@@ -923,6 +896,53 @@ function performNewSessionCreation() {
     console.log('New session created with ID:', currentSessionId);
 }
 
+function autoSaveCurrentSession() {
+    if (!transcriptData || transcriptData.entries.length === 0) {
+        return;
+    }
+    
+    const sessionId = currentSessionId || generateSessionId();
+    const uniqueParticipants = new Set(transcriptData.entries.map(e => e.speaker)).size;
+    
+    // Check if session already exists and preserve its original date
+    const existingIndex = sessionHistory.findIndex(s => s.id === sessionId);
+    const originalDate = existingIndex >= 0 ? sessionHistory[existingIndex].date : new Date().toISOString();
+    
+    // Calculate current total duration
+    let currentTotalDuration = sessionTotalDuration;
+    if (recordingStartTime) {
+        const now = new Date();
+        const currentSessionDuration = Math.floor((now - recordingStartTime) / 1000);
+        currentTotalDuration += currentSessionDuration;
+    }
+    
+    const session = {
+        id: sessionId,
+        title: generateSessionTitle(),
+        date: originalDate, // Preserve original date or set new one
+        participantCount: uniqueParticipants,
+        entryCount: transcriptData.entries.length,
+        transcript: transcriptData,
+        totalDuration: currentTotalDuration
+    };
+    
+    if (existingIndex >= 0) {
+        sessionHistory[existingIndex] = session;
+    } else {
+        sessionHistory.unshift(session);
+    }
+    
+    // Limit history to 50 sessions
+    if (sessionHistory.length > 50) {
+        sessionHistory = sessionHistory.slice(0, 50);
+    }
+    
+    // Save to storage silently (no status message)
+    chrome.storage.local.set({ sessionHistory: sessionHistory }, () => {
+        renderSessionHistory();
+    });
+}
+
 function saveCurrentSessionToHistory() {
     if (!transcriptData || transcriptData.entries.length === 0) {
         console.log('No transcript data to save');
@@ -932,13 +952,22 @@ function saveCurrentSessionToHistory() {
     const sessionId = currentSessionId || generateSessionId();
     const uniqueParticipants = new Set(transcriptData.entries.map(e => e.speaker)).size;
     
+    // Calculate current total duration
+    let currentTotalDuration = sessionTotalDuration;
+    if (recordingStartTime) {
+        const now = new Date();
+        const currentSessionDuration = Math.floor((now - recordingStartTime) / 1000);
+        currentTotalDuration += currentSessionDuration;
+    }
+    
     const session = {
         id: sessionId,
         title: generateSessionTitle(),
         date: new Date().toISOString(),
         participantCount: uniqueParticipants,
         entryCount: transcriptData.entries.length,
-        transcript: transcriptData
+        transcript: transcriptData,
+        totalDuration: currentTotalDuration
     };
     
     console.log('Saving session to history:', session.title);
@@ -978,23 +1007,16 @@ function loadSessionFromHistory(sessionId) {
         return;
     }
     
-    // Handle recording state if active
+    // Stop recording if active (auto-save will handle the session)
     if (realtimeMode) {
-        const shouldSave = confirm('Nagrywanie jest aktywne. Czy chcesz zapisać bieżącą sesję przed wczytaniem historycznej?\n\nNagrywanie zostanie zatrzymane.');
-        deactivateRealtimeMode(shouldSave);
-    } else {
-        // Save current session if it has unsaved data
-        if (transcriptData && transcriptData.entries.length > 0 && currentSessionId !== sessionId) {
-            if (confirm('Czy chcesz zapisać bieżącą sesję przed wczytaniem historycznej?')) {
-                saveCurrentSessionToHistory();
-            }
-        }
+        deactivateRealtimeMode();
     }
     
     // Load the session
     transcriptData = session.transcript;
     currentSessionId = session.id;
     recordingStartTime = null; // Historic sessions don't have active recording
+    sessionTotalDuration = session.totalDuration || 0; // Load total duration
     
     // Stop any existing timer and ensure recording is stopped
     stopDurationTimer();
