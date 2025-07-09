@@ -44,18 +44,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Theme toggle functionality
     initializeTheme();
-    
-    if (themeToggle) {
-        themeToggle.addEventListener('click', toggleTheme);
-    }
 
     console.log('Popup loaded');
 
     // Initialize session history
     initializeSessionHistory();
     
-    // Initialize theme toggle
-    initializeThemeToggle();
+    // Theme toggle is initialized in initializeTheme()
     
     // Initialize enhanced interactions
     initializeEnhancedInteractions();
@@ -427,17 +422,31 @@ function updateStats(data) {
 }
 
 function downloadFile(content, filename, mimeType) {
-    const blob = new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
+    console.log('Downloading file:', filename, 'Type:', mimeType);
     
-    chrome.downloads.download({
-        url: url,
-        filename: filename,
-        saveAs: true
-    }, () => {
-        // Zwolnij URL po pobraniu
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-    });
+    try {
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        
+        chrome.downloads.download({
+            url: url,
+            filename: filename,
+            saveAs: true
+        }, (downloadId) => {
+            if (chrome.runtime.lastError) {
+                console.error('Download error:', chrome.runtime.lastError);
+                updateStatus('Błąd podczas pobierania pliku', 'error');
+            } else {
+                console.log('Download started with ID:', downloadId);
+            }
+            
+            // Zwolnij URL po pobraniu
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        });
+    } catch (error) {
+        console.error('Error creating download:', error);
+        updateStatus('Błąd podczas tworzenia pliku', 'error');
+    }
 }
 
 // Session History Management Functions
@@ -452,20 +461,30 @@ function generateSessionTitle() {
 }
 
 function initializeSessionHistory() {
+    console.log('Initializing session history');
+    
     // Load session history from storage
     chrome.storage.local.get(['sessionHistory'], (result) => {
         sessionHistory = result.sessionHistory || [];
+        console.log('Loaded session history:', sessionHistory.length, 'sessions');
         renderSessionHistory();
     });
     
     // Add event listeners for history UI
     const newSessionBtn = document.getElementById('newSessionBtn');
     if (newSessionBtn) {
+        // Remove existing event listeners to prevent duplicates
+        newSessionBtn.removeEventListener('click', createNewSession);
         newSessionBtn.addEventListener('click', createNewSession);
+        console.log('New session button event listener added');
+    } else {
+        console.error('New session button not found');
     }
 }
 
 function createNewSession() {
+    console.log('Creating new session');
+    
     // Save current session if it has data
     if (transcriptData && transcriptData.entries.length > 0) {
         if (confirm('Czy chcesz zapisać bieżącą sesję przed utworzeniem nowej?')) {
@@ -478,17 +497,25 @@ function createNewSession() {
     currentSessionId = generateSessionId();
     displayTranscript({ entries: [] });
     updateStats({ entries: [] });
-    document.getElementById('exportTxtBtn').disabled = true;
+    
+    const exportTxtBtn = document.getElementById('exportTxtBtn');
+    if (exportTxtBtn) {
+        exportTxtBtn.disabled = true;
+    }
+    
     hideFloatingActionPanel();
     
     // Save new session ID
     chrome.storage.local.set({ currentSessionId: currentSessionId });
     
     updateStatus('Utworzono nową sesję', 'success');
+    
+    console.log('New session created with ID:', currentSessionId);
 }
 
 function saveCurrentSessionToHistory() {
     if (!transcriptData || transcriptData.entries.length === 0) {
+        console.log('No transcript data to save');
         return;
     }
     
@@ -504,30 +531,39 @@ function saveCurrentSessionToHistory() {
         transcript: transcriptData
     };
     
+    console.log('Saving session to history:', session.title);
+    
     // Check if session already exists and update it
     const existingIndex = sessionHistory.findIndex(s => s.id === sessionId);
     if (existingIndex >= 0) {
         sessionHistory[existingIndex] = session;
+        console.log('Updated existing session at index:', existingIndex);
     } else {
         // Add new session at the beginning
         sessionHistory.unshift(session);
+        console.log('Added new session to history');
     }
     
     // Limit history to 50 sessions
     if (sessionHistory.length > 50) {
         sessionHistory = sessionHistory.slice(0, 50);
+        console.log('Trimmed history to 50 sessions');
     }
     
     // Save to storage
     chrome.storage.local.set({ sessionHistory: sessionHistory }, () => {
         renderSessionHistory();
         updateStatus('Sesja zapisana w historii', 'success');
+        console.log('Session saved to storage');
     });
 }
 
 function loadSessionFromHistory(sessionId) {
+    console.log('Loading session from history:', sessionId);
+    
     const session = sessionHistory.find(s => s.id === sessionId);
     if (!session) {
+        console.error('Session not found:', sessionId);
         updateStatus('Nie znaleziono sesji', 'error');
         return;
     }
@@ -544,7 +580,12 @@ function loadSessionFromHistory(sessionId) {
     currentSessionId = session.id;
     displayTranscript(transcriptData);
     updateStats(transcriptData);
-    document.getElementById('exportTxtBtn').disabled = false;
+    
+    const exportTxtBtn = document.getElementById('exportTxtBtn');
+    if (exportTxtBtn) {
+        exportTxtBtn.disabled = false;
+    }
+    
     showFloatingActionPanel();
     
     // Update storage
@@ -554,6 +595,7 @@ function loadSessionFromHistory(sessionId) {
     });
     
     updateStatus(`Wczytano sesję: ${session.title}`, 'success');
+    console.log('Session loaded successfully:', session.title);
 }
 
 function deleteSessionFromHistory(sessionId, event) {
@@ -563,8 +605,13 @@ function deleteSessionFromHistory(sessionId, event) {
 }
 
 function renderSessionHistory() {
+    console.log('Rendering session history:', sessionHistory.length, 'sessions');
+    
     const historyContainer = document.getElementById('sessionList');
-    if (!historyContainer) return;
+    if (!historyContainer) {
+        console.error('Session list container not found');
+        return;
+    }
     
     historyContainer.innerHTML = '';
     
@@ -610,6 +657,8 @@ function renderSessionHistory() {
         
         historyContainer.appendChild(sessionDiv);
     });
+    
+    console.log('Session history rendered successfully');
     
     // Reinitialize enhanced interactions for session items
     reinitializeEnhancedInteractions();
@@ -764,27 +813,82 @@ function reinitializeEnhancedInteractions() {
 }
 
 // Theme toggle functionality
-function initializeThemeToggle() {
+function initializeTheme() {
     const themeToggle = document.getElementById('themeToggle');
     
     // Load saved theme
     chrome.storage.local.get(['theme'], (result) => {
-        const theme = result.theme || 'light';
-        document.documentElement.setAttribute('data-theme', theme);
+        try {
+            const theme = result.theme || 'light';
+            document.documentElement.setAttribute('data-theme', theme);
+            updateThemeToggleIcon(theme);
+            updateThemeToggleTitle(theme);
+        } catch (error) {
+            console.error('Error initializing theme:', error);
+            // Fallback to light theme
+            document.documentElement.setAttribute('data-theme', 'light');
+            updateThemeToggleIcon('light');
+            updateThemeToggleTitle('light');
+        }
     });
     
     // Theme toggle click handler
-    themeToggle.addEventListener('click', () => {
-        const currentTheme = document.documentElement.getAttribute('data-theme');
-        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-        
-        document.documentElement.setAttribute('data-theme', newTheme);
-        chrome.storage.local.set({ theme: newTheme });
-    });
+    if (themeToggle) {
+        themeToggle.addEventListener('click', toggleTheme);
+    }
+}
+
+function toggleTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    
+    // Add a brief visual feedback
+    const themeToggle = document.getElementById('themeToggle');
+    if (themeToggle) {
+        themeToggle.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+            themeToggle.style.transform = '';
+        }, 150);
+    }
+    
+    document.documentElement.setAttribute('data-theme', newTheme);
+    updateThemeToggleIcon(newTheme);
+    updateThemeToggleTitle(newTheme);
+    chrome.storage.local.set({ theme: newTheme });
+    
+    // Brief status update to show theme change
+    updateStatus(`Przełączono na ${newTheme === 'dark' ? 'ciemny' : 'jasny'} motyw`, 'info');
+    setTimeout(() => {
+        updateStatus('Gotowy do nagrywania', '');
+    }, 1500);
+}
+
+function updateThemeToggleIcon(theme) {
+    const lightIcon = document.querySelector('.theme-icon-light');
+    const darkIcon = document.querySelector('.theme-icon-dark');
+    
+    if (lightIcon && darkIcon) {
+        if (theme === 'dark') {
+            lightIcon.style.display = 'none';
+            darkIcon.style.display = 'block';
+        } else {
+            lightIcon.style.display = 'block';
+            darkIcon.style.display = 'none';
+        }
+    }
+}
+
+function updateThemeToggleTitle(theme) {
+    const themeToggle = document.getElementById('themeToggle');
+    if (themeToggle) {
+        themeToggle.setAttribute('title', theme === 'dark' ? 'Przełącz na jasny motyw' : 'Przełącz na ciemny motyw');
+    }
 }
 
 // Modal System Functions
 function initializeModalSystem() {
+    console.log('Initializing modal system');
+    
     // ESC key handler
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
@@ -801,13 +905,17 @@ function initializeModalSystem() {
     // Initialize confirm modal
     initializeConfirmModal();
     
-    // Initialize export modal enhancements
+    // Initialize export modal with proper event handlers
     initializeExportModal();
 }
 
 function showModal(modalId, data = {}) {
+    console.log('Showing modal:', modalId);
     const modal = document.getElementById(modalId);
-    if (!modal) return;
+    if (!modal) {
+        console.error('Modal not found:', modalId);
+        return;
+    }
     
     // Populate modal with data if provided
     if (data.title) {
@@ -822,14 +930,18 @@ function showModal(modalId, data = {}) {
     
     // Show modal with animation
     modal.style.display = 'flex';
-    requestAnimationFrame(() => {
-        modal.classList.add('show');
-    });
+    // Force reflow
+    modal.offsetHeight;
+    modal.classList.add('show');
 }
 
 function hideModal(modalId) {
+    console.log('Hiding modal:', modalId);
     const modal = document.getElementById(modalId);
-    if (!modal) return;
+    if (!modal) {
+        console.error('Modal not found:', modalId);
+        return;
+    }
     
     // Hide modal with animation
     modal.classList.remove('show');
@@ -886,6 +998,8 @@ function showDeleteConfirmation(sessionId) {
 }
 
 function performDeleteSession(sessionId) {
+    console.log('Deleting session:', sessionId);
+    
     sessionHistory = sessionHistory.filter(s => s.id !== sessionId);
     
     // If deleting current session, clear it
@@ -894,35 +1008,68 @@ function performDeleteSession(sessionId) {
         currentSessionId = null;
         displayTranscript({ entries: [] });
         updateStats({ entries: [] });
-        document.getElementById('exportTxtBtn').disabled = true;
+        
+        const exportTxtBtn = document.getElementById('exportTxtBtn');
+        if (exportTxtBtn) {
+            exportTxtBtn.disabled = true;
+        }
+        
         hideFloatingActionPanel();
         chrome.storage.local.remove(['transcriptData', 'currentSessionId']);
+        console.log('Cleared current session data');
     }
     
     // Save updated history
     chrome.storage.local.set({ sessionHistory: sessionHistory }, () => {
         renderSessionHistory();
         updateStatus('Sesja usunięta', 'success');
+        console.log('Session deleted successfully');
     });
 }
 
 function showResumeOptions() {
+    console.log('Showing resume options');
+    
     const resumeModal = document.getElementById('resumeRecordingModal');
     const resumeCancel = document.getElementById('resumeCancel');
+    
+    if (!resumeModal) {
+        console.error('Resume modal not found');
+        return;
+    }
     
     showModal('resumeRecordingModal');
     
     // Set up cancel handler
-    resumeCancel.addEventListener('click', () => {
-        hideModal('resumeRecordingModal');
-    });
+    if (resumeCancel) {
+        // Remove existing listeners to prevent duplicates
+        resumeCancel.removeEventListener('click', hideResumeModal);
+        resumeCancel.addEventListener('click', hideResumeModal);
+        console.log('Resume cancel handler added');
+    } else {
+        console.error('Resume cancel button not found');
+    }
+}
+
+function hideResumeModal() {
+    console.log('Hiding resume modal');
+    hideModal('resumeRecordingModal');
 }
 
 function initializeResumeRecordingModal() {
+    console.log('Initializing resume recording modal');
+    
     const resumeOptions = document.querySelectorAll('.resume-option');
+    
+    if (resumeOptions.length === 0) {
+        console.error('No resume options found');
+        return;
+    }
     
     resumeOptions.forEach(option => {
         option.addEventListener('click', () => {
+            console.log('Resume option clicked:', option.getAttribute('data-action'));
+            
             // Remove selection from all options
             resumeOptions.forEach(opt => opt.classList.remove('selected'));
             // Add selection to clicked option
@@ -935,9 +1082,11 @@ function initializeResumeRecordingModal() {
                 
                 if (action === 'continue') {
                     // Continue current session
+                    console.log('Continuing current session');
                     activateRealtimeMode();
                 } else if (action === 'new') {
                     // Start new session
+                    console.log('Starting new session');
                     saveCurrentSessionToHistory();
                     transcriptData = null;
                     currentSessionId = generateSessionId();
@@ -949,89 +1098,56 @@ function initializeResumeRecordingModal() {
             }, 300);
         });
     });
+    
+    console.log('Resume recording modal initialized with', resumeOptions.length, 'options');
 }
 
 function initializeConfirmModal() {
+    console.log('Initializing confirm modal');
+    
     const confirmCancel = document.getElementById('confirmCancel');
     const confirmOk = document.getElementById('confirmOk');
     
-    confirmCancel.addEventListener('click', () => {
-        hideModal('confirmModal');
-    });
+    if (confirmCancel) {
+        confirmCancel.addEventListener('click', () => {
+            console.log('Confirm cancel clicked');
+            hideModal('confirmModal');
+        });
+        console.log('Confirm cancel handler added');
+    } else {
+        console.error('Confirm cancel button not found');
+    }
+    
+    if (confirmOk) {
+        console.log('Confirm OK button found');
+    } else {
+        console.error('Confirm OK button not found');
+    }
 }
 
 function initializeExportModal() {
-    const exportModal = document.getElementById('exportModal');
-    const exportTxtBtn = document.getElementById('exportTxtBtn');
-    const exportJsonBtn = document.getElementById('exportJsonBtn');
+    console.log('Initializing export modal');
     
-    // Add filename input and preview to export modal
-    const modalBody = exportModal.querySelector('.modal-body');
-    
-    // Create enhanced export UI
-    const exportEnhancedUI = document.createElement('div');
-    exportEnhancedUI.innerHTML = `
-        <div class="export-format-selection">
-            <label class="export-format-label">Wybierz format eksportu:</label>
-            <div class="export-options">
-                <button id="exportTxtBtn" class="export-option">
-                    <svg width="32" height="32" viewBox="0 0 24 24">
-                        <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
-                    </svg>
-                    <span>Eksportuj jako TXT</span>
-                </button>
-                <button id="exportJsonBtn" class="export-option">
-                    <svg width="32" height="32" viewBox="0 0 24 24">
-                        <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
-                    </svg>
-                    <span>Eksportuj jako JSON</span>
-                </button>
-            </div>
-        </div>
-        
-        <div class="export-filename-section" style="margin-top: 20px;">
-            <label class="export-format-label">Nazwa pliku:</label>
-            <input type="text" id="exportFilename" class="export-filename" value="transkrypcja-google-meet">
-        </div>
-        
-        <div class="export-preview-section" style="margin-top: 20px;">
-            <label class="export-format-label">Podgląd:</label>
-            <div id="exportPreview" class="export-preview">
-                <pre>Wybierz format eksportu, aby zobaczyć podgląd</pre>
-            </div>
-        </div>
-    `;
-    
-    // Replace the existing export options
-    const existingOptions = modalBody.querySelector('.export-options');
-    if (existingOptions) {
-        existingOptions.replaceWith(exportEnhancedUI);
-    } else {
-        modalBody.appendChild(exportEnhancedUI);
-    }
-    
-    // Re-attach event listeners for the new buttons
+    // Set up export button handlers directly on existing buttons
     setupExportButtonHandlers();
 }
 
 function setupExportButtonHandlers() {
+    console.log('Setting up export button handlers');
+    
     const exportTxtBtn = document.getElementById('exportTxtBtn');
     const exportJsonBtn = document.getElementById('exportJsonBtn');
-    const exportFilename = document.getElementById('exportFilename');
-    const exportPreview = document.getElementById('exportPreview');
     
     if (exportTxtBtn) {
         exportTxtBtn.addEventListener('click', () => {
-            if (!transcriptData) return;
+            console.log('Export TXT button clicked');
+            if (!transcriptData) {
+                updateStatus('Brak danych do eksportu', 'error');
+                return;
+            }
             
-            const filename = exportFilename.value || 'transkrypcja-google-meet';
             const txtContent = generateTxtContent();
-            
-            // Show preview
-            exportPreview.innerHTML = `<pre>${txtContent.substring(0, 500)}...</pre>`;
-            
-            // Download file
-            downloadFile(txtContent, `${filename}.txt`, 'text/plain');
+            downloadFile(txtContent, 'transkrypcja-google-meet.txt', 'text/plain');
             updateStatus('Wyeksportowano do pliku TXT!', 'success');
             hideModal('exportModal');
         });
@@ -1039,26 +1155,33 @@ function setupExportButtonHandlers() {
     
     if (exportJsonBtn) {
         exportJsonBtn.addEventListener('click', () => {
-            if (!transcriptData) return;
+            console.log('Export JSON button clicked');
+            if (!transcriptData) {
+                updateStatus('Brak danych do eksportu', 'error');
+                return;
+            }
             
-            const filename = exportFilename.value || 'transkrypcja-google-meet';
             const jsonContent = generateJsonContent();
-            
-            // Show preview
-            exportPreview.innerHTML = `<pre>${JSON.stringify(JSON.parse(jsonContent), null, 2).substring(0, 500)}...</pre>`;
-            
-            // Download file
-            downloadFile(jsonContent, `${filename}.json`, 'application/json');
+            downloadFile(jsonContent, 'transkrypcja-google-meet.json', 'application/json');
             updateStatus('Wyeksportowano do pliku JSON!', 'success');
             hideModal('exportModal');
         });
+    } else {
+        console.error('Export buttons not found');
     }
 }
 
 function generateTxtContent() {
+    console.log('Generating TXT content');
+    
+    if (!transcriptData || !transcriptData.entries) {
+        console.error('No transcript data available');
+        return '';
+    }
+    
     let txtContent = `Transkrypcja Google Meet\n`;
     txtContent += `Data eksportu: ${new Date().toLocaleString('pl-PL')}\n`;
-    txtContent += `URL spotkania: ${transcriptData.meetingUrl}\n`;
+    txtContent += `URL spotkania: ${transcriptData.meetingUrl || 'Nieznany'}\n`;
     txtContent += `=====================================\n\n`;
 
     transcriptData.entries.forEach(entry => {
@@ -1069,13 +1192,21 @@ function generateTxtContent() {
         txtContent += `:\n${entry.text}\n\n`;
     });
 
+    console.log('TXT content generated, length:', txtContent.length);
     return txtContent;
 }
 
 function generateJsonContent() {
+    console.log('Generating JSON content');
+    
+    if (!transcriptData || !transcriptData.entries) {
+        console.error('No transcript data available');
+        return '{}';
+    }
+    
     const jsonData = {
         exportDate: new Date().toISOString(),
-        meetingUrl: transcriptData.meetingUrl,
+        meetingUrl: transcriptData.meetingUrl || 'Nieznany',
         scrapedAt: transcriptData.scrapedAt,
         entries: transcriptData.entries,
         stats: {
@@ -1084,23 +1215,32 @@ function generateJsonContent() {
         }
     };
 
-    return JSON.stringify(jsonData, null, 2);
+    const jsonContent = JSON.stringify(jsonData, null, 2);
+    console.log('JSON content generated, length:', jsonContent.length);
+    return jsonContent;
 }
 
 // Setup floating action panel handlers
 function setupFloatingActionPanelHandlers() {
+    console.log('Setting up floating action panel handlers');
+    
     const floatingExportBtn = document.getElementById('floatingExportBtn');
     const floatingClearBtn = document.getElementById('floatingClearBtn');
     
     if (floatingExportBtn) {
         floatingExportBtn.addEventListener('click', () => {
+            console.log('Floating export button clicked');
             addButtonLoadingState(floatingExportBtn);
             showModal('exportModal');
         });
+        console.log('Floating export button handler added');
+    } else {
+        console.error('Floating export button not found');
     }
     
     if (floatingClearBtn) {
         floatingClearBtn.addEventListener('click', () => {
+            console.log('Floating clear button clicked');
             if (confirm('Czy na pewno chcesz wyczyścić całą transkrypcję?')) {
                 addButtonLoadingState(floatingClearBtn);
                 
@@ -1126,6 +1266,9 @@ function setupFloatingActionPanelHandlers() {
                 }
             }
         });
+        console.log('Floating clear button handler added');
+    } else {
+        console.error('Floating clear button not found');
     }
 }
 

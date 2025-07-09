@@ -200,22 +200,44 @@ body {
     height: 20px;
     stroke: currentColor;
     transition: var(--transition-fast);
+    transform: scale(1);
 }
 
 .theme-icon-light {
     display: block;
+    transform: rotate(0deg);
 }
 
 .theme-icon-dark {
     display: none;
+    transform: rotate(180deg);
 }
 
+/* CSS fallback for theme icons */
 [data-theme="dark"] .theme-icon-light {
-    display: none;
+    display: none !important;
 }
 
 [data-theme="dark"] .theme-icon-dark {
-    display: block;
+    display: block !important;
+}
+
+/* Theme toggle animation */
+.theme-toggle .theme-icon {
+    transition: transform 0.3s ease, opacity 0.2s ease;
+}
+
+.theme-toggle:hover .theme-icon {
+    transform: scale(1.1) rotate(15deg);
+}
+
+.theme-toggle:active .theme-icon {
+    transform: scale(0.9);
+}
+
+/* Enhanced theme transition for all elements */
+*, *::before, *::after {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 /* Main Content */
