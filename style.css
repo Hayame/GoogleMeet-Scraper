@@ -361,11 +361,14 @@ body {
     font-weight: 600;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
     transition: all 0.2s ease;
     position: relative;
     overflow: hidden;
     min-height: 40px;
+    width: 180px;
+    max-width: 180px;
     letter-spacing: 0.02em;
     box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
 }

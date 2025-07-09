@@ -98,6 +98,18 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize enhanced interactions
     initializeEnhancedInteractions();
     
+    // Listen for background scan updates
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+        console.log('📨 Popup received message:', request);
+        
+        if (request.action === 'backgroundScanUpdate') {
+            console.log('🔄 Background scan update received');
+            handleBackgroundScanUpdate(request.data);
+        }
+        
+        return true;
+    });
+    
     // Setup floating action panel handlers
     setupFloatingActionPanelHandlers();
     
@@ -132,12 +144,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    function activateRealtimeMode() {
+    async function activateRealtimeMode() {
         console.log('Activating realtime mode');
         realtimeMode = true;
         realtimeBtn.classList.add('active');
         document.querySelector('.record-text').textContent = 'Zatrzymaj nagrywanie';
-        updateStatus('Nagrywanie aktywne - automatyczne pobieranie co 2 sekundy', 'info');
+        updateStatus('Nagrywanie aktywne - skanowanie w tle', 'info');
         showFloatingActionPanel();
         
         // Create new session if none exists
@@ -149,11 +161,34 @@ document.addEventListener('DOMContentLoaded', function() {
         // Zapisz stan
         chrome.storage.local.set({ realtimeMode: true });
         
-        // Natychmiastowe pierwsze pobranie
-        performRealtimeScrape();
-        
-        // Ustaw interwał pobierania co 2 sekundy
-        realtimeInterval = setInterval(performRealtimeScrape, 2000);
+        // Uruchom skanowanie w tle
+        try {
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (tab && tab.url.includes('meet.google.com')) {
+                // Rozpocznij skanowanie w tle
+                chrome.runtime.sendMessage({
+                    action: 'startBackgroundScanning',
+                    tabId: tab.id
+                }, (response) => {
+                    if (response && response.success) {
+                        console.log('✅ Background scanning started');
+                        updateStatus('Nagrywanie aktywne - skanowanie w tle', 'success');
+                    } else {
+                        console.error('❌ Failed to start background scanning');
+                        updateStatus('Błąd uruchomienia skanowania w tle', 'error');
+                    }
+                });
+                
+                // Natychmiastowe pierwsze pobranie
+                performRealtimeScrape();
+                
+                // Ustaw interwał pobierania co 2 sekundy (jako backup)
+                realtimeInterval = setInterval(performRealtimeScrape, 2000);
+            }
+        } catch (error) {
+            console.error('Error starting realtime mode:', error);
+            updateStatus('Błąd uruchomienia trybu rzeczywistego', 'error');
+        }
     }
 
     function deactivateRealtimeMode(saveSession = true) {
@@ -170,6 +205,17 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Zapisz stan
         chrome.storage.local.set({ realtimeMode: false });
+        
+        // Zatrzymaj skanowanie w tle
+        chrome.runtime.sendMessage({
+            action: 'stopBackgroundScanning'
+        }, (response) => {
+            if (response && response.success) {
+                console.log('✅ Background scanning stopped');
+            } else {
+                console.error('❌ Failed to stop background scanning');
+            }
+        });
         
         // Wyczyść interwał
         if (realtimeInterval) {
@@ -285,6 +331,77 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Realtime scrape error:', error);
             updateStatus('Błąd: ' + error.message, 'error');
         }
+    }
+
+    function handleBackgroundScanUpdate(data) {
+        console.log('🔄 Handling background scan update:', data);
+        
+        if (!data || !data.entries || data.entries.length === 0) {
+            console.log('⚠️ No entries in background scan update');
+            return;
+        }
+        
+        const exportTxtBtn = document.getElementById('exportTxtBtn');
+        
+        if (!transcriptData) {
+            transcriptData = data;
+            console.log('✅ Initialized transcript data from background scan');
+        } else {
+            // Merge new entries with existing ones
+            const newEntries = data.entries;
+            let hasChanges = false;
+            
+            console.log(`🔄 Processing ${newEntries.length} entries from background scan`);
+            
+            for (const newEntry of newEntries) {
+                const existingIndex = transcriptData.entries.findIndex(e => 
+                    (e.speaker === newEntry.speaker && e.timestamp === newEntry.timestamp) ||
+                    (e.speaker === newEntry.speaker && e.text === newEntry.text)
+                );
+                
+                if (existingIndex >= 0) {
+                    // Update existing entry if text changed
+                    if (transcriptData.entries[existingIndex].text !== newEntry.text) {
+                        console.log(`🔄 Updating existing entry #${existingIndex}`);
+                        transcriptData.entries[existingIndex].text = newEntry.text;
+                        transcriptData.entries[existingIndex].timestamp = newEntry.timestamp;
+                        hasChanges = true;
+                    }
+                } else {
+                    // Add new entry
+                    console.log(`➕ Adding new entry: "${newEntry.speaker}"`);
+                    transcriptData.entries.push(newEntry);
+                    hasChanges = true;
+                }
+            }
+            
+            if (hasChanges) {
+                transcriptData.scrapedAt = data.scrapedAt;
+                console.log('✅ Background scan brought new changes');
+            }
+        }
+        
+        // Update display
+        displayTranscript(transcriptData);
+        updateStats(transcriptData);
+        
+        if (exportTxtBtn) {
+            exportTxtBtn.disabled = false;
+        }
+        
+        // Scroll to bottom
+        const preview = document.getElementById('transcriptContent');
+        if (preview) {
+            preview.scrollTop = preview.scrollHeight;
+        }
+        
+        updateStatus(`Nagrywanie w tle... (${transcriptData.entries.length} wpisów)`, 'info');
+        showFloatingActionPanel();
+        
+        // Save to storage
+        chrome.storage.local.set({ transcriptData: transcriptData });
+        
+        console.log('🔄 Background scan update processed successfully');
     }
 
     // Wyczyść transkrypcję

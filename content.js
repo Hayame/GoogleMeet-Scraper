@@ -35,268 +35,70 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 function scrapeTranscript() {
     const entries = [];
     
-    // Szukamy różnych możliwych selektorów dla transkrypcji - bardziej specyficzne
-    const selectors = [
-        // Główny kontener transkrypcji - bardziej specyficzne selektory
-        '.a4cQT:not([role="menu"]):not([role="listbox"])', // Kontener transkrypcji, ale nie menu
-        '.yEicIe.VbkSUe:not([role="menu"]):not([role="listbox"])', // Bloki transkrypcji - oryginalny selektor
-        '.ygiCle.VbkSUe:not([role="menu"]):not([role="listbox"])', // Nowy selektor z obrazka
-        '[jscontroller="MZnM8e"]:not([role="menu"]):not([role="listbox"])', // Alternatywny selektor
-        '[jscontroller="bzaDVe"]:not([role="menu"]):not([role="listbox"])', // Kolejny możliwy selektor
-    ];
-    
-    let transcriptElements = null;
-    let usedSelector = null;
-    
-    // Próbuj znaleźć elementy transkrypcji używając różnych selektorów
-    for (const selector of selectors) {
-        const elements = document.querySelectorAll(selector);
-        if (elements.length > 0) {
-            transcriptElements = elements;
-            usedSelector = selector;
-            console.log(`🔍 Znaleziono transkrypcję używając selektora: ${selector}`);
-            console.log(`📊 Liczba znalezionych elementów: ${elements.length}`);
-            
-            // Debug: Sprawdź strukturę pierwszego elementu
-            if (elements.length > 0) {
-                console.log(`🔍 DOM struktura pierwszego elementu:`);
-                console.log(elements[0]);
-                console.log(`📄 innerHTML pierwszego elementu:`);
-                console.log(elements[0].innerHTML);
-                console.log(`📝 textContent pierwszego elementu:`);
-                console.log(elements[0].textContent);
-            }
-            break;
-        }
+    // Szukaj głównego kontenera transkrypcji
+    const mainContainer = document.querySelector('div[jscontroller="D1tHje"]');
+    if (!mainContainer) {
+        console.log('❌ Nie znaleziono głównego kontenera transkrypcji (jscontroller="D1tHje")');
+        return {
+            entries: [],
+            scrapedAt: new Date().toISOString(),
+            meetingUrl: window.location.href
+        };
     }
     
-    if (!transcriptElements || transcriptElements.length === 0) {
-        console.log(`\n⚠️ Nie znaleziono elementów przy użyciu podstawowych selektorów`);
-        
-        // Próba znalezienia po atrybutach jsname
-        transcriptElements = document.querySelectorAll('[jsname="hJNqvr"]');
-        console.log(`🔍 Spróba z [jsname="hJNqvr"]: ${transcriptElements.length} elementów`);
-        
-        if (transcriptElements.length === 0) {
-            console.log(`❌ Nie znaleziono żadnych elementów transkrypcji`);
-            
-            // Ostatnia próba - znajdź wszystkie elementy zawierające tekst
-            console.log(`🔍 Ostatnia próba - szukam wszystkich elementów z tekstem...`);
-            const allElements = document.querySelectorAll('*');
-            const potentialTranscriptElements = [];
-            
-            for (const element of allElements) {
-                const text = element.textContent?.trim();
-                if (text && text.length > 20 && text.length < 1000 && 
-                    !element.querySelector('*') && // Elementy liściowe
-                    isValidTranscriptText(text, '')) {
-                    potentialTranscriptElements.push(element);
-                }
-            }
-            
-            console.log(`🔍 Znaleziono ${potentialTranscriptElements.length} potencjalnych elementów`);
-            
-            if (potentialTranscriptElements.length === 0) {
-                return {
-                    entries: [],
-                    scrapedAt: new Date().toISOString(),
-                    meetingUrl: window.location.href
-                };
-            }
-            
-            transcriptElements = potentialTranscriptElements;
-        }
+    // Znajdź wszystkie elementy z napisami
+    const captionElements = mainContainer.querySelectorAll('div[aria-label="Napisy"]');
+    console.log(`🔍 Znaleziono ${captionElements.length} elementów z napisami`);
+    
+    if (captionElements.length === 0) {
+        console.log('❌ Brak elementów z napisami');
+        return {
+            entries: [],
+            scrapedAt: new Date().toISOString(),
+            meetingUrl: window.location.href
+        };
     }
     
-    // Przetwarzaj każdy element transkrypcji
-    console.log(`🔄 Rozpoczynam przetwarzanie ${transcriptElements.length} elementów`);
-    
-    transcriptElements.forEach((element, index) => {
-        console.log(`\n🔍 Przetwarzam element ${index + 1}/${transcriptElements.length}:`);
-        console.log(`📄 Element HTML:`, element.outerHTML.substring(0, 200) + '...');
+    // Przetwarzaj każdy element z napisami
+    captionElements.forEach((captionElement, index) => {
+        console.log(`\n🔍 Przetwarzam element ${index + 1}/${captionElements.length}:`);
         
         try {
-            // Próbuj znaleźć najbliższy kontener zawierający całą wypowiedź
-            let container = element.closest('.yEicIe.VbkSUe') || 
-                           element.closest('.ygiCle.VbkSUe') ||
-                           element.closest('[jscontroller]') || 
-                           element.parentElement;
+            // Wyciągnij nazwę osoby mówiącej
+            const speakerElement = captionElement.querySelector('.NWpY1d');
+            const speaker = speakerElement ? speakerElement.textContent.trim() : 'Nieznany';
+            console.log(`👤 Osoba mówiąca: "${speaker}"`);
             
-            console.log(`📦 Znaleziony kontener:`, container?.tagName, container?.className);
+            // Wyciągnij tekst transkrypcji
+            const textElement = captionElement.querySelector('.ygicle.VbkSUe');
+            const text = textElement ? textElement.textContent.trim() : '';
+            console.log(`💬 Tekst: "${text}"`);
             
-            if (!container) {
-                console.log(`❌ Brak kontenera dla elementu ${index + 1}`);
-                return;
-            }
-            
-            // Sprawdź czy kontener nie jest menu lub lista wyboru
-            const hasMenuRole = container.getAttribute('role') === 'menu' || 
-                container.getAttribute('role') === 'listbox' ||
-                container.querySelector('[role="menu"], [role="listbox"]') ||
-                container.closest('[role="menu"], [role="listbox"]');
+            // Waliduj i dodaj wpis
+            if (text && isValidTranscriptText(text, speaker)) {
+                const sanitizedText = sanitizeTranscriptText(text);
+                console.log(`🧹 Tekst po czyszczeniu: "${sanitizedText}"`);
                 
-            if (hasMenuRole) {
-                console.log(`⚠️ Pomijam element ${index + 1} - jest menu/listbox`);
-                return;
-            }
-            
-            // Pobierz nazwę osoby mówiącej - ULEPSZONE z .NWpY1d
-            let speaker = '';
-            const speakerSelectors = ['[jsname="hJNqvr"]', '.MBpOc', '.NeplSy', '.NWpY1d'];
-            
-            console.log(`👤 Szukam nazwy osoby mówiącej...`);
-            
-            // Sprawdź wszystkie selektory dla speaker
-            for (const selector of speakerSelectors) {
-                const speakerElements = container.querySelectorAll(selector);
-                console.log(`🔍 Selektor '${selector}' znalazł ${speakerElements.length} elementów`);
-                
-                speakerElements.forEach((el, idx) => {
-                    const text = el.textContent.trim();
-                    console.log(`  - Element ${idx + 1}: "${text}"`);
-                    if (text && !speaker) {
-                        speaker = text;
-                        console.log(`✅ Znaleziono osobę mówiącą: "${speaker}"`);
-                    }
-                });
-                
-                if (speaker) break;
-            }
-            
-            // Jeśli nie znaleziono, szukaj w rodzicu i sąsiadach
-            if (!speaker) {
-                console.log(`🔍 Szukam w rodzicu...`);
-                const parentSpeaker = container.parentElement?.querySelector('[jsname="hJNqvr"], .NWpY1d');
-                if (parentSpeaker) {
-                    speaker = parentSpeaker.textContent.trim();
-                    console.log(`✅ Znaleziono osobę mówiącą w rodzicu: "${speaker}"`);
-                }
-            }
-            
-            // Jeśli nadal nie znaleziono, szukaj w poprzednim elemencie (nazwa może być oddzielnie)
-            if (!speaker) {
-                console.log(`🔍 Szukam w poprzednim elemencie...`);
-                const previousElement = container.previousElementSibling;
-                if (previousElement) {
-                    const prevSpeaker = previousElement.querySelector('[jsname="hJNqvr"], .NWpY1d, .MBpOc, .NeplSy');
-                    if (prevSpeaker) {
-                        speaker = prevSpeaker.textContent.trim();
-                        console.log(`✅ Znaleziono osobę mówiącą w poprzednim elemencie: "${speaker}"`);
-                    }
-                }
-            }
-            
-            if (!speaker) {
-                console.log(`❌ Nie znaleziono nazwy osoby mówiącej`);
-            }
-            
-            // Pobierz tekst wypowiedzi
-            let text = '';
-            const textSelectors = [
-                '[jsname="YSAhf"]',
-                '[jsname="MBpOc"]', 
-                '[jsname="NeplSy"]',
-                '.VbkSUe',
-                'span[jsname]'
-            ];
-            
-            console.log(`💬 Szukam tekstu wypowiedzi...`);
-            
-            for (const selector of textSelectors) {
-                const textElements = container.querySelectorAll(selector);
-                console.log(`🔍 Selektor '${selector}' znalazł ${textElements.length} elementów`);
-                
-                textElements.forEach((el, idx) => {
-                    const elementText = el.textContent.trim();
-                    console.log(`  - Element ${idx + 1}: "${elementText}"`);
-                    
-                    // Sprawdź czy element nie jest nazwą osoby
-                    if (elementText && elementText !== speaker) {
-                        text += elementText + ' ';
-                        console.log(`✅ Dodano tekst: "${elementText}"`);
-                    } else if (elementText === speaker) {
-                        console.log(`⚠️ Pomijam - to nazwa osoby mówiącej`);
-                    }
-                });
-                
-                if (text.trim()) {
-                    console.log(`✅ Znaleziono tekst z selektorem '${selector}': "${text.trim()}"`);
-                    break;
-                }
-            }
-            
-            // Jeśli nadal nie ma tekstu, pobierz cały tekst kontenera
-            if (!text.trim()) {
-                console.log(`🔍 Próbuję pobrać cały tekst kontenera...`);
-                text = container.textContent.trim();
-                console.log(`📄 Pełny tekst kontenera: "${text}"`);
-                
-                // Usuń nazwę osoby z tekstu
-                if (speaker && text.startsWith(speaker)) {
-                    text = text.substring(speaker.length).trim();
-                    console.log(`✅ Tekst po usunięciu nazwy osoby: "${text}"`);
-                }
-            }
-            
-            if (!text.trim()) {
-                console.log(`❌ Nie znaleziono tekstu wypowiedzi`);
-            }
-            
-            // Pobierz timestamp jeśli istnieje
-            let timestamp = '';
-            const timestampElement = container.querySelector('.frX31c-vlczkd, .P5KVFf, [jsname="r2fjRf"]');
-            if (timestampElement) {
-                timestamp = timestampElement.textContent.trim();
-            }
-            
-            // Dodaj wpis tylko jeśli ma tekst i jest prawidłowy
-            console.log(`\n🔍 Walidacja wpisu:`);
-            console.log(`👤 Speaker: "${speaker || 'Nieznany'}"`);
-            console.log(`💬 Text: "${text.trim()}"`);
-            console.log(`⏰ Timestamp: "${timestamp}"`);
-            
-            if (text && text.trim()) {
-                const isValid = isValidTranscriptText(text.trim(), speaker);
-                console.log(`✅ Walidacja isValidTranscriptText: ${isValid}`);
-                
-                if (isValid) {
-                    const sanitizedText = sanitizeTranscriptText(text.trim());
-                    console.log(`🧹 Tekst po czyszczeniu: "${sanitizedText}"`);
-                    
-                    const isValidAfterSanitization = isValidTranscriptText(sanitizedText, speaker);
-                    console.log(`✅ Walidacja po czyszczeniu: ${isValidAfterSanitization}`);
-                    
-                    if (sanitizedText && isValidAfterSanitization) {
-                        const entry = {
-                            speaker: speaker || 'Nieznany',
-                            text: sanitizedText,
-                            timestamp: timestamp
-                        };
-                        entries.push(entry);
-                        console.log(`✅ Dodano wpis:`, entry);
-                    } else {
-                        console.log(`❌ Odrzucono wpis - nieprawidłowy po czyszczeniu`);
-                    }
+                if (sanitizedText && isValidTranscriptText(sanitizedText, speaker)) {
+                    const entry = {
+                        speaker: speaker,
+                        text: sanitizedText,
+                        timestamp: ''
+                    };
+                    entries.push(entry);
+                    console.log(`✅ Dodano wpis:`, entry);
                 } else {
-                    console.log(`❌ Odrzucono wpis - nieprawidłowy tekst`);
+                    console.log(`❌ Odrzucono wpis - nieprawidłowy po czyszczeniu`);
                 }
             } else {
-                console.log(`❌ Odrzucono wpis - brak tekstu`);
+                console.log(`❌ Odrzucono wpis - nieprawidłowy tekst lub brak tekstu`);
             }
         } catch (error) {
-            console.error('❌ Błąd przetwarzania elementu:', error);
+            console.error(`❌ Błąd przetwarzania elementu ${index + 1}:`, error);
         }
     });
     
-    // Jeśli pierwsza metoda nie zadziałała, spróbuj alternatywną
-    if (entries.length === 0) {
-        console.log(`\n⚠️ Podstawowa metoda nie dała wyników, próbuję alternatywną...`);
-        const alternativeEntries = scrapeAlternativeMethod();
-        entries.push(...alternativeEntries);
-    }
-    
     console.log(`\n📊 Podsumowanie skrobania:`);
-    console.log(`🔍 Użyty selektor: ${usedSelector}`);
     console.log(`📝 Znalezionych wpisów przed deduplikacją: ${entries.length}`);
     
     // Usuń duplikaty
@@ -317,69 +119,6 @@ function scrapeTranscript() {
     
     console.log(`📤 Zwracam rezultat:`, result);
     return result;
-}
-
-
-function scrapeAlternativeMethod() {
-    console.log(`\n🔄 Próba alternatywnej metody skrobania...`);
-    const entries = [];
-    
-    // Uproszczona metoda - skup się na .a4cQT kontenerach
-    const transcriptContainers = document.querySelectorAll('.a4cQT:not([role="menu"]):not([role="listbox"])');
-    console.log(`🔍 Znaleziono ${transcriptContainers.length} kontenerów .a4cQT`);
-    
-    if (transcriptContainers.length === 0) {
-        console.log(`❌ Brak kontenerów .a4cQT - kopuły inne selektory`);
-        return entries;
-    }
-    
-    // Spróbuj bardzo prostą metodę - znajdź wszystkie elementy zawierające tekst
-    transcriptContainers.forEach((container, index) => {
-        console.log(`\n🔍 Analizuję kontener ${index + 1}:`);
-        console.log(`📄 Zawartość: "${container.textContent.trim()}"`);
-        
-        // Sprawdź czy kontener ma jakieś dzieci
-        const children = container.children;
-        console.log(`👶 Liczba dzieci: ${children.length}`);
-        
-        // Spróbuj znaleźć strukturę wpisów
-        for (let i = 0; i < children.length; i++) {
-            const child = children[i];
-            const childText = child.textContent.trim();
-            
-            console.log(`  - Dziecko ${i + 1}: "${childText}" (${child.tagName}.${child.className})`);
-            
-            if (childText && childText.length > 10 && isValidTranscriptText(childText, '')) {
-                // Próba wyodrębnienia nazwy i tekstu
-                const lines = childText.split('\n').filter(line => line.trim());
-                console.log(`    Lińe tekstu:`, lines);
-                
-                if (lines.length >= 2) {
-                    const potentialSpeaker = lines[0].trim();
-                    const potentialText = lines.slice(1).join(' ').trim();
-                    
-                    console.log(`    Potencjalna osoba: "${potentialSpeaker}"`);
-                    console.log(`    Potencjalny tekst: "${potentialText}"`);
-                    
-                    if (potentialText && isValidTranscriptText(potentialText, potentialSpeaker)) {
-                        const sanitizedText = sanitizeTranscriptText(potentialText);
-                        if (sanitizedText && isValidTranscriptText(sanitizedText, potentialSpeaker)) {
-                            const entry = {
-                                speaker: potentialSpeaker || 'Nieznany',
-                                text: sanitizedText,
-                                timestamp: ''
-                            };
-                            entries.push(entry);
-                            console.log(`✅ Dodano wpis z alternatywnej metody:`, entry);
-                        }
-                    }
-                }
-            }
-        }
-    });
-    
-    console.log(`📊 Alternatywna metoda znalazła ${entries.length} wpisów`);
-    return entries;
 }
 
 function removeDuplicates(entries) {
