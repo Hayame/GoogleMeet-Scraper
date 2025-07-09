@@ -422,10 +422,21 @@ document.addEventListener('DOMContentLoaded', function() {
     if (clearBtn) {
         clearBtn.addEventListener('click', () => {
             console.log('Clear button clicked');
-            if (confirm('Czy na pewno chcesz wyczyścić całą transkrypcję?')) {
-                // Save current session before clearing if it has data
-                if (transcriptData && transcriptData.entries.length > 0) {
-                    saveCurrentSessionToHistory();
+            
+            let confirmMessage = 'Czy na pewno chcesz wyczyścić całą transkrypcję?';
+            if (realtimeMode) {
+                confirmMessage = 'Nagrywanie jest aktywne. Czy na pewno chcesz wyczyścić całą transkrypcję?\n\nNagrywanie zostanie zatrzymane i sesja zostanie zapisana.';
+            }
+            
+            if (confirm(confirmMessage)) {
+                // If recording is active, stop it and save session
+                if (realtimeMode) {
+                    deactivateRealtimeMode(true); // This will save the session
+                } else {
+                    // Save current session before clearing if it has data
+                    if (transcriptData && transcriptData.entries.length > 0) {
+                        saveCurrentSessionToHistory();
+                    }
                 }
                 
                 transcriptData = null;
@@ -437,10 +448,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Wyczyść z pamięci
                 chrome.storage.local.remove(['transcriptData', 'currentSessionId']);
-                
-                if (realtimeMode) {
-                    deactivateRealtimeMode(false);
-                }
             }
         });
         console.log('Clear button handler added');
@@ -825,12 +832,68 @@ function initializeSessionHistory() {
 function createNewSession() {
     console.log('Creating new session');
     
-    // Save current session if it has data
+    // Check if recording is active
+    if (realtimeMode) {
+        // Recording is active, need to handle it properly
+        handleRecordingSessionSwitch();
+        return;
+    }
+    
+    // Not recording, check if we have data to save
     if (transcriptData && transcriptData.entries.length > 0) {
         if (confirm('Czy chcesz zapisać bieżącą sesję przed utworzeniem nowej?')) {
             saveCurrentSessionToHistory();
         }
     }
+    
+    // Create new session
+    performNewSessionCreation();
+}
+
+function handleRecordingSessionSwitch() {
+    console.log('Handling session switch while recording');
+    
+    const message = `Nagrywanie jest aktywne. Co chcesz zrobić?\n\n` +
+                   `• Zatrzymaj nagrywanie i zapisz sesję\n` +
+                   `• Zatrzymaj nagrywanie bez zapisywania\n` +
+                   `• Anuluj`;
+    
+    const options = ['Zapisz i zatrzymaj', 'Zatrzymaj bez zapisu', 'Anuluj'];
+    const choice = showCustomDialog(message, options);
+    
+    if (choice === 0) {
+        // Save and stop recording
+        console.log('User chose to save and stop recording');
+        deactivateRealtimeMode(true); // This will save the session
+        performNewSessionCreation();
+    } else if (choice === 1) {
+        // Stop recording without saving
+        console.log('User chose to stop recording without saving');
+        deactivateRealtimeMode(false); // Don't save the session
+        performNewSessionCreation();
+    } else {
+        // Cancel - do nothing
+        console.log('User cancelled session switch');
+        return;
+    }
+}
+
+function showCustomDialog(message, options) {
+    // For now, use a simple confirm dialog
+    // In a full implementation, this could be a custom modal
+    const result = confirm(message + '\n\nKliknij OK aby zapisać i zatrzymać, Anuluj aby zatrzymać bez zapisu.');
+    
+    if (result) {
+        return 0; // Save and stop
+    } else {
+        // Ask again for cancel vs stop without saving
+        const stopWithoutSaving = confirm('Czy chcesz zatrzymać nagrywanie bez zapisywania?\n\nKliknij OK aby zatrzymać bez zapisu, Anuluj aby anulować całą akcję.');
+        return stopWithoutSaving ? 1 : 2; // 1 = stop without saving, 2 = cancel
+    }
+}
+
+function performNewSessionCreation() {
+    console.log('Performing new session creation');
     
     // Clear current data
     transcriptData = null;
@@ -848,9 +911,12 @@ function createNewSession() {
         exportTxtBtn.disabled = true;
     }
     
-    
-    // Save new session ID
-    chrome.storage.local.set({ currentSessionId: currentSessionId, recordingStartTime: null });
+    // Save new session ID (recording is always inactive for new sessions)
+    chrome.storage.local.set({ 
+        currentSessionId: currentSessionId, 
+        recordingStartTime: null,
+        realtimeMode: false
+    });
     
     updateStatus('Utworzono nową sesję', 'success');
     
@@ -912,10 +978,16 @@ function loadSessionFromHistory(sessionId) {
         return;
     }
     
-    // Save current session if it has unsaved data
-    if (transcriptData && transcriptData.entries.length > 0 && currentSessionId !== sessionId) {
-        if (confirm('Czy chcesz zapisać bieżącą sesję przed wczytaniem historycznej?')) {
-            saveCurrentSessionToHistory();
+    // Handle recording state if active
+    if (realtimeMode) {
+        const shouldSave = confirm('Nagrywanie jest aktywne. Czy chcesz zapisać bieżącą sesję przed wczytaniem historycznej?\n\nNagrywanie zostanie zatrzymane.');
+        deactivateRealtimeMode(shouldSave);
+    } else {
+        // Save current session if it has unsaved data
+        if (transcriptData && transcriptData.entries.length > 0 && currentSessionId !== sessionId) {
+            if (confirm('Czy chcesz zapisać bieżącą sesję przed wczytaniem historycznej?')) {
+                saveCurrentSessionToHistory();
+            }
         }
     }
     
@@ -924,7 +996,7 @@ function loadSessionFromHistory(sessionId) {
     currentSessionId = session.id;
     recordingStartTime = null; // Historic sessions don't have active recording
     
-    // Stop any existing timer
+    // Stop any existing timer and ensure recording is stopped
     stopDurationTimer();
     
     displayTranscript(transcriptData);
@@ -935,11 +1007,12 @@ function loadSessionFromHistory(sessionId) {
         exportTxtBtn.disabled = false;
     }
     
-    // Update storage
+    // Update storage (historic sessions are never recording)
     chrome.storage.local.set({ 
         transcriptData: transcriptData,
         currentSessionId: currentSessionId,
-        recordingStartTime: null
+        recordingStartTime: null,
+        realtimeMode: false
     });
     
     updateStatus(`Wczytano sesję: ${session.title}`, 'success');
@@ -1417,9 +1490,14 @@ function initializeResumeRecordingModal() {
                     saveCurrentSessionToHistory();
                     transcriptData = null;
                     currentSessionId = generateSessionId();
+                    recordingStartTime = null;
                     displayTranscript({ entries: [] });
                     updateStats({ entries: [] });
-                    chrome.storage.local.set({ currentSessionId: currentSessionId });
+                    chrome.storage.local.set({ 
+                        currentSessionId: currentSessionId,
+                        recordingStartTime: null,
+                        realtimeMode: false
+                    });
                     activateRealtimeMode();
                 }
             }, 300);
