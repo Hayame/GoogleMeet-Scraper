@@ -12,6 +12,7 @@ let lastSeenEntry = null; // Last entry before recording starts
 let isFirstUpdate = false; // Track if this is the first update after recording starts
 let isFirstBackgroundScan = false; // Track if this is the first background scan after recording starts
 let recordingStopped = false; // Flag to ignore background updates after recording stops
+let processingScan = false; // Mutex to prevent race conditions between manual and background scanning
 
 document.addEventListener('DOMContentLoaded', function() {
     try {
@@ -196,28 +197,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // Start duration timer
         startDurationTimer();
         
-        // Create new session if none exists (only for new recordings)
+        // Create new session ID if none exists (session will be added to history when first entry appears)
         if (!currentSessionId) {
             currentSessionId = generateSessionId();
             chrome.storage.local.set({ currentSessionId: currentSessionId });
-            
-            // Create initial session entry in history only for new sessions
-            if (!isContinuation) {
-                const initialSession = {
-                    id: currentSessionId,
-                    title: generateSessionTitle(),
-                    date: new Date().toISOString(),
-                    participantCount: 0,
-                    entryCount: 0,
-                    transcript: { entries: [] },
-                    totalDuration: 0
-                };
-                
-                sessionHistory.unshift(initialSession);
-                chrome.storage.local.set({ sessionHistory: sessionHistory }, () => {
-                    renderSessionHistory();
-                });
-            }
         }
         
         // Zapisz stan
@@ -382,6 +365,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function performRealtimeScrape() {
+        // Prevent race conditions
+        if (processingScan) {
+            console.log('🔵 [MANUAL SCRAPE DEBUG] Skipping - already processing scan');
+            return;
+        }
+        
+        processingScan = true;
+        
         try {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             console.log('📍 Current tab:', tab.url);
@@ -399,22 +390,25 @@ document.addEventListener('DOMContentLoaded', function() {
                     console.error('Realtime error:', chrome.runtime.lastError);
                     updateStatus('Nie można połączyć się ze stroną. Odśwież Google Meet.', 'error');
                     deactivateRealtimeMode();
+                    processingScan = false; // Release mutex
                     return;
                 }
 
                 if (response && response.success) {                    
                     if (response.data.entries.length > 0) {
-                        // Filter out baseline entries for new recordings
-                        let entriesToProcess = response.data.entries;
+                        // Use centralized filtering for manual scraping
+                        const filteredResult = getFilteredEntries(response.data, '🔵 [MANUAL SCRAPE DEBUG]');
                         
-                        if (isFirstUpdate && baselineEntryCount > 0) {
-                            // First scrape after recording started - skip baseline entries
-                            entriesToProcess = response.data.entries.slice(baselineEntryCount);
-                            isFirstUpdate = false; // Reset flag after first update
-                            
-                            if (entriesToProcess.length === 0) {
-                                return;
-                            }
+                        if (filteredResult.entries.length === 0) {
+                            console.log('🔵 [MANUAL SCRAPE DEBUG] No new entries after baseline filtering');
+                            return;
+                        }
+                        
+                        const entriesToProcess = filteredResult.entries;
+                        
+                        // Reset first update flag after first successful processing
+                        if (isFirstUpdate) {
+                            isFirstUpdate = false;
                         }
                         
                         // Merge new data with existing
@@ -489,10 +483,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     console.log('❌ Response not successful:', response);
                     updateStatus('Nie znaleziono napisów. Włącz napisy (CC) w Google Meet', 'error');
                 }
+                
+                // Release mutex after processing
+                processingScan = false;
             });
         } catch (error) {
             console.error('Realtime scrape error:', error);
             updateStatus('Błąd: ' + error.message, 'error');
+            processingScan = false; // Release mutex on error
+        } finally {
+            // Ensure mutex is released if deactivateRealtimeMode was called
+            if (!realtimeMode) {
+                processingScan = false;
+            }
         }
     }
 
@@ -508,6 +511,12 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (recordingStopped) {
             console.log('🟡 [BACKGROUND DEBUG] Ignoring - recording stopped');
+            return;
+        }
+        
+        // Prevent race conditions with manual scraping
+        if (processingScan) {
+            console.log('🟡 [BACKGROUND DEBUG] Skipping - manual scan in progress');
             return;
         }
         
@@ -532,29 +541,15 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('🟡 [BACKGROUND DEBUG] isFirstBackgroundScan reset to:', isFirstBackgroundScan);
         }
         
-        // Apply baseline filtering for all background scans during recording
-        let entriesToProcess = data.entries;
-        if (baselineEntryCount > 0 && data.entries.length > 0) {
-            console.log('🟡 [BACKGROUND DEBUG] APPLYING BASELINE FILTERING:');
-            console.log('   - Original entries count:', data.entries.length);
-            console.log('   - Baseline entries to filter:', baselineEntryCount);
-            
-            if (data.entries.length > baselineEntryCount) {
-                entriesToProcess = data.entries.slice(baselineEntryCount);
-            } else {
-                entriesToProcess = [];
-            }
-            
-            console.log('   - Filtered entries count:', entriesToProcess.length);
-            
-            if (entriesToProcess.length === 0) {
-                console.log('🟡 [BACKGROUND DEBUG] No new entries after baseline filtering - RETURNING');
-                return;
-            }
-        } else {
-            console.log('🟡 [BACKGROUND DEBUG] NO BASELINE FILTERING APPLIED:');
-            console.log('   - Reason: baselineEntryCount=' + baselineEntryCount + ', data.entries.length=' + data.entries.length);
+        // Apply baseline filtering using centralized function
+        const filteredResult = getFilteredEntries(data, '🟡 [BACKGROUND DEBUG]');
+        
+        if (filteredResult.entries.length === 0) {
+            console.log('🟡 [BACKGROUND DEBUG] No new entries after baseline filtering - RETURNING');
+            return;
         }
+        
+        const entriesToProcess = filteredResult.entries;
         
         if (!transcriptData) {
             transcriptData = {
@@ -638,6 +633,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 isFirstUpdate = false;
                 isFirstBackgroundScan = false;
                 recordingStopped = false;
+                processingScan = false; // Reset mutex
                 
                 // Update UI
                 displayTranscript({ entries: [] });
@@ -864,30 +860,67 @@ function displayTranscript(data) {
     reinitializeEnhancedInteractions();
 }
 
-function getFilteredStatsData(data) {
+function getFilteredEntries(data, logPrefix = '📊 [STATS DEBUG]') {
     if (!data || !data.entries) {
-        console.log('📊 [STATS DEBUG] No data or entries');
-        return { entries: [] };
+        console.log(`${logPrefix} No data or entries`);
+        return { entries: [], contentChanged: false };
     }
     
-    console.log('📊 [STATS DEBUG] Filtering stats data:');
-    console.log('   - Original entries count:', data.entries.length);
-    console.log('   - baselineEntryCount:', baselineEntryCount);
+    console.log(`${logPrefix} Filtering data:`, {
+        originalCount: data.entries.length,
+        baselineEntryCount,
+        hasLastSeenEntry: !!lastSeenEntry
+    });
     
-    // Filter out baseline entries for stats
-    let filteredEntries = data.entries;
-    if (baselineEntryCount > 0 && data.entries.length >= baselineEntryCount) {
+    // If no baseline filtering needed, return all entries
+    if (baselineEntryCount === 0) {
+        console.log(`${logPrefix} No baseline filtering needed`);
+        return { entries: data.entries, contentChanged: false };
+    }
+    
+    let filteredEntries = [];
+    let contentChanged = false;
+    
+    if (data.entries.length > baselineEntryCount) {
+        // More entries than baseline - return new entries
         filteredEntries = data.entries.slice(baselineEntryCount);
-        console.log('   - Filtered entries count:', filteredEntries.length);
+        console.log(`${logPrefix} NEW ENTRIES detected:`, filteredEntries.length);
+    } else if (data.entries.length === baselineEntryCount && lastSeenEntry) {
+        // Same number of entries - check if content changed
+        const lastEntryIndex = baselineEntryCount - 1;
+        const currentLastEntry = data.entries[lastEntryIndex];
+        
+        if (currentLastEntry && currentLastEntry.text !== lastSeenEntry.text) {
+            // Content changed - update reference and return updated entry
+            filteredEntries = [currentLastEntry];
+            contentChanged = true;
+            lastSeenEntry = { ...currentLastEntry }; // Update reference
+            console.log(`${logPrefix} CONTENT CHANGED detected:`, {
+                speaker: currentLastEntry.speaker,
+                oldLength: lastSeenEntry.text?.length || 0,
+                newLength: currentLastEntry.text.length
+            });
+        } else {
+            // No changes
+            filteredEntries = [];
+            console.log(`${logPrefix} NO CHANGES detected`);
+        }
     } else {
-        console.log('   - No filtering applied');
+        // Less entries than baseline
+        filteredEntries = [];
+        console.log(`${logPrefix} BELOW BASELINE count`);
     }
     
     return {
         entries: filteredEntries,
+        contentChanged,
         scrapedAt: data.scrapedAt,
         meetingUrl: data.meetingUrl
     };
+}
+
+function getFilteredStatsData(data) {
+    return getFilteredEntries(data, '📊 [STATS DEBUG]');
 }
 
 function updateStats(data) {
@@ -1097,23 +1130,15 @@ function autoSaveCurrentSession() {
         return;
     }
     
-    console.log('🔄 [AUTOSAVE DEBUG] autoSaveCurrentSession called');
-    console.log('   - Original entries count:', transcriptData.entries.length);
-    console.log('   - baselineEntryCount:', baselineEntryCount);
+    // Use centralized filtering function
+    const filteredResult = getFilteredEntries(transcriptData, '🔄 [AUTOSAVE DEBUG]');
     
-    // Filter baseline entries for auto-save
-    let validEntries = transcriptData.entries;
-    if (baselineEntryCount > 0 && transcriptData.entries.length >= baselineEntryCount) {
-        validEntries = transcriptData.entries.slice(baselineEntryCount);
-        console.log('🔄 [AUTOSAVE DEBUG] Filtered entries count:', validEntries.length);
-        
-        if (validEntries.length === 0) {
-            console.log('🔄 [AUTOSAVE DEBUG] No valid entries after filtering - not auto-saving');
-            return;
-        }
-    } else {
-        console.log('🔄 [AUTOSAVE DEBUG] No baseline filtering applied');
+    if (filteredResult.entries.length === 0) {
+        console.log('🔄 [AUTOSAVE DEBUG] No valid entries after filtering - not auto-saving');
+        return;
     }
+    
+    const validEntries = filteredResult.entries;
     
     const sessionId = currentSessionId || generateSessionId();
     const uniqueParticipants = new Set(validEntries.map(e => e.speaker)).size;
@@ -1146,10 +1171,18 @@ function autoSaveCurrentSession() {
         totalDuration: currentTotalDuration
     };
     
+    console.log('🔄 [AUTOSAVE DEBUG] Creating session with:', {
+        id: sessionId,
+        entryCount: validEntries.length,
+        participantCount: uniqueParticipants
+    });
+    
     if (existingIndex >= 0) {
         sessionHistory[existingIndex] = session;
+        console.log('🔄 [AUTOSAVE DEBUG] Updated existing session in history');
     } else {
         sessionHistory.unshift(session);
+        console.log('🔄 [AUTOSAVE DEBUG] Added new session to history');
     }
     
     // Limit history to 50 sessions
@@ -1160,6 +1193,7 @@ function autoSaveCurrentSession() {
     // Save to storage silently (no status message)
     chrome.storage.local.set({ sessionHistory: sessionHistory }, () => {
         renderSessionHistory();
+        console.log('🔄 [AUTOSAVE DEBUG] Session saved to storage and history rendered');
     });
 }
 
