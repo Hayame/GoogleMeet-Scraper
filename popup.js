@@ -276,115 +276,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // No manual scraping interval to clear in simplified version
 
-    function detectChanges(oldMessages, newMessages) {
-        const changes = {
-            added: [],
-            updated: [],
-            removed: []
-        };
-        
-        if (!oldMessages || oldMessages.length === 0) {
-            // All messages are new
-            changes.added = newMessages.slice();
-            return changes;
-        }
-        
-        // Create hash maps for quick lookup
-        const oldHashes = new Map();
-        oldMessages.forEach((msg, index) => {
-            oldHashes.set(msg.index, msg.hash);
-        });
-        
-        const newHashes = new Map();
-        newMessages.forEach((msg, index) => {
-            newHashes.set(msg.index, msg.hash);
-        });
-        
-        // Find added and updated messages
-        newMessages.forEach(newMsg => {
-            if (!oldHashes.has(newMsg.index)) {
-                // New message
-                changes.added.push(newMsg);
-            } else if (oldHashes.get(newMsg.index) !== newMsg.hash) {
-                // Updated message
-                changes.updated.push(newMsg);
-            }
-        });
-        
-        // Find removed messages
-        oldMessages.forEach(oldMsg => {
-            if (!newHashes.has(oldMsg.index)) {
-                changes.removed.push(oldMsg.index);
-            }
-        });
-        
-        return changes;
-    }
-    
-    function updateDOMChanges(changes) {
-        const container = document.getElementById('transcriptContent');
-        if (!container) return;
-        
-        // Add new messages
-        changes.added.forEach(msg => {
-            const messageElement = createMessageElement(msg);
-            container.appendChild(messageElement);
-        });
-        
-        // Update changed messages
-        changes.updated.forEach(msg => {
-            const existingElement = container.querySelector(`[data-message-index="${msg.index}"]`);
-            if (existingElement) {
-                updateMessageElement(existingElement, msg);
-            } else {
-                // Element doesn't exist, add it
-                const messageElement = createMessageElement(msg);
-                container.appendChild(messageElement);
-            }
-        });
-        
-        // Remove deleted messages
-        changes.removed.forEach(index => {
-            const element = container.querySelector(`[data-message-index="${index}"]`);
-            if (element) {
-                element.remove();
-            }
-        });
-    }
-    
-    function createMessageElement(message) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'transcript-entry';
-        messageDiv.setAttribute('data-message-index', message.index);
-        
-        const speakerSpan = document.createElement('span');
-        speakerSpan.className = 'speaker';
-        speakerSpan.textContent = message.speaker;
-        
-        const textSpan = document.createElement('span');
-        textSpan.className = 'text';
-        textSpan.textContent = message.text;
-        
-        messageDiv.appendChild(speakerSpan);
-        messageDiv.appendChild(document.createTextNode(': '));
-        messageDiv.appendChild(textSpan);
-        
-        return messageDiv;
-    }
-    
-    function updateMessageElement(element, message) {
-        const textSpan = element.querySelector('.text');
-        if (textSpan) {
-            textSpan.textContent = message.text;
-        }
-        
-        const speakerSpan = element.querySelector('.speaker');
-        if (speakerSpan) {
-            speakerSpan.textContent = message.speaker;
-        }
-    }
-    }
-
     // takeBaselineSnapshot function removed - no longer needed in simplified version
 
     // performRealtimeScrape function removed - no longer needed in simplified version
@@ -517,8 +408,8 @@ document.addEventListener('DOMContentLoaded', function() {
             transcriptData.messages = data.messages;
             transcriptData.scrapedAt = data.scrapedAt;
 
-            // Update only changed elements in DOM
-            updateDOMChanges(changes);
+            // Update display with all messages (simplified approach)
+            displayTranscript(transcriptData);
             updateStats(transcriptData);
             
             if (exportTxtBtn) {
@@ -578,6 +469,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Export handlers will be set up by the modal system
+    
     } catch (error) {
         console.error('Error during popup initialization:', error);
         updateStatus('Błąd inicjalizacji interfejsu', 'error');
@@ -643,8 +535,8 @@ function displayTranscript(data) {
     const speakerColors = new Map();
     let colorIndex = 1;
 
-    // Pokaż pierwsze 10 wpisów
-    const entriesToShow = dataToDisplay.slice(0, 10);
+    // Pokaż wszystkie wpisy
+    const entriesToShow = dataToDisplay;
     entriesToShow.forEach((entry, index) => {
         // Przypisz kolor dla użytkownika
         if (!speakerColors.has(entry.speaker)) {
@@ -775,15 +667,7 @@ function displayTranscript(data) {
         }, index * 50); // Stagger animation
     });
 
-    if (dataToDisplay.length > 10) {
-        const moreDiv = document.createElement('div');
-        moreDiv.style.textAlign = 'center';
-        moreDiv.style.color = '#666';
-        moreDiv.style.margin = '20px 0 10px 0';
-        moreDiv.style.fontSize = '13px';
-        moreDiv.textContent = `... i ${dataToDisplay.length - 10} więcej wiadomości`;
-        previewDiv.appendChild(moreDiv);
-    }
+    // Removed message limit - all messages are now displayed
     
     // Reinitialize enhanced interactions for new elements
     reinitializeEnhancedInteractions();
@@ -1398,6 +1282,61 @@ function detectChanges(oldMessages, newMessages) {
     });
     
     return changes;
+}
+
+// Duration Timer Functions - persistent timer that works even when popup is closed
+function startDurationTimer() {
+    // Timer is based on recordingStartTime timestamp, not local setInterval
+    // This way it works even when popup is closed
+    
+    if (!recordingStartTime) {
+        console.error('Cannot start timer: recordingStartTime not set');
+        return;
+    }
+    
+    // Start UI update interval only when popup is open
+    if (!durationTimer) {
+        durationTimer = setInterval(updateDurationDisplay, 1000);
+        console.log('🕐 Duration timer UI started');
+    }
+    
+    // Initial display update
+    updateDurationDisplay();
+}
+
+function stopDurationTimer() {
+    if (durationTimer) {
+        clearInterval(durationTimer);
+        durationTimer = null;
+        console.log('🕐 Duration timer UI stopped');
+    }
+}
+
+function updateDurationDisplay() {
+    if (!recordingStartTime || !realtimeMode) {
+        return;
+    }
+    
+    const now = new Date();
+    const currentSessionDuration = Math.floor((now - recordingStartTime) / 1000);
+    const totalDuration = sessionTotalDuration + currentSessionDuration;
+    
+    const durationElement = document.getElementById('recordingDuration');
+    if (durationElement) {
+        durationElement.textContent = formatDuration(totalDuration);
+    }
+}
+
+function formatDuration(seconds) {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hours > 0) {
+        return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    } else {
+        return `${minutes}:${secs.toString().padStart(2, '0')}`;
+    }
 }
 
 // Theme toggle functionality
