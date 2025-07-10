@@ -1084,7 +1084,13 @@ function performNewSessionCreation() {
         'realtimeMode',
         'sessionTotalDuration',
         'currentSessionDuration'
-    ]);
+    ], () => {
+        // Update clear button state AFTER storage is cleared to prevent race condition
+        console.log('🆕 [NEW SESSION] Storage cleared, transcriptData:', transcriptData);
+        if (window.updateClearButtonState) {
+            window.updateClearButtonState();
+        }
+    });
     
     updateStatus('Utworzono nową sesję', 'success');
     
@@ -1096,12 +1102,6 @@ function performNewSessionCreation() {
     
     // Remove session highlighting (no session selected)
     renderSessionHistory();
-    
-    // Update clear button state
-    console.log('🆕 [NEW SESSION] Before updateClearButtonState, transcriptData:', transcriptData);
-    if (window.updateClearButtonState) {
-        window.updateClearButtonState();
-    }
 }
 
 function autoSaveCurrentSession(data = null) {
@@ -1364,9 +1364,11 @@ function renderSessionHistory() {
     // Reinitialize enhanced interactions for session items
     reinitializeEnhancedInteractions();
     
-    // Update tooltips for collapsed sidebar
+    // Update tooltips for collapsed sidebar (with delay for DOM to settle)
     if (typeof updateSessionTooltips === 'function') {
-        updateSessionTooltips();
+        setTimeout(() => {
+            updateSessionTooltips();
+        }, 50); // Small delay to ensure DOM is fully rendered
     }
 }
 
@@ -1688,7 +1690,7 @@ function initializeSidebar() {
         // Update session tooltips after collapse state changes
         setTimeout(() => {
             updateSessionTooltips();
-        }, 300); // Wait for transition to complete
+        }, 350); // Wait for transition to complete + DOM rendering
     });
     
     // Initialize tooltips
@@ -1724,6 +1726,8 @@ function updateSessionTooltips() {
                 
                 item.setAttribute('data-tooltip', tooltip);
                 console.log('🔍 [TOOLTIPS] Set tooltip for item', index, ':', tooltip);
+                console.log('🔍 [TOOLTIPS] Item classes:', item.className);
+                console.log('🔍 [TOOLTIPS] data-tooltip attr:', item.getAttribute('data-tooltip'));
             }
         });
     } else {
