@@ -76,3 +76,65 @@
 .empty-sessions p {
     margin: 0;
 }
+
+/* Collapsed sidebar session styles */
+.sidebar.collapsed .session-item {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border-radius: 50%;
+    margin-bottom: 8px;
+    position: relative;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sidebar.collapsed .session-info {
+    display: none;
+}
+
+.sidebar.collapsed .delete-btn {
+    display: none;
+}
+
+.sidebar.collapsed .session-item::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--btn-primary-bg);
+}
+
+.sidebar.collapsed .session-item.active::before {
+    background: var(--btn-record-bg);
+}
+
+/* Tooltip for collapsed sessions */
+.sidebar.collapsed .session-item {
+    position: relative;
+}
+
+.sidebar.collapsed .session-item:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: 50px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 1000;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border-primary);
+    max-width: 200px;
+    pointer-events: none;
+}
+
+.sidebar.collapsed .empty-sessions {
+    display: none;
+}

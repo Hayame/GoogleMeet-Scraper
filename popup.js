@@ -78,6 +78,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Theme toggle functionality
     initializeTheme();
+    
+    // Sidebar collapse functionality
+    initializeSidebar();
 
     console.log('Popup loaded');
 
@@ -616,10 +619,7 @@ document.addEventListener('DOMContentLoaded', function() {
         updateStats({ messages: [] });
         
         // Reset duration display
-        const durationElement = document.getElementById('duration');
-        if (durationElement) {
-            durationElement.textContent = '00:00';
-        }
+        updateDurationDisplay();
         
         // Update clear button state
         if (window.updateClearButtonState) {
@@ -922,9 +922,7 @@ function updateDurationDisplay() {
         const now = new Date();
         const currentSessionDuration = Math.floor((now - recordingStartTime) / 1000);
         const totalDuration = sessionTotalDuration + currentSessionDuration;
-        const minutes = Math.floor(totalDuration / 60);
-        const seconds = totalDuration % 60;
-        durationSpan.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        durationSpan.textContent = formatDuration(totalDuration);
         
         // Save current total duration to storage periodically (every 10 seconds)
         if (totalDuration % 10 === 0) {
@@ -934,9 +932,7 @@ function updateDurationDisplay() {
             });
         }
     } else {
-        const minutes = Math.floor(sessionTotalDuration / 60);
-        const seconds = sessionTotalDuration % 60;
-        durationSpan.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        durationSpan.textContent = formatDuration(sessionTotalDuration);
     }
 }
 
@@ -1089,6 +1085,11 @@ function performNewSessionCreation() {
     
     // Remove session highlighting (no session selected)
     renderSessionHistory();
+    
+    // Update clear button state
+    if (window.updateClearButtonState) {
+        window.updateClearButtonState();
+    }
 }
 
 function autoSaveCurrentSession(data = null) {
@@ -1252,6 +1253,7 @@ function loadSessionFromHistory(sessionId) {
     
     displayTranscript(transcriptData);
     updateStats(transcriptData);
+    updateDurationDisplay();
     
     const exportTxtBtn = document.getElementById('exportTxtBtn');
     if (exportTxtBtn) {
@@ -1349,6 +1351,11 @@ function renderSessionHistory() {
         
     // Reinitialize enhanced interactions for session items
     reinitializeEnhancedInteractions();
+    
+    // Update tooltips for collapsed sidebar
+    if (typeof updateSessionTooltips === 'function') {
+        updateSessionTooltips();
+    }
 }
 
 // Auto-save functionality
@@ -1547,28 +1554,6 @@ function stopDurationTimer() {
     }
 }
 
-function updateDurationDisplay() {
-    if (!recordingStartTime || !realtimeMode) {
-        return;
-    }
-    
-    const now = new Date();
-    const currentSessionDuration = Math.floor((now - recordingStartTime) / 1000);
-    const totalDuration = sessionTotalDuration + currentSessionDuration;
-    
-    const durationElement = document.getElementById('duration');
-    if (durationElement) {
-        durationElement.textContent = formatDuration(totalDuration);
-    }
-    
-    // Save current duration to storage for persistence
-    if (realtimeMode) {
-        chrome.storage.local.set({
-            currentSessionDuration: currentSessionDuration,
-            sessionTotalDuration: sessionTotalDuration
-        });
-    }
-}
 
 function formatDuration(seconds) {
     const hours = Math.floor(seconds / 3600);
@@ -1656,6 +1641,65 @@ function updateThemeToggleTitle(theme) {
     const themeToggle = document.getElementById('themeToggle');
     if (themeToggle) {
         themeToggle.setAttribute('title', theme === 'dark' ? 'Przełącz na jasny motyw' : 'Przełącz na ciemny motyw');
+    }
+}
+
+// Sidebar collapse functionality
+function initializeSidebar() {
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebar = document.querySelector('.sidebar');
+    
+    if (!sidebarToggle || !sidebar) {
+        console.error('Sidebar toggle or sidebar element not found');
+        return;
+    }
+    
+    // Load saved sidebar state
+    chrome.storage.local.get(['sidebarCollapsed'], (result) => {
+        if (result.sidebarCollapsed) {
+            sidebar.classList.add('collapsed');
+        }
+    });
+    
+    // Add click event listener
+    sidebarToggle.addEventListener('click', () => {
+        const isCollapsed = sidebar.classList.contains('collapsed');
+        
+        if (isCollapsed) {
+            sidebar.classList.remove('collapsed');
+            chrome.storage.local.set({ sidebarCollapsed: false });
+        } else {
+            sidebar.classList.add('collapsed');
+            chrome.storage.local.set({ sidebarCollapsed: true });
+        }
+        
+        // Update session tooltips after collapse state changes
+        setTimeout(() => {
+            updateSessionTooltips();
+        }, 300); // Wait for transition to complete
+    });
+    
+    // Initialize tooltips
+    updateSessionTooltips();
+}
+
+function updateSessionTooltips() {
+    const sidebar = document.querySelector('.sidebar');
+    const sessionItems = document.querySelectorAll('.session-item');
+    
+    if (sidebar && sidebar.classList.contains('collapsed')) {
+        sessionItems.forEach(item => {
+            const sessionInfo = item.querySelector('.session-info');
+            if (sessionInfo) {
+                const title = sessionInfo.querySelector('.session-title')?.textContent || 'Sesja';
+                const meta = sessionInfo.querySelector('.session-meta')?.textContent || '';
+                item.setAttribute('data-tooltip', `${title}${meta ? ' - ' + meta : ''}`);
+            }
+        });
+    } else {
+        sessionItems.forEach(item => {
+            item.removeAttribute('data-tooltip');
+        });
     }
 }
 
