@@ -2859,12 +2859,18 @@ function toggleFilterDropdown() {
     const isVisible = filterDropdown.style.display === 'block';
     
     if (isVisible) {
-        filterDropdown.style.display = 'none';
+        // Add fade out animation
+        filterDropdown.style.animation = 'filterDropdownSlideOut 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards';
+        setTimeout(() => {
+            filterDropdown.style.display = 'none';
+            filterDropdown.style.animation = '';
+        }, 200);
         filterBtn.classList.remove('active');
     } else {
         // Update participants list before showing
         updateParticipantFiltersList();
         filterDropdown.style.display = 'block';
+        filterDropdown.style.animation = 'filterDropdownSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards';
         filterBtn.classList.add('active');
     }
 }
@@ -2994,6 +3000,9 @@ function updateFilterBadge() {
         existingBadge.remove();
     }
     
+    // Remove active classes
+    filterBtn.classList.remove('has-filters', 'filter-active');
+    
     // Add badge if not all participants are selected
     const filteredCount = allParticipants.length - activeParticipantFilters.size;
     if (filteredCount > 0 && allParticipants.length > 0) {
@@ -3001,9 +3010,7 @@ function updateFilterBadge() {
         badge.className = 'filter-badge';
         badge.textContent = filteredCount;
         filterBtn.appendChild(badge);
-        filterBtn.classList.add('has-filters');
-    } else {
-        filterBtn.classList.remove('has-filters');
+        filterBtn.classList.add('filter-active');
     }
 }
 
