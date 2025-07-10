@@ -88,9 +88,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize enhanced interactions
     initializeEnhancedInteractions();
     
-    // Restore state from storage (recording status, timer, etc.)
-    restoreStateFromStorage();
-    
     // Listen for background scan updates
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {        
         if (request.action === 'backgroundScanUpdate') {
@@ -371,6 +368,9 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('🔄 [RESTORE] Error restoring state:', error);
         }
     }
+
+    // Restore state from storage (recording status, timer, etc.)
+    restoreStateFromStorage();
 
     function handleBackgroundScanUpdate(data) {
         const timestamp = new Date().toISOString();
@@ -882,7 +882,7 @@ function performNewSessionCreation() {
     stopDurationTimer();
     
     displayTranscript({ messages: [] });
-    updateStats({ entries: [] });
+    updateStats({ messages: [] });
     
     const exportTxtBtn = document.getElementById('exportTxtBtn');
     if (exportTxtBtn) {
