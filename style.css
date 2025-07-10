@@ -332,6 +332,22 @@ body {
     font-weight: 700;
 }
 
+.sidebar.collapsed .new-session-text {
+    display: none;
+}
+
+.sidebar.collapsed .new-session-icon {
+    display: inline;
+}
+
+.new-session-text {
+    display: inline;
+}
+
+.new-session-icon {
+    display: none;
+}
+
 .sidebar.collapsed .session-list {
     padding: 4px;
 }

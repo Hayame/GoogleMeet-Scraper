@@ -558,18 +558,28 @@ document.addEventListener('DOMContentLoaded', function() {
             const hasData = transcriptData && transcriptData.messages && transcriptData.messages.length > 0;
             const isRecording = realtimeMode;
             
+            console.log('🔍 [CLEAR BTN DEBUG] updateClearButtonState called:', {
+                transcriptData: transcriptData,
+                hasMessages: transcriptData?.messages?.length,
+                hasData: hasData,
+                isRecording: isRecording
+            });
+            
             if (isRecording) {
                 clearBtn.disabled = true;
                 clearBtn.classList.add('disabled');
                 clearBtn.title = 'Nie można wyczyścić podczas nagrywania';
+                console.log('🔍 [CLEAR BTN] Disabled - recording active');
             } else if (!hasData) {
                 clearBtn.disabled = true;
                 clearBtn.classList.add('disabled');
                 clearBtn.title = 'Brak danych do wyczyszczenia';
+                console.log('🔍 [CLEAR BTN] Disabled - no data');
             } else {
                 clearBtn.disabled = false;
                 clearBtn.classList.remove('disabled');
                 clearBtn.title = 'Wyczyść';
+                console.log('🔍 [CLEAR BTN] Enabled - has data');
             }
         }
         
@@ -1053,6 +1063,7 @@ function performNewSessionCreation() {
     recordingStopped = false; // Reset recording stopped flag
     
     console.log('🆕 [NEW SESSION] Created new session ID:', currentSessionId, '(not saved to storage yet)');
+    console.log('🆕 [NEW SESSION] transcriptData set to:', transcriptData);
     
     // Stop any existing timer
     stopDurationTimer();
@@ -1087,6 +1098,7 @@ function performNewSessionCreation() {
     renderSessionHistory();
     
     // Update clear button state
+    console.log('🆕 [NEW SESSION] Before updateClearButtonState, transcriptData:', transcriptData);
     if (window.updateClearButtonState) {
         window.updateClearButtonState();
     }
@@ -1687,19 +1699,38 @@ function updateSessionTooltips() {
     const sidebar = document.querySelector('.sidebar');
     const sessionItems = document.querySelectorAll('.session-item');
     
+    console.log('🔍 [TOOLTIPS] updateSessionTooltips called, collapsed:', sidebar?.classList.contains('collapsed'), 'items found:', sessionItems.length);
+    
     if (sidebar && sidebar.classList.contains('collapsed')) {
-        sessionItems.forEach(item => {
+        sessionItems.forEach((item, index) => {
             const sessionInfo = item.querySelector('.session-info');
             if (sessionInfo) {
                 const title = sessionInfo.querySelector('.session-title')?.textContent || 'Sesja';
                 const meta = sessionInfo.querySelector('.session-meta')?.textContent || '';
-                item.setAttribute('data-tooltip', `${title}${meta ? ' - ' + meta : ''}`);
+                
+                // Create more readable tooltip
+                let tooltip = title;
+                if (meta) {
+                    // Extract date and participants from meta (format: "14.01.2024 15:30 • 3 uczestników • 5 wpisów")
+                    const parts = meta.split(' • ');
+                    if (parts.length >= 2) {
+                        const dateTime = parts[0];
+                        const participants = parts[1];
+                        tooltip = `${title}\n${dateTime}\n${participants}`;
+                    } else {
+                        tooltip = `${title}\n${meta}`;
+                    }
+                }
+                
+                item.setAttribute('data-tooltip', tooltip);
+                console.log('🔍 [TOOLTIPS] Set tooltip for item', index, ':', tooltip);
             }
         });
     } else {
         sessionItems.forEach(item => {
             item.removeAttribute('data-tooltip');
         });
+        console.log('🔍 [TOOLTIPS] Removed all tooltips');
     }
 }
 
