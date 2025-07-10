@@ -88,6 +88,84 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize enhanced interactions
     initializeEnhancedInteractions();
     
+    // Background scan update handler function
+    function handleBackgroundScanUpdate(data) {
+        const timestamp = new Date().toISOString();
+        console.log('🟡 [BACKGROUND DEBUG] Handling background scan update at:', timestamp);
+        console.log('🟡 [BACKGROUND DEBUG] Data messages length:', data ? data.messages?.length : 'undefined');
+        
+        if (!realtimeMode) {
+            console.log('🟡 [BACKGROUND DEBUG] Ignoring - not in realtime mode');
+            return;
+        }
+        
+        if (recordingStopped) {
+            console.log('🟡 [BACKGROUND DEBUG] Ignoring - recording stopped');
+            return;
+        }
+        
+        if (!data || !data.messages || data.messages.length === 0) {
+            console.log('🟡 [BACKGROUND DEBUG] No messages in background scan update');
+            return;
+        }
+        
+        const exportTxtBtn = document.getElementById('exportTxtBtn');
+        
+        // Detect changes using hash comparison
+        const changes = detectChanges(transcriptData ? transcriptData.messages : [], data.messages);
+        
+        if (!transcriptData) {
+            // Initialize with new data structure
+            transcriptData = {
+                messages: data.messages,
+                scrapedAt: data.scrapedAt,
+                meetingUrl: data.meetingUrl
+            };
+            console.log('✅ Initialized transcript data from background scan');
+            
+            // Update display
+            displayTranscript(transcriptData);
+            updateStats(transcriptData);
+            
+            if (exportTxtBtn) {
+                exportTxtBtn.disabled = false;
+            }
+            
+            // Auto-save session to history
+            autoSaveCurrentSession();
+            
+            updateStatus(`Nagrywanie w tle... (${transcriptData.messages.length} wpisów)`, 'info');
+        } else if (changes.added.length > 0 || changes.updated.length > 0) {
+            // Update data with changes
+            transcriptData.messages = data.messages;
+            transcriptData.scrapedAt = data.scrapedAt;
+
+            // Update display with all messages (simplified approach)
+            displayTranscript(transcriptData);
+            updateStats(transcriptData);
+            
+            if (exportTxtBtn) {
+                exportTxtBtn.disabled = false;
+            }
+            
+            // Scroll to bottom if new messages added
+            if (changes.added.length > 0) {
+                const preview = document.getElementById('transcriptContent');
+                if (preview) {
+                    preview.scrollTop = preview.scrollHeight;
+                }
+            }
+            
+            // Auto-save session to history on every update
+            autoSaveCurrentSession();
+            
+            updateStatus(`Nagrywanie w tle... (${transcriptData.messages.length} wpisów)`, 'info');
+        }
+        
+        // Save to storage
+        chrome.storage.local.set({ transcriptData: transcriptData });        
+    }
+    
     // Listen for background scan updates
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {        
         if (request.action === 'backgroundScanUpdate') {
@@ -372,83 +450,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Restore state from storage (recording status, timer, etc.)
     restoreStateFromStorage();
 
-    function handleBackgroundScanUpdate(data) {
-        const timestamp = new Date().toISOString();
-        console.log('🟡 [BACKGROUND DEBUG] Handling background scan update at:', timestamp);
-        console.log('🟡 [BACKGROUND DEBUG] Data messages length:', data ? data.messages?.length : 'undefined');
-        
-        if (!realtimeMode) {
-            console.log('🟡 [BACKGROUND DEBUG] Ignoring - not in realtime mode');
-            return;
-        }
-        
-        if (recordingStopped) {
-            console.log('🟡 [BACKGROUND DEBUG] Ignoring - recording stopped');
-            return;
-        }
-        
-        if (!data || !data.messages || data.messages.length === 0) {
-            console.log('🟡 [BACKGROUND DEBUG] No messages in background scan update');
-            return;
-        }
-        
-        const exportTxtBtn = document.getElementById('exportTxtBtn');
-        
-        // Detect changes using hash comparison
-        const changes = detectChanges(transcriptData ? transcriptData.messages : [], data.messages);
-        
-        if (!transcriptData) {
-            // Initialize with new data structure
-            transcriptData = {
-                messages: data.messages,
-                scrapedAt: data.scrapedAt,
-                meetingUrl: data.meetingUrl
-            };
-            console.log('✅ Initialized transcript data from background scan');
-            
-            // Update display
-            displayTranscript(transcriptData);
-            updateStats(transcriptData);
-            
-            if (exportTxtBtn) {
-                exportTxtBtn.disabled = false;
-            }
-            
-            // Auto-save session to history
-            autoSaveCurrentSession();
-            
-            updateStatus(`Nagrywanie w tle... (${transcriptData.messages.length} wpisów)`, 'info');
-        } else if (changes.added.length > 0 || changes.updated.length > 0) {
-            // Update data with changes
-            transcriptData.messages = data.messages;
-            transcriptData.scrapedAt = data.scrapedAt;
-
-            // Update display with all messages (simplified approach)
-            displayTranscript(transcriptData);
-            updateStats(transcriptData);
-            
-            if (exportTxtBtn) {
-                exportTxtBtn.disabled = false;
-            }
-            
-            // Scroll to bottom if new messages added
-            if (changes.added.length > 0) {
-                const preview = document.getElementById('transcriptContent');
-                if (preview) {
-                    preview.scrollTop = preview.scrollHeight;
-                }
-            }
-            
-            // Auto-save session to history on every update
-            autoSaveCurrentSession();
-            
-            updateStatus(`Nagrywanie w tle... (${transcriptData.messages.length} wpisów)`, 'info');
-        }
-        
-        // Save to storage
-        chrome.storage.local.set({ transcriptData: transcriptData });        
-    }
-
     // Wyczyść transkrypcję
     if (clearBtn) {
         clearBtn.addEventListener('click', () => {
@@ -470,7 +471,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Update UI
                 displayTranscript({ messages: [] });
-                updateStats({ entries: [] });
+                updateStats({ messages: [] });
                 updateDurationDisplay(); // Reset duration display
                 if (exportTxtBtn) exportTxtBtn.disabled = true;
                 updateStatus('Transkrypcja wyczyszczona', 'info');
