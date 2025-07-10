@@ -47,34 +47,15 @@ function scrapeTranscript() {
         };
     }
     
-    // Znajdź wszystkie elementy z napisami - spróbuj różnych selektorów
-    let captionElements = mainContainer.querySelectorAll('div[aria-label="Napisy"]');
-    console.log('🔍 [CONTENT DEBUG] Caption elements (Polish) found:', captionElements.length);
+    // Znajdź kontener z napisami (główny kontener z aria-label="Napisy")
+    const captionsContainer = mainContainer.querySelector('div[aria-label="Napisy"]') || 
+                             mainContainer.querySelector('div[aria-label="Captions"]') || 
+                             mainContainer.querySelector('[aria-label*="captions"], [aria-label*="napisy"]');
     
-    // Spróbuj angielskiego
-    if (captionElements.length === 0) {
-        captionElements = mainContainer.querySelectorAll('div[aria-label="Captions"]');
-        console.log('🔍 [CONTENT DEBUG] Caption elements (English) found:', captionElements.length);
-    }
+    console.log('🔍 [CONTENT DEBUG] Captions container found:', !!captionsContainer);
     
-    // Spróbuj ogólnego selektora
-    if (captionElements.length === 0) {
-        captionElements = mainContainer.querySelectorAll('[aria-label*="captions"], [aria-label*="napisy"], [aria-label*="subtitles"]');
-        console.log('🔍 [CONTENT DEBUG] Caption elements (generic) found:', captionElements.length);
-    }
-    
-    // Sprawdź czy jest jakakolwiek struktura z napisami
-    if (captionElements.length === 0) {
-        const allCaptionCandidates = document.querySelectorAll('.a4cQT, [jscontroller="MZnM8e"], [jscontroller="bzaDVe"]');
-        console.log('🔍 [CONTENT DEBUG] All caption candidates found:', allCaptionCandidates.length);
-        
-        if (allCaptionCandidates.length > 0) {
-            captionElements = allCaptionCandidates;
-        }
-    }
-    
-    if (captionElements.length === 0) {
-        console.log('🔍 [CONTENT DEBUG] No caption elements found with any selector, returning empty');
+    if (!captionsContainer) {
+        console.log('🔍 [CONTENT DEBUG] No captions container found, returning empty');
         return {
             messages: [],
             scrapedAt: new Date().toISOString(),
@@ -82,15 +63,28 @@ function scrapeTranscript() {
         };
     }
     
-    // Przetwarzaj każdy element z napisami
-    captionElements.forEach((captionElement, index) => {
+    // Znajdź wszystkie wiadomości w kontenerze - każda ma klasę nMcdL
+    const messageElements = captionsContainer.querySelectorAll('.nMcdL');
+    console.log('🔍 [CONTENT DEBUG] Message elements found:', messageElements.length);
+    
+    if (messageElements.length === 0) {
+        console.log('🔍 [CONTENT DEBUG] No message elements found, returning empty');
+        return {
+            messages: [],
+            scrapedAt: new Date().toISOString(),
+            meetingUrl: window.location.href
+        };
+    }
+    
+    // Przetwarzaj każdy element z wiadomością
+    messageElements.forEach((messageElement, index) => {
         try {
             // Wyciągnij nazwę osoby mówiącej
-            const speakerElement = captionElement.querySelector('.NWpY1d');
+            const speakerElement = messageElement.querySelector('.NWpY1d');
             const speaker = speakerElement ? speakerElement.textContent.trim() : 'Nieznany';
             
             // Wyciągnij tekst transkrypcji
-            const textElement = captionElement.querySelector('.ygicle.VbkSUe');
+            const textElement = messageElement.querySelector('.ygicle.VbkSUe');
             const text = textElement ? textElement.textContent.trim() : '';
             
             // Waliduj i dodaj wpis
