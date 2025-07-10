@@ -1409,6 +1409,21 @@ body {
     font-weight: 600;
     font-size: 14px;
     flex-shrink: 0;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Apply same avatar colors as transcript */
+.participant-avatar.color-1 { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+.participant-avatar.color-2 { background: linear-gradient(135deg, #10b981, #059669); }
+.participant-avatar.color-3 { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.participant-avatar.color-4 { background: linear-gradient(135deg, #ef4444, #dc2626); }
+.participant-avatar.color-5 { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+.participant-avatar.color-6 { background: linear-gradient(135deg, #06b6d4, #0891b2); }
+
+.participant-avatar:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .participant-info {

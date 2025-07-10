@@ -645,6 +645,20 @@ function updateStatus(message, type = '') {
     }
 }
 
+function getSpeakerColorMap(messages) {
+    const speakerColors = new Map();
+    let colorIndex = 1;
+    
+    // Get unique speakers and assign colors consistently
+    const speakers = [...new Set(messages.map(msg => msg.speaker))].sort();
+    speakers.forEach(speaker => {
+        speakerColors.set(speaker, colorIndex);
+        colorIndex = (colorIndex % 6) + 1;
+    });
+    
+    return speakerColors;
+}
+
 function displayTranscript(data) {
     const previewDiv = document.getElementById('transcriptContent');
     if (!previewDiv) {
@@ -668,18 +682,12 @@ function displayTranscript(data) {
         return;
     }
 
-    // Mapa kolorów dla różnych użytkowników
-    const speakerColors = new Map();
-    let colorIndex = 1;
+    // Use shared color mapping function
+    const speakerColors = getSpeakerColorMap(dataToDisplay);
 
     // Pokaż wszystkie wpisy
     const entriesToShow = dataToDisplay;
     entriesToShow.forEach((entry, index) => {
-        // Przypisz kolor dla użytkownika
-        if (!speakerColors.has(entry.speaker)) {
-            speakerColors.set(entry.speaker, colorIndex);
-            colorIndex = (colorIndex % 6) + 1;
-        }
 
         const entryDiv = document.createElement('div');
         entryDiv.className = 'transcript-entry';
@@ -837,6 +845,9 @@ function updateStats(data) {
     entryCountSpan.textContent = data.messages.length;
     participantCountSpan.textContent = uniqueParticipants;
     
+    // Update participant count clickability based on count
+    updateParticipantCountClickability(uniqueParticipants);
+    
     // Duration is now handled by the continuous timer
     // Only update duration if we're not in realtime mode
     if (!realtimeMode) {
@@ -845,6 +856,29 @@ function updateStats(data) {
     
     statsDiv.style.display = 'block';
     
+}
+
+function updateParticipantCountClickability(participantCount) {
+    const participantCountSpan = document.getElementById('participantCount');
+    if (!participantCountSpan) return;
+    
+    if (participantCount === 0) {
+        // Remove clickable styling and disable click events
+        participantCountSpan.classList.remove('stat-clickable');
+        participantCountSpan.style.cursor = 'default';
+        participantCountSpan.style.textDecoration = 'none';
+        participantCountSpan.style.color = 'var(--text-heading)';
+        participantCountSpan.title = 'Brak uczestników';
+        participantCountSpan.onclick = null;
+    } else {
+        // Add clickable styling and enable click events
+        participantCountSpan.classList.add('stat-clickable');
+        participantCountSpan.style.cursor = 'pointer';
+        participantCountSpan.style.textDecoration = 'underline';
+        participantCountSpan.style.color = 'var(--btn-primary-bg)';
+        participantCountSpan.title = 'Kliknij aby zobaczyć listę uczestników';
+        // The click handler will be added by initializeMainParticipantsClick()
+    }
 }
 
 function startDurationTimer() {    
@@ -1741,7 +1775,7 @@ function updateSessionTooltips() {
                 const title = sessionInfo.querySelector('.session-title')?.textContent || 'Sesja';
                 const meta = sessionInfo.querySelector('.session-meta')?.textContent || '';
                 
-                // Create more readable tooltip
+                // Create multi-line tooltip with each info on separate line
                 let tooltip = title;
                 if (meta) {
                     // Extract date and participants from meta (format: "14.01.2024 15:30 • 3 uczestników • 5 wpisów")
@@ -1749,6 +1783,7 @@ function updateSessionTooltips() {
                     if (parts.length >= 2) {
                         const dateTime = parts[0];
                         const participants = parts[1];
+                        // Create multi-line format: each info on separate line
                         tooltip = `${title}\n${dateTime}\n${participants}`;
                     } else {
                         tooltip = `${title}\n${meta}`;
@@ -1759,12 +1794,6 @@ function updateSessionTooltips() {
                 console.log('🔍 [TOOLTIPS] Set tooltip for item', index, ':', tooltip);
                 console.log('🔍 [TOOLTIPS] Item classes:', item.className);
                 console.log('🔍 [TOOLTIPS] data-tooltip attr:', item.getAttribute('data-tooltip'));
-                
-                // Test: Add static tooltip to first item
-                if (index === 0) {
-                    item.setAttribute('data-tooltip', 'TEST TOOLTIP - PIERWSZA SESJA');
-                    console.log('🔍 [TOOLTIPS] Added test tooltip to first item');
-                }
             }
         });
     } else {
@@ -1783,10 +1812,21 @@ function initializeMainParticipantsClick() {
     }
     
     participantCount.addEventListener('click', () => {
+        // Check if clicking is allowed (not 0 participants)
+        if (!participantCount.classList.contains('stat-clickable')) {
+            return; // Do nothing if not clickable
+        }
+        
         // Check if we have active transcript data
         if (!transcriptData || !transcriptData.messages || transcriptData.messages.length === 0) {
             updateStatus('Brak danych transkrypcji do wyświetlenia', 'error');
             return;
+        }
+        
+        // Check if we actually have participants
+        const uniqueParticipants = new Set(transcriptData.messages.map(m => m.speaker)).size;
+        if (uniqueParticipants === 0) {
+            return; // Do nothing if no participants
         }
         
         // Create a session-like object from current transcript data
@@ -1823,6 +1863,9 @@ function showParticipantsList(session) {
     const participants = Array.from(participantsMap.values())
         .sort((a, b) => b.messageCount - a.messageCount); // Sort by message count
     
+    // Get color mapping using the same function as transcript
+    const speakerColors = getSpeakerColorMap(session.transcript.messages);
+    
     // Generate initials
     function getInitials(name) {
         return name.split(' ')
@@ -1850,6 +1893,10 @@ function showParticipantsList(session) {
             const avatar = document.createElement('div');
             avatar.className = 'participant-avatar';
             avatar.textContent = getInitials(participant.name);
+            
+            // Apply the same color as in transcript
+            const colorIndex = speakerColors.get(participant.name) || 1;
+            avatar.classList.add(`color-${colorIndex}`);
             
             const info = document.createElement('div');
             info.className = 'participant-info';
