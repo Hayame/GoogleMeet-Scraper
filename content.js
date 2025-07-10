@@ -32,9 +32,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 function scrapeTranscript() {
     const messages = [];
     
+    console.log('🔍 [CONTENT DEBUG] Starting transcript scrape at:', new Date().toISOString());
+    
     // Szukaj głównego kontenera transkrypcji
     const mainContainer = document.querySelector('div[jscontroller="D1tHje"]');
+    console.log('🔍 [CONTENT DEBUG] Main container found:', !!mainContainer);
+    
     if (!mainContainer) {
+        console.log('🔍 [CONTENT DEBUG] No main container, returning empty');
         return {
             messages: [],
             scrapedAt: new Date().toISOString(),
@@ -44,8 +49,10 @@ function scrapeTranscript() {
     
     // Znajdź wszystkie elementy z napisami
     const captionElements = mainContainer.querySelectorAll('div[aria-label="Napisy"]');
+    console.log('🔍 [CONTENT DEBUG] Caption elements found:', captionElements.length);
     
     if (captionElements.length === 0) {
+        console.log('🔍 [CONTENT DEBUG] No caption elements, returning empty');
         return {
             messages: [],
             scrapedAt: new Date().toISOString(),
@@ -88,6 +95,11 @@ function scrapeTranscript() {
         scrapedAt: new Date().toISOString(),
         meetingUrl: window.location.href
     };
+    
+    console.log('🔍 [CONTENT DEBUG] Scrape completed, messages found:', messages.length);
+    if (messages.length > 0) {
+        console.log('🔍 [CONTENT DEBUG] First message:', messages[0]);
+    }
     
     return result;
 }
