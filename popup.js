@@ -350,6 +350,21 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Background scan data will be handled by background script directly
             
+            // Show/hide record button based on session type
+            const recordBtn = document.getElementById('recordBtn');
+            if (recordBtn) {
+                if (result.realtimeMode) {
+                    // Active recording session - show button
+                    recordBtn.style.display = 'block';
+                } else if (result.transcriptData && result.transcriptData.messages && result.transcriptData.messages.length > 0) {
+                    // Historical session with data - hide button
+                    recordBtn.style.display = 'none';
+                } else {
+                    // New/empty session - show button
+                    recordBtn.style.display = 'block';
+                }
+            }
+            
             console.log('🔄 [RESTORE] State restoration completed');
             
         } catch (error) {
@@ -881,7 +896,13 @@ function performNewSessionCreation() {
         realtimeMode: false
     });
     
-    updateStatus('Utworzono nową sesję', 'success');    
+    updateStatus('Utworzono nową sesję', 'success');
+    
+    // Show record button for new sessions (they can be recorded)
+    const recordBtn = document.getElementById('recordBtn');
+    if (recordBtn) {
+        recordBtn.style.display = 'block';
+    }
 }
 
 function autoSaveCurrentSession(data = null) {
@@ -1054,6 +1075,12 @@ function loadSessionFromHistory(sessionId) {
     });
     
     updateStatus(`Wczytano sesję: ${session.title}`, 'success');
+    
+    // Hide record button for historical sessions (they are read-only)
+    const recordBtn = document.getElementById('recordBtn');
+    if (recordBtn) {
+        recordBtn.style.display = 'none';
+    }
 }
 
 function deleteSessionFromHistory(sessionId, event) {
