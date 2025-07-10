@@ -1349,7 +1349,22 @@ function renderSessionHistory() {
         const date = new Date(session.date);
         const dateStr = date.toLocaleDateString('pl-PL');
         const timeStr = date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
-        metaDiv.textContent = `${dateStr} ${timeStr} • ${session.participantCount} uczestników • ${session.entryCount} wpisów`;
+        // Create clickable participants section
+        const participantsSpan = document.createElement('span');
+        participantsSpan.className = 'participants-clickable';
+        participantsSpan.textContent = `${session.participantCount} uczestników`;
+        participantsSpan.title = 'Kliknij aby zobaczyć listę uczestników';
+        participantsSpan.style.cursor = 'pointer';
+        participantsSpan.style.textDecoration = 'underline';
+        participantsSpan.style.color = 'var(--btn-primary-bg)';
+        participantsSpan.onclick = (e) => {
+            e.stopPropagation(); // Prevent session loading
+            showParticipantsList(session);
+        };
+        
+        metaDiv.innerHTML = `${dateStr} ${timeStr} • `;
+        metaDiv.appendChild(participantsSpan);
+        metaDiv.appendChild(document.createTextNode(` • ${session.entryCount} wpisów`));
         
         sessionInfo.appendChild(titleDiv);
         sessionInfo.appendChild(metaDiv);
@@ -1708,7 +1723,13 @@ function updateSessionTooltips() {
     const sidebar = document.querySelector('.sidebar');
     const sessionItems = document.querySelectorAll('.session-item');
     
-    console.log('🔍 [TOOLTIPS] updateSessionTooltips called, collapsed:', sidebar?.classList.contains('collapsed'), 'items found:', sessionItems.length);
+    console.log('🔍 [TOOLTIPS] updateSessionTooltips called');
+    console.log('🔍 [TOOLTIPS] sidebar found:', !!sidebar);
+    console.log('🔍 [TOOLTIPS] sidebar collapsed:', sidebar?.classList.contains('collapsed'));
+    console.log('🔍 [TOOLTIPS] session items found:', sessionItems.length);
+    sessionItems.forEach((item, i) => {
+        console.log(`🔍 [TOOLTIPS] Item ${i}:`, item.className, 'has session-info:', !!item.querySelector('.session-info'));
+    });
     
     if (sidebar && sidebar.classList.contains('collapsed')) {
         sessionItems.forEach((item, index) => {
@@ -1735,6 +1756,12 @@ function updateSessionTooltips() {
                 console.log('🔍 [TOOLTIPS] Set tooltip for item', index, ':', tooltip);
                 console.log('🔍 [TOOLTIPS] Item classes:', item.className);
                 console.log('🔍 [TOOLTIPS] data-tooltip attr:', item.getAttribute('data-tooltip'));
+                
+                // Test: Add static tooltip to first item
+                if (index === 0) {
+                    item.setAttribute('data-tooltip', 'TEST TOOLTIP - PIERWSZA SESJA');
+                    console.log('🔍 [TOOLTIPS] Added test tooltip to first item');
+                }
             }
         });
     } else {
@@ -1743,6 +1770,81 @@ function updateSessionTooltips() {
         });
         console.log('🔍 [TOOLTIPS] Removed all tooltips');
     }
+}
+
+function showParticipantsList(session) {
+    // Extract unique participants from session transcript
+    const participantsMap = new Map();
+    
+    if (session.transcript && session.transcript.messages) {
+        session.transcript.messages.forEach(message => {
+            const speaker = message.speaker;
+            if (speaker && speaker !== 'Nieznany') {
+                if (!participantsMap.has(speaker)) {
+                    participantsMap.set(speaker, {
+                        name: speaker,
+                        messageCount: 0
+                    });
+                }
+                participantsMap.get(speaker).messageCount++;
+            }
+        });
+    }
+    
+    const participants = Array.from(participantsMap.values())
+        .sort((a, b) => b.messageCount - a.messageCount); // Sort by message count
+    
+    // Generate initials
+    function getInitials(name) {
+        return name.split(' ')
+            .map(word => word.charAt(0).toUpperCase())
+            .slice(0, 2) // Max 2 initials
+            .join('');
+    }
+    
+    // Generate participant list HTML
+    const participantsList = document.getElementById('participantsList');
+    if (!participantsList) {
+        console.error('Participants list container not found');
+        return;
+    }
+    
+    participantsList.innerHTML = '';
+    
+    if (participants.length === 0) {
+        participantsList.innerHTML = '<p style="text-align: center; color: var(--text-muted);">Brak uczestników do wyświetlenia</p>';
+    } else {
+        participants.forEach(participant => {
+            const participantDiv = document.createElement('div');
+            participantDiv.className = 'participant-item';
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'participant-avatar';
+            avatar.textContent = getInitials(participant.name);
+            
+            const info = document.createElement('div');
+            info.className = 'participant-info';
+            
+            const name = document.createElement('div');
+            name.className = 'participant-name';
+            name.textContent = participant.name;
+            
+            const stats = document.createElement('div');
+            stats.className = 'participant-stats';
+            stats.textContent = `${participant.messageCount} wypowiedzi`;
+            
+            info.appendChild(name);
+            info.appendChild(stats);
+            
+            participantDiv.appendChild(avatar);
+            participantDiv.appendChild(info);
+            
+            participantsList.appendChild(participantDiv);
+        });
+    }
+    
+    // Show modal
+    showModal('participantsModal');
 }
 
 // Modal System Functions

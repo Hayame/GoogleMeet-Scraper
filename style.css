@@ -1372,3 +1372,60 @@ body {
         max-width: 90vw;
     }
 }
+
+/* Participants list styles */
+.participants-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    padding: 8px 0;
+}
+
+.participant-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    background: var(--bg-hover);
+    border-radius: 8px;
+    border: 1px solid var(--border-primary);
+    transition: var(--transition-theme);
+}
+
+.participant-item:hover {
+    background: var(--bg-accent);
+}
+
+.participant-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--btn-primary-bg);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.participant-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.participant-name {
+    font-weight: 500;
+    color: var(--text-primary);
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.participant-stats {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
