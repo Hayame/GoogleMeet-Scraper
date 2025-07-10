@@ -24,17 +24,17 @@ document.addEventListener('DOMContentLoaded', function() {
         // Check for essential DOM elements
         if (!realtimeBtn) {
             console.error('Critical error: Record button not found');
-            return;
+            throw new Error('Record button not found');
         }
         
         if (!statusDiv) {
             console.error('Critical error: Status div not found');
-            return;
+            throw new Error('Status div not found');
         }
         
         if (!previewDiv) {
             console.error('Critical error: Preview div not found');
-            return;
+            throw new Error('Preview div not found');
         }
     
     // Initialize modal system
