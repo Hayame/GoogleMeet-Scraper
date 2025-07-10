@@ -13,6 +13,8 @@ let isFirstUpdate = false; // Track if this is the first update after recording 
 let isFirstBackgroundScan = false; // Track if this is the first background scan after recording starts
 let recordingStopped = false; // Flag to ignore background updates after recording stops
 let processingScan = false; // Mutex to prevent race conditions between manual and background scanning
+let lastProcessedBgTimestamp = 0; // Track last processed background scan timestamp
+let storageCheckInterval = null; // Interval for checking storage periodically
 
 document.addEventListener('DOMContentLoaded', function() {
     try {
@@ -95,6 +97,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Restore state from storage (recording status, timer, etc.)
     restoreStateFromStorage();
+    
+    // Start periodic storage check for background scan data
+    startPeriodicStorageCheck();
     
     // Listen for background scan updates
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {        
@@ -302,7 +307,8 @@ document.addEventListener('DOMContentLoaded', function() {
             realtimeMode: false, 
             recordingStartTime: null,
             transcriptData: null,
-            baselineEntryCount: 0
+            baselineEntryCount: 0,
+            sessionTotalDuration: sessionTotalDuration
         });
         
         // Wyczyść interwał
@@ -479,8 +485,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                         
                         // Use the same filtered data for stats to avoid re-filtering with stale lastSeenEntry
-                        // Update stats after brief delay to ensure chat renders first
-                        setTimeout(() => updateStats(transcriptData, filteredResult), 10);
+                        updateStats(transcriptData, filteredResult);
                         exportTxtBtn.disabled = false;
                         
                         // Zapisz dane
@@ -516,6 +521,39 @@ document.addEventListener('DOMContentLoaded', function() {
         return tab.id;
     }
 
+    function startPeriodicStorageCheck() {
+        // Clear any existing interval
+        if (storageCheckInterval) {
+            clearInterval(storageCheckInterval);
+        }
+        
+        console.log('🔄 [STORAGE CHECK] Starting periodic storage check');
+        
+        storageCheckInterval = setInterval(async () => {
+            // Only check when recording is active
+            if (!realtimeMode) {
+                return;
+            }
+            
+            try {
+                const tabId = await getCurrentTabId();
+                const result = await chrome.storage.local.get([`backgroundScan_${tabId}`]);
+                const bgScanKey = `backgroundScan_${tabId}`;
+                
+                if (result[bgScanKey] && result[bgScanKey].timestamp > lastProcessedBgTimestamp) {
+                    console.log('🔄 [STORAGE CHECK] Found new background scan data, processing...');
+                    console.log('   - Last processed:', lastProcessedBgTimestamp);
+                    console.log('   - New timestamp:', result[bgScanKey].timestamp);
+                    
+                    lastProcessedBgTimestamp = result[bgScanKey].timestamp;
+                    handleBackgroundScanUpdate(result[bgScanKey].data);
+                }
+            } catch (error) {
+                console.error('🔄 [STORAGE CHECK] Error:', error);
+            }
+        }, 2000); // Check every 2 seconds
+    }
+
     async function restoreStateFromStorage() {
         try {
             console.log('🔄 [RESTORE] Restoring state from storage');
@@ -526,6 +564,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 'transcriptData',
                 'currentSessionId',
                 'sessionTotalDuration',
+                'currentSessionDuration',
                 'baselineEntryCount',
                 'lastSeenEntry'
             ]);
@@ -549,6 +588,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 if (result.sessionTotalDuration) {
                     sessionTotalDuration = result.sessionTotalDuration;
+                }
+                
+                // Add any current session duration from before popup was closed
+                if (result.currentSessionDuration) {
+                    sessionTotalDuration += result.currentSessionDuration;
                 }
                 
                 // Restore baseline data
@@ -691,8 +735,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 // Only update display if there are actual changes
                 displayTranscript(transcriptData);
-                // Update stats after brief delay to ensure chat renders first
-                setTimeout(() => updateStats(transcriptData, filteredResult), 10);
+                updateStats(transcriptData, filteredResult);
                 
                 if (exportTxtBtn) {
                     exportTxtBtn.disabled = false;
@@ -1092,6 +1135,14 @@ function updateDurationDisplay() {
         const minutes = Math.floor(totalDuration / 60);
         const seconds = totalDuration % 60;
         durationSpan.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        
+        // Save current total duration to storage periodically (every 10 seconds)
+        if (totalDuration % 10 === 0) {
+            chrome.storage.local.set({ 
+                sessionTotalDuration: sessionTotalDuration,
+                currentSessionDuration: currentSessionDuration 
+            });
+        }
     } else {
         const minutes = Math.floor(sessionTotalDuration / 60);
         const seconds = sessionTotalDuration % 60;
