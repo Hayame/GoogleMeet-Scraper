@@ -47,12 +47,34 @@ function scrapeTranscript() {
         };
     }
     
-    // Znajdź wszystkie elementy z napisami
-    const captionElements = mainContainer.querySelectorAll('div[aria-label="Napisy"]');
-    console.log('🔍 [CONTENT DEBUG] Caption elements found:', captionElements.length);
+    // Znajdź wszystkie elementy z napisami - spróbuj różnych selektorów
+    let captionElements = mainContainer.querySelectorAll('div[aria-label="Napisy"]');
+    console.log('🔍 [CONTENT DEBUG] Caption elements (Polish) found:', captionElements.length);
+    
+    // Spróbuj angielskiego
+    if (captionElements.length === 0) {
+        captionElements = mainContainer.querySelectorAll('div[aria-label="Captions"]');
+        console.log('🔍 [CONTENT DEBUG] Caption elements (English) found:', captionElements.length);
+    }
+    
+    // Spróbuj ogólnego selektora
+    if (captionElements.length === 0) {
+        captionElements = mainContainer.querySelectorAll('[aria-label*="captions"], [aria-label*="napisy"], [aria-label*="subtitles"]');
+        console.log('🔍 [CONTENT DEBUG] Caption elements (generic) found:', captionElements.length);
+    }
+    
+    // Sprawdź czy jest jakakolwiek struktura z napisami
+    if (captionElements.length === 0) {
+        const allCaptionCandidates = document.querySelectorAll('.a4cQT, [jscontroller="MZnM8e"], [jscontroller="bzaDVe"]');
+        console.log('🔍 [CONTENT DEBUG] All caption candidates found:', allCaptionCandidates.length);
+        
+        if (allCaptionCandidates.length > 0) {
+            captionElements = allCaptionCandidates;
+        }
+    }
     
     if (captionElements.length === 0) {
-        console.log('🔍 [CONTENT DEBUG] No caption elements, returning empty');
+        console.log('🔍 [CONTENT DEBUG] No caption elements found with any selector, returning empty');
         return {
             messages: [],
             scrapedAt: new Date().toISOString(),
