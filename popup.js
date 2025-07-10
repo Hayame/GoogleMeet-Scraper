@@ -355,13 +355,13 @@ document.addEventListener('DOMContentLoaded', function() {
             if (recordBtn) {
                 if (result.realtimeMode) {
                     // Active recording session - show button
-                    recordBtn.style.display = 'block';
+                    recordBtn.style.display = 'flex';
                 } else if (result.transcriptData && result.transcriptData.messages && result.transcriptData.messages.length > 0) {
                     // Historical session with data - hide button
                     recordBtn.style.display = 'none';
                 } else {
                     // New/empty session - show button
-                    recordBtn.style.display = 'block';
+                    recordBtn.style.display = 'flex';
                 }
             }
             
@@ -901,7 +901,7 @@ function performNewSessionCreation() {
     // Show record button for new sessions (they can be recorded)
     const recordBtn = document.getElementById('recordBtn');
     if (recordBtn) {
-        recordBtn.style.display = 'block';
+        recordBtn.style.display = 'flex';
     }
 }
 
