@@ -545,9 +545,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Export handlers will be set up by the modal system
     
-    }
-    
-    } catch (error) {
+} catch (error) {
         console.error('Error during popup initialization:', error);
         updateStatus('Błąd inicjalizacji interfejsu', 'error');
     }
