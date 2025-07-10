@@ -439,64 +439,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function deactivateRealtimeMode() {        
-        const realtimeBtn = document.getElementById('recordBtn');
-        if (!realtimeBtn) {
-            console.error('Record button not found!');
-            return;
-        }
-        
-        realtimeMode = false;
-        realtimeBtn.classList.remove('active');
-        document.querySelector('.record-text').textContent = 'Rozpocznij nagrywanie';
-        updateStatus('Nagrywanie zatrzymane', 'success');
-        
-        // Add current session duration to total
-        if (recordingStartTime) {
-            const now = new Date();
-            const currentSessionDuration = Math.floor((now - recordingStartTime) / 1000);
-            sessionTotalDuration += currentSessionDuration;
-        }
-        
-        // Stop duration timer
-        stopDurationTimer();
-        
-        // Update clear button state (enable after recording)
-        if (window.updateClearButtonState) {
-            window.updateClearButtonState();
-        }
-        
-        // Set flag to ignore background updates
-        recordingStopped = true;
-        
-        // Zatrzymaj skanowanie w tle PRZED zapisem sesji
-        chrome.runtime.sendMessage({
-            action: 'stopBackgroundScanning'
-        }, (response) => {
-            if (response && response.success) {
-                console.log('✅ Background scanning stopped');
-            } else {
-                console.error('❌ Failed to stop background scanning');
-            }
-        });
-        
-        // Always save session when stopping recording
-        if (transcriptData && transcriptData.messages.length > 0) {
-            saveCurrentSessionToHistory();
-        }
-        
-        // Clear transcript data from storage
-        transcriptData = null;
-        
-        // Zapisz stan
-        chrome.storage.local.set({ 
-            realtimeMode: false, 
-            recordingStartTime: null,
-            transcriptData: null,
-            sessionTotalDuration: sessionTotalDuration
-        });
-        
-        // No manual scraping interval to clear in simplified version
 
     // takeBaselineSnapshot function removed - no longer needed in simplified version
 
@@ -946,6 +888,66 @@ function updateDurationDisplay() {
     }
 }
 
+function deactivateRealtimeMode() {        
+    const realtimeBtn = document.getElementById('recordBtn');
+    if (!realtimeBtn) {
+        console.error('Record button not found!');
+        return;
+    }
+    
+    realtimeMode = false;
+    realtimeBtn.classList.remove('active');
+    document.querySelector('.record-text').textContent = 'Rozpocznij nagrywanie';
+    updateStatus('Nagrywanie zatrzymane', 'success');
+    
+    // Add current session duration to total
+    if (recordingStartTime) {
+        const now = new Date();
+        const currentSessionDuration = Math.floor((now - recordingStartTime) / 1000);
+        sessionTotalDuration += currentSessionDuration;
+    }
+    
+    // Stop duration timer
+    stopDurationTimer();
+    
+    // Update clear button state (enable after recording)
+    if (window.updateClearButtonState) {
+        window.updateClearButtonState();
+    }
+    
+    // Set flag to ignore background updates
+    recordingStopped = true;
+    
+    // Zatrzymaj skanowanie w tle PRZED zapisem sesji
+    chrome.runtime.sendMessage({
+        action: 'stopBackgroundScanning'
+    }, (response) => {
+        if (response && response.success) {
+            console.log('✅ Background scanning stopped');
+        } else {
+            console.error('❌ Failed to stop background scanning');
+        }
+    });
+    
+    // Always save session when stopping recording
+    if (transcriptData && transcriptData.messages.length > 0) {
+        saveCurrentSessionToHistory();
+    }
+    
+    // Clear transcript data from storage
+    transcriptData = null;
+    
+    // Zapisz stan
+    chrome.storage.local.set({ 
+        realtimeMode: false, 
+        recordingStartTime: null,
+        transcriptData: null,
+        sessionTotalDuration: sessionTotalDuration
+    });
+    
+    // No manual scraping interval to clear in simplified version
+}
+
 function generateEntryId(entry) {
     // Generate a simple hash based on speaker and first 100 chars of text
     const text = entry.speaker + entry.text.substring(0, 100);
@@ -1064,12 +1066,15 @@ function performNewSessionCreation() {
     
     console.log('🆕 [NEW SESSION] Created new session ID:', currentSessionId, '(not saved to storage yet)');
     console.log('🆕 [NEW SESSION] transcriptData set to:', transcriptData);
+    console.log('🆕 [NEW SESSION] realtimeMode:', realtimeMode);
     
     // Stop any existing timer
     stopDurationTimer();
     
+    console.log('🆕 [NEW SESSION] About to call displayTranscript with:', { messages: [] });
     displayTranscript({ messages: [] });
     updateStats({ messages: [] });
+    console.log('🆕 [NEW SESSION] After displayTranscript, transcriptData:', transcriptData);
     
     const exportTxtBtn = document.getElementById('exportTxtBtn');
     if (exportTxtBtn) {
@@ -1087,8 +1092,12 @@ function performNewSessionCreation() {
     ], () => {
         // Update clear button state AFTER storage is cleared to prevent race condition
         console.log('🆕 [NEW SESSION] Storage cleared, transcriptData:', transcriptData);
+        console.log('🆕 [NEW SESSION] realtimeMode:', realtimeMode);
+        console.log('🆕 [NEW SESSION] About to call updateClearButtonState');
         if (window.updateClearButtonState) {
             window.updateClearButtonState();
+        } else {
+            console.error('🆕 [NEW SESSION] updateClearButtonState not found on window!');
         }
     });
     

@@ -112,9 +112,6 @@
 }
 
 /* Tooltip for collapsed sessions */
-.sidebar.collapsed .session-item {
-    position: relative;
-}
 
 .sidebar.collapsed .session-item:hover::after {
     content: attr(data-tooltip);
@@ -138,4 +135,23 @@
 
 .sidebar.collapsed .empty-sessions {
     display: none;
+}
+
+/* Test tooltip for new session button when collapsed */
+.sidebar.collapsed .new-session-btn:hover::after {
+    content: "Nowa sesja - test tooltip";
+    position: absolute;
+    left: 50px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 1000;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border-primary);
+    pointer-events: none;
 }
