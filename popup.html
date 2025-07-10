@@ -129,8 +129,16 @@
                                     <h4>Filtruj uczestników</h4>
                                 </div>
                                 <div class="filter-content">
-                                    <div id="participantFilters" class="participant-filters">
-                                        <!-- Filters will be populated here -->
+                                    <div class="filter-all-participants">
+                                        <label class="filter-checkbox-label">
+                                            <input type="checkbox" id="allParticipantsCheckbox" checked>
+                                            <span class="checkmark"></span>
+                                            <span class="checkbox-text">Wszyscy uczestnicy</span>
+                                        </label>
+                                    </div>
+                                    <div class="filter-separator"></div>
+                                    <div id="filterParticipantsList" class="filter-participants-list">
+                                        <!-- Individual participant filters will be populated here -->
                                     </div>
                                 </div>
                             </div>

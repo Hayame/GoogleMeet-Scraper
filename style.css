@@ -954,19 +954,14 @@ body {
 }
 
 /* Filter Dropdown Styles */
-.filter-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-primary);
-    border-radius: 8px;
-    box-shadow: var(--shadow-lg);
-    z-index: 1000;
-    max-height: 300px;
-    overflow-y: auto;
-    margin-top: 4px;
+
+.action-group-left {
+    position: relative;
+}
+
+.icon-button.active {
+    background: var(--btn-primary-bg);
+    color: white;
 }
 
 .filter-header {
@@ -1059,6 +1054,13 @@ body {
 /* Transcript entries filtering */
 .transcript-entry.filtered-out {
     display: none;
+}
+
+.filter-empty {
+    padding: 16px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 14px;
 }
 
 [data-theme="dark"] .modal {
@@ -1703,12 +1705,123 @@ body {
     margin-bottom: 12px;
 }
 
-.filter-title {
+.filter-header h4 {
     font-size: 14px;
     font-weight: 600;
     color: var(--text-heading);
     margin: 0;
     transition: var(--transition-theme);
+}
+
+.filter-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.filter-all-participants {
+    padding-bottom: 8px;
+}
+
+.filter-separator {
+    height: 1px;
+    background: var(--border-primary);
+    margin: 8px 0;
+}
+
+.filter-participants-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.filter-checkbox-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    padding: 6px 8px;
+    border-radius: 6px;
+    transition: var(--transition-fast);
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.filter-checkbox-label:hover {
+    background: var(--bg-hover);
+}
+
+.filter-checkbox-label input[type="checkbox"] {
+    opacity: 0;
+    position: absolute;
+    width: 0;
+    height: 0;
+}
+
+.checkmark {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--border-secondary);
+    border-radius: 4px;
+    position: relative;
+    margin-right: 8px;
+    transition: var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.filter-checkbox-label input[type="checkbox"]:checked + .checkmark {
+    background: var(--btn-primary-bg);
+    border-color: var(--btn-primary-bg);
+}
+
+.filter-checkbox-label input[type="checkbox"]:checked + .checkmark::after {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 4px;
+    height: 8px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+.checkbox-text {
+    flex: 1;
+    font-weight: 500;
+    transition: var(--transition-theme);
+}
+
+.filter-all-participants .checkbox-text {
+    font-weight: 600;
+    color: var(--text-heading);
+}
+
+.no-participants {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-style: italic;
+}
+
+.filter-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: var(--btn-primary-bg);
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: bold;
+    pointer-events: none;
+    z-index: 1;
 }
 
 .filter-options {
@@ -1891,63 +2004,6 @@ body {
     }
 }
 
-/* Filter and Search Components */
-.filter-dropdown {
-    position: relative;
-    display: inline-block;
-}
-
-.filter-dropdown-content {
-    display: none;
-    position: absolute;
-    top: 100%;
-    right: 0;
-    background: var(--bg-secondary);
-    min-width: 280px;
-    box-shadow: var(--shadow-xl);
-    z-index: 1000;
-    border-radius: 12px;
-    border: 1px solid var(--border-primary);
-    overflow: hidden;
-    opacity: 0;
-    transform: translateY(-8px);
-    transition: all 0.3s ease;
-    backdrop-filter: blur(8px);
-}
-
-.filter-dropdown-content.show {
-    display: block;
-    opacity: 1;
-    transform: translateY(0);
-    animation: dropdownSlideIn 0.3s ease-out;
-}
-
-@keyframes dropdownSlideIn {
-    from {
-        opacity: 0;
-        transform: translateY(-8px) scale(0.95);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
-}
-
-.filter-dropdown-header {
-    padding: 16px 20px;
-    background: var(--bg-tertiary);
-    border-bottom: 1px solid var(--border-primary);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.filter-dropdown-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--text-heading);
-    margin: 0;
-}
 
 .filter-clear-all {
     background: transparent;

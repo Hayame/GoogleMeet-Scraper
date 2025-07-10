@@ -2908,40 +2908,29 @@ function updateParticipantFiltersList() {
         }
     }
     
-    // Create participant filter items
+    // Create participant filter items using the new structure
     allParticipants.forEach(participant => {
-        const participantItem = document.createElement('div');
-        participantItem.className = 'filter-participant-item';
+        const participantLabel = document.createElement('label');
+        participantLabel.className = 'filter-checkbox-label';
         
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
-        checkbox.id = `filter-${participant}`;
         checkbox.value = participant;
         checkbox.checked = activeParticipantFilters.has(participant);
         checkbox.addEventListener('change', handleParticipantFilterChange);
         
-        const label = document.createElement('label');
-        label.htmlFor = `filter-${participant}`;
-        label.className = 'filter-participant-label';
+        const checkmark = document.createElement('span');
+        checkmark.className = 'checkmark';
         
-        // Create avatar
-        const avatar = document.createElement('div');
-        avatar.className = 'filter-participant-avatar';
-        const colorIndex = speakerColors.get(participant) || 1;
-        avatar.classList.add(`color-${colorIndex}`);
-        avatar.textContent = participant.charAt(0).toUpperCase();
+        const checkboxText = document.createElement('span');
+        checkboxText.className = 'checkbox-text';
+        checkboxText.textContent = participant;
         
-        const name = document.createElement('span');
-        name.className = 'filter-participant-name';
-        name.textContent = participant;
+        participantLabel.appendChild(checkbox);
+        participantLabel.appendChild(checkmark);
+        participantLabel.appendChild(checkboxText);
         
-        label.appendChild(avatar);
-        label.appendChild(name);
-        
-        participantItem.appendChild(checkbox);
-        participantItem.appendChild(label);
-        
-        filterParticipantsList.appendChild(participantItem);
+        filterParticipantsList.appendChild(participantLabel);
     });
     
     // Update filter badge
