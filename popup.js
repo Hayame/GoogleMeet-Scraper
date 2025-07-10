@@ -81,6 +81,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Sidebar collapse functionality
     initializeSidebar();
+    
+    // Initialize clickable participant count in main stats
+    initializeMainParticipantsClick();
 
     console.log('Popup loaded');
 
@@ -1770,6 +1773,32 @@ function updateSessionTooltips() {
         });
         console.log('🔍 [TOOLTIPS] Removed all tooltips');
     }
+}
+
+function initializeMainParticipantsClick() {
+    const participantCount = document.getElementById('participantCount');
+    if (!participantCount) {
+        console.error('Participant count element not found');
+        return;
+    }
+    
+    participantCount.addEventListener('click', () => {
+        // Check if we have active transcript data
+        if (!transcriptData || !transcriptData.messages || transcriptData.messages.length === 0) {
+            updateStatus('Brak danych transkrypcji do wyświetlenia', 'error');
+            return;
+        }
+        
+        // Create a session-like object from current transcript data
+        const currentSession = {
+            title: 'Obecna sesja',
+            transcript: transcriptData
+        };
+        
+        showParticipantsList(currentSession);
+    });
+    
+    console.log('Main participants click handler initialized');
 }
 
 function showParticipantsList(session) {

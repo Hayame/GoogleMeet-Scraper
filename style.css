@@ -350,6 +350,7 @@ body {
 
 .sidebar.collapsed .session-list {
     padding: 4px;
+    overflow: visible !important; /* Allow tooltips to show outside */
 }
 
 .new-session-btn {
@@ -1428,4 +1429,17 @@ body {
     font-size: 11px;
     color: var(--text-muted);
     margin-top: 2px;
+}
+
+/* Clickable stats */
+.stat-clickable {
+    cursor: pointer !important;
+    color: var(--btn-primary-bg) !important;
+    text-decoration: underline !important;
+    transition: all 0.2s ease !important;
+}
+
+.stat-clickable:hover {
+    color: var(--btn-primary-hover) !important;
+    transform: scale(1.05) !important;
 }
