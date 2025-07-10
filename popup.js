@@ -1354,6 +1354,52 @@ function reinitializeEnhancedInteractions() {
     });
 }
 
+// Detect changes between old and new messages using hash comparison
+function detectChanges(oldMessages, newMessages) {
+    const changes = {
+        added: [],
+        updated: [],
+        removed: []
+    };
+    
+    // Create hash maps for fast lookup
+    const oldHashes = new Map();
+    const newHashes = new Map();
+    
+    // Map old messages by hash
+    if (oldMessages) {
+        oldMessages.forEach((msg, index) => {
+            oldHashes.set(msg.hash, { ...msg, originalIndex: index });
+        });
+    }
+    
+    // Map new messages by hash
+    if (newMessages) {
+        newMessages.forEach((msg, index) => {
+            newHashes.set(msg.hash, { ...msg, originalIndex: index });
+        });
+    }
+    
+    // Find added messages (in new but not in old)
+    newHashes.forEach((msg, hash) => {
+        if (!oldHashes.has(hash)) {
+            changes.added.push(msg);
+        }
+    });
+    
+    // Find updated messages (same hash but different content - shouldn't happen with hash-based comparison)
+    // For now, we'll consider any message with same hash as unchanged
+    
+    // Find removed messages (in old but not in new)
+    oldHashes.forEach((msg, hash) => {
+        if (!newHashes.has(hash)) {
+            changes.removed.push(msg);
+        }
+    });
+    
+    return changes;
+}
+
 // Theme toggle functionality
 function initializeTheme() {
     const themeToggle = document.getElementById('themeToggle');
@@ -1795,4 +1841,50 @@ function reinitializeEnhancedInteractions() {
             this.style.transform = 'scale(1)';
         });
     });
+}
+
+// Detect changes between old and new messages using hash comparison
+function detectChanges(oldMessages, newMessages) {
+    const changes = {
+        added: [],
+        updated: [],
+        removed: []
+    };
+    
+    // Create hash maps for fast lookup
+    const oldHashes = new Map();
+    const newHashes = new Map();
+    
+    // Map old messages by hash
+    if (oldMessages) {
+        oldMessages.forEach((msg, index) => {
+            oldHashes.set(msg.hash, { ...msg, originalIndex: index });
+        });
+    }
+    
+    // Map new messages by hash
+    if (newMessages) {
+        newMessages.forEach((msg, index) => {
+            newHashes.set(msg.hash, { ...msg, originalIndex: index });
+        });
+    }
+    
+    // Find added messages (in new but not in old)
+    newHashes.forEach((msg, hash) => {
+        if (!oldHashes.has(hash)) {
+            changes.added.push(msg);
+        }
+    });
+    
+    // Find updated messages (same hash but different content - shouldn't happen with hash-based comparison)
+    // For now, we'll consider any message with same hash as unchanged
+    
+    // Find removed messages (in old but not in new)
+    oldHashes.forEach((msg, hash) => {
+        if (!newHashes.has(hash)) {
+            changes.removed.push(msg);
+        }
+    });
+    
+    return changes;
 }
