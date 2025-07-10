@@ -1293,11 +1293,23 @@ function loadSessionFromHistory(sessionId) {
         return;
     }
     
-    // Stop recording if active (auto-save will handle the session)
-    if (realtimeMode) {
-        deactivateRealtimeMode();
+    // If recording is active and user clicked on the same session that's being recorded, do nothing
+    if (realtimeMode && sessionId === currentSessionId) {
+        console.log('User clicked on currently recording session - ignoring');
+        return;
     }
     
+    // Check if recording is active for a DIFFERENT session and show confirmation
+    if (realtimeMode) {
+        showStopRecordingConfirmation(sessionId);
+        return;
+    }
+    
+    // Load the session directly if no recording is active
+    performLoadSession(session);
+}
+
+function performLoadSession(session) {
     // Load the session
     transcriptData = session.transcript;
     currentSessionId = session.id;
@@ -2079,6 +2091,71 @@ function performDeleteSession(sessionId) {
         
         updateStatus('Sesja usunięta', 'success');
     });
+}
+
+function showStopRecordingConfirmation(sessionId) {
+    const session = sessionHistory.find(s => s.id === sessionId);
+    if (!session) {
+        console.error('Session not found for confirmation:', sessionId);
+        return;
+    }
+    
+    // Store the session ID for later use
+    window.pendingSessionToLoad = sessionId;
+    
+    // Show the confirmation modal
+    showModal('stopRecordingModal');
+    
+    // Initialize event listeners for this confirmation
+    initializeStopRecordingModalEventListeners();
+}
+
+function initializeStopRecordingModalEventListeners() {
+    const confirmBtn = document.getElementById('stopRecordingConfirm');
+    const cancelBtn = document.getElementById('stopRecordingCancel');
+    
+    if (!confirmBtn || !cancelBtn) {
+        console.error('Stop recording modal buttons not found');
+        return;
+    }
+    
+    // Remove existing listeners to prevent duplicates
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    const newCancelBtn = cancelBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+    cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+    
+    // Add new event listeners
+    newConfirmBtn.addEventListener('click', () => {
+        handleStopRecordingConfirmation(true);
+    });
+    
+    newCancelBtn.addEventListener('click', () => {
+        handleStopRecordingConfirmation(false);
+    });
+}
+
+function handleStopRecordingConfirmation(confirmed) {
+    const sessionId = window.pendingSessionToLoad;
+    
+    // Hide the modal
+    hideModal('stopRecordingModal');
+    
+    // Clear the pending session
+    window.pendingSessionToLoad = null;
+    
+    if (confirmed && sessionId) {
+        // User confirmed - stop recording and load the session
+        const session = sessionHistory.find(s => s.id === sessionId);
+        if (session) {
+            // Stop recording (auto-save will handle the session)
+            deactivateRealtimeMode();
+            
+            // Load the requested session
+            performLoadSession(session);
+        }
+    }
+    // If cancelled, do nothing - just close the modal
 }
 
 function showResumeOptions() {    

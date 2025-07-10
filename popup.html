@@ -228,6 +228,28 @@
         </div>
     </div>
 
+    <div id="stopRecordingModal" class="modal" style="display: none;">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h3 class="modal-title">Przerwać nagrywanie?</h3>
+                <button class="modal-close" data-modal="stopRecordingModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Trwa aktywne nagrywanie. Czy na pewno chcesz je przerwać i wczytać wybraną sesję?</p>
+                <div class="recording-warning">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                    <span>Obecne nagrywanie zostanie automatycznie zapisane w historii</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="stopRecordingCancel" class="btn btn-secondary">Anuluj</button>
+                <button id="stopRecordingConfirm" class="btn btn-danger">Przerwij nagrywanie</button>
+            </div>
+        </div>
+    </div>
+
     <script src="popup.js"></script>
 </body>
 </html>

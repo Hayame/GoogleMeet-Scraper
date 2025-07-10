@@ -1139,6 +1139,29 @@ body {
     margin-top: 16px;
 }
 
+/* Recording warning styles */
+.recording-warning {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+    padding: 12px;
+    background: var(--status-success-bg);
+    border-radius: 8px;
+    border-left: 4px solid var(--btn-record-bg);
+}
+
+.recording-warning svg {
+    color: var(--btn-record-bg);
+    flex-shrink: 0;
+}
+
+.recording-warning span {
+    color: var(--status-success-text);
+    font-size: 14px;
+    line-height: 1.4;
+}
+
 .btn-danger {
     background: var(--btn-danger-bg);
     color: white;
