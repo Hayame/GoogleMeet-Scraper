@@ -8,6 +8,11 @@ let durationTimer = null;
 let expandedEntries = new Set(); // Track which entries are expanded
 let sessionTotalDuration = 0; // Track total session duration across pauses
 let recordingStopped = false; // Flag to ignore background updates after recording stops
+let currentSearchQuery = '';
+let searchDebounceTimer = null;
+let originalMessages = [];
+let activeParticipantFilters = new Set(); // Active participant filters
+let allParticipants = []; // List of all participants
 
 document.addEventListener('DOMContentLoaded', function() {
     try {
@@ -84,6 +89,12 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize clickable participant count in main stats
     initializeMainParticipantsClick();
+    
+    // Initialize search functionality
+    initializeSearch();
+    
+    // Initialize filters functionality
+    initializeFilters();
 
     console.log('Popup loaded');
 
@@ -564,6 +575,10 @@ document.addEventListener('DOMContentLoaded', function() {
         sessionTotalDuration = 0;
         recordingStopped = false;
         
+        // Reset search and filters
+        resetSearch();
+        resetParticipantFilters();
+        
         // Stop any existing timer
         stopDurationTimer();
         
@@ -608,6 +623,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Remove session highlighting
         renderSessionHistory();
         
+        // Reset filters for new session
+        resetFilters();
         
         updateStatus('Gotowy do nagrywania', 'info');
     }
@@ -670,6 +687,8 @@ function displayTranscript(data) {
 
     const dataToDisplay = data.messages || [];
     
+    originalMessages = dataToDisplay;
+    
     if (!data || dataToDisplay.length === 0) {
         previewDiv.innerHTML = `
             <div class="empty-transcript">
@@ -682,11 +701,28 @@ function displayTranscript(data) {
         return;
     }
 
+    let messagesToDisplay = dataToDisplay;
+    
+    // Apply participant filters first
+    if (activeParticipantFilters.size > 0) {
+        messagesToDisplay = messagesToDisplay.filter(entry => 
+            activeParticipantFilters.has(entry.speaker)
+        );
+    }
+    
+    // Then apply search filter
+    if (currentSearchQuery) {
+        messagesToDisplay = messagesToDisplay.filter(entry => 
+            entry.text.toLowerCase().includes(currentSearchQuery.toLowerCase()) ||
+            entry.speaker.toLowerCase().includes(currentSearchQuery.toLowerCase())
+        );
+    }
+
     // Use shared color mapping function
-    const speakerColors = getSpeakerColorMap(dataToDisplay);
+    const speakerColors = getSpeakerColorMap(messagesToDisplay);
 
     // Pokaż wszystkie wpisy
-    const entriesToShow = dataToDisplay;
+    const entriesToShow = messagesToDisplay;
     entriesToShow.forEach((entry, index) => {
 
         const entryDiv = document.createElement('div');
@@ -739,13 +775,13 @@ function displayTranscript(data) {
             // Create collapsed version
             const collapsedSpan = document.createElement('span');
             collapsedSpan.className = 'text-collapsed';
-            collapsedSpan.textContent = shortText + '...';
+            collapsedSpan.innerHTML = currentSearchQuery ? highlightText(shortText + '...', currentSearchQuery) : shortText + '...';
             collapsedSpan.style.display = isExpanded ? 'none' : 'inline';
             
             // Create full version 
             const expandedSpan = document.createElement('span');
             expandedSpan.className = 'text-expanded';
-            expandedSpan.textContent = fullText;
+            expandedSpan.innerHTML = currentSearchQuery ? highlightText(fullText, currentSearchQuery) : fullText;
             expandedSpan.style.display = isExpanded ? 'inline' : 'none';
             
             // Create button container
@@ -789,7 +825,7 @@ function displayTranscript(data) {
             buttonContainer.appendChild(collapseBtn);
             bubbleDiv.appendChild(buttonContainer);
         } else {
-            textP.textContent = entry.text;
+            textP.innerHTML = currentSearchQuery ? highlightText(entry.text, currentSearchQuery) : entry.text;
         }
         
         bubbleDiv.appendChild(textP);
@@ -856,6 +892,8 @@ function updateStats(data) {
     
     statsDiv.style.display = 'block';
     
+    // Update participant filters list
+    updateParticipantFiltersList();
 }
 
 function updateParticipantCountClickability(participantCount) {
@@ -1316,6 +1354,10 @@ function performLoadSession(session) {
     recordingStartTime = null; // Historic sessions don't have active recording
     sessionTotalDuration = session.totalDuration || 0; // Load total duration
     
+    // Reset search and filters
+    resetSearch();
+    resetParticipantFilters();
+    
     // Stop any existing timer and ensure recording is stopped
     stopDurationTimer();
     
@@ -1609,6 +1651,227 @@ function detectChanges(oldMessages, newMessages) {
     });
     
     return changes;
+}
+
+// Participant filtering functions
+function initializeFilters() {
+    const filterBtn = document.getElementById('filterBtn');
+    const filterDropdown = document.getElementById('filterDropdown');
+    
+    if (!filterBtn || !filterDropdown) {
+        console.error('Filter elements not found');
+        return;
+    }
+    
+    // Add click event listener to filter button
+    filterBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showFilterDropdown();
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!filterDropdown.contains(e.target) && e.target !== filterBtn) {
+            hideFilterDropdown();
+        }
+    });
+    
+    console.log('Filter system initialized');
+}
+
+function showFilterDropdown() {
+    const filterDropdown = document.getElementById('filterDropdown');
+    const filterBtn = document.getElementById('filterBtn');
+    
+    if (!filterDropdown || !filterBtn) return;
+    
+    // Update participant filters before showing
+    updateParticipantFilters();
+    
+    // Show dropdown
+    filterDropdown.style.display = 'block';
+    filterDropdown.setAttribute('aria-hidden', 'false');
+    
+    // Add active state to button
+    filterBtn.classList.add('active');
+    
+    console.log('Filter dropdown shown');
+}
+
+function hideFilterDropdown() {
+    const filterDropdown = document.getElementById('filterDropdown');
+    const filterBtn = document.getElementById('filterBtn');
+    
+    if (!filterDropdown || !filterBtn) return;
+    
+    // Hide dropdown
+    filterDropdown.style.display = 'none';
+    filterDropdown.setAttribute('aria-hidden', 'true');
+    
+    // Remove active state from button
+    filterBtn.classList.remove('active');
+    
+    console.log('Filter dropdown hidden');
+}
+
+function updateParticipantFilters() {
+    const participantFilters = document.getElementById('participantFilters');
+    
+    if (!participantFilters) {
+        console.error('Participant filters container not found');
+        return;
+    }
+    
+    // Clear existing filters
+    participantFilters.innerHTML = '';
+    
+    // If no transcript data, show empty state
+    if (!transcriptData || !transcriptData.messages || transcriptData.messages.length === 0) {
+        participantFilters.innerHTML = '<div class="filter-empty">Brak uczestników do filtrowania</div>';
+        return;
+    }
+    
+    // Get unique participants with message counts
+    const participantsMap = new Map();
+    transcriptData.messages.forEach(message => {
+        const speaker = message.speaker;
+        if (speaker && speaker !== 'Nieznany') {
+            if (!participantsMap.has(speaker)) {
+                participantsMap.set(speaker, 0);
+            }
+            participantsMap.set(speaker, participantsMap.get(speaker) + 1);
+        }
+    });
+    
+    const participants = Array.from(participantsMap.entries())
+        .sort((a, b) => b[1] - a[1]); // Sort by message count descending
+    
+    if (participants.length === 0) {
+        participantFilters.innerHTML = '<div class="filter-empty">Brak uczestników do filtrowania</div>';
+        return;
+    }
+    
+    // Get speaker color map
+    const speakerColors = getSpeakerColorMap(transcriptData.messages);
+    
+    // Create "All participants" filter
+    const allFilter = document.createElement('div');
+    allFilter.className = 'participant-filter all-participants';
+    allFilter.innerHTML = `
+        <input type="checkbox" class="participant-filter-checkbox" id="filter-all" ${activeParticipantFilters.size === 0 ? 'checked' : ''}>
+        <span class="participant-filter-name">Wszyscy uczestnicy</span>
+        <span class="participant-filter-count">${participants.length} uczestników</span>
+    `;
+    
+    // Add event listener for "All participants" checkbox
+    const allCheckbox = allFilter.querySelector('input');
+    allCheckbox.addEventListener('change', (e) => {
+        if (e.target.checked) {
+            // Clear all filters
+            activeParticipantFilters.clear();
+            // Update all other checkboxes
+            participantFilters.querySelectorAll('.participant-filter-checkbox').forEach(cb => {
+                if (cb !== allCheckbox) {
+                    cb.checked = false;
+                }
+            });
+        } else {
+            // If unchecking "All", check all individual participants
+            participants.forEach(([speaker]) => {
+                activeParticipantFilters.add(speaker);
+            });
+            // Update all other checkboxes
+            participantFilters.querySelectorAll('.participant-filter-checkbox').forEach(cb => {
+                if (cb !== allCheckbox) {
+                    cb.checked = true;
+                }
+            });
+        }
+        applyParticipantFilter();
+    });
+    
+    participantFilters.appendChild(allFilter);
+    
+    // Create individual participant filters
+    participants.forEach(([speaker, count]) => {
+        const filter = document.createElement('div');
+        filter.className = 'participant-filter';
+        
+        const colorIndex = speakerColors.get(speaker) || 1;
+        const initials = speaker.charAt(0).toUpperCase();
+        const isFiltered = activeParticipantFilters.has(speaker);
+        
+        filter.innerHTML = `
+            <input type="checkbox" class="participant-filter-checkbox" id="filter-${speaker}" ${!isFiltered ? 'checked' : ''}>
+            <div class="participant-filter-avatar color-${colorIndex}">${initials}</div>
+            <span class="participant-filter-name">${speaker}</span>
+            <span class="participant-filter-count">${count} wypowiedzi</span>
+        `;
+        
+        // Add event listener for individual participant checkbox
+        const checkbox = filter.querySelector('input');
+        checkbox.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                // Remove from filtered set (show participant)
+                activeParticipantFilters.delete(speaker);
+            } else {
+                // Add to filtered set (hide participant)
+                activeParticipantFilters.add(speaker);
+            }
+            
+            // Update "All participants" checkbox
+            const allCheckbox = participantFilters.querySelector('#filter-all');
+            if (allCheckbox) {
+                allCheckbox.checked = activeParticipantFilters.size === 0;
+            }
+            
+            applyParticipantFilter();
+        });
+        
+        participantFilters.appendChild(filter);
+    });
+    
+    console.log('Participant filters updated:', participants.length, 'participants');
+}
+
+function applyParticipantFilter() {
+    const transcriptEntries = document.querySelectorAll('.transcript-entry');
+    
+    transcriptEntries.forEach(entry => {
+        const speakerName = entry.querySelector('.speaker-name');
+        if (speakerName) {
+            const speaker = speakerName.textContent.trim();
+            
+            if (activeParticipantFilters.has(speaker)) {
+                // Hide this entry
+                entry.classList.add('filtered-out');
+            } else {
+                // Show this entry
+                entry.classList.remove('filtered-out');
+            }
+        }
+    });
+    
+    console.log('Applied participant filter, filtered out:', activeParticipantFilters.size, 'participants');
+}
+
+function resetFilters() {
+    // Clear all active filters
+    activeParticipantFilters.clear();
+    
+    // Remove filtered-out class from all entries
+    const transcriptEntries = document.querySelectorAll('.transcript-entry');
+    transcriptEntries.forEach(entry => {
+        entry.classList.remove('filtered-out');
+    });
+    
+    // Update filter UI if dropdown is visible
+    const filterDropdown = document.getElementById('filterDropdown');
+    if (filterDropdown && filterDropdown.style.display !== 'none') {
+        updateParticipantFilters();
+    }
+    
+    console.log('Filters reset');
 }
 
 // Duration Timer Functions - persistent timer that works even when popup is closed
@@ -2438,4 +2701,353 @@ function detectChanges(oldMessages, newMessages) {
     });
     
     return changes;
+}
+
+
+function initializeSearch() {
+    const searchToggle = document.getElementById("searchToggle");
+    const searchInput = document.getElementById("searchInput");
+    const clearSearchBtn = document.getElementById("clearSearchBtn");
+    
+    if (searchToggle) {
+        searchToggle.addEventListener("click", toggleSearchPanel);
+    }
+    
+    if (searchInput) {
+        searchInput.addEventListener("input", handleSearchInput);
+        searchInput.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") {
+                clearSearch();
+            }
+        });
+    }
+    
+    if (clearSearchBtn) {
+        clearSearchBtn.addEventListener("click", clearSearch);
+    }
+}
+
+function toggleSearchPanel() {
+    const searchPanel = document.getElementById("searchPanel");
+    const searchInput = document.getElementById("searchInput");
+    
+    if (searchPanel) {
+        const isVisible = searchPanel.style.display === "block";
+        searchPanel.style.display = isVisible ? "none" : "block";
+        
+        if (!isVisible && searchInput) {
+            searchInput.focus();
+        }
+        
+        if (isVisible) {
+            clearSearch();
+        }
+    }
+}
+
+function handleSearchInput(e) {
+    const query = e.target.value.trim();
+    
+    if (searchDebounceTimer) {
+        clearTimeout(searchDebounceTimer);
+    }
+    
+    searchDebounceTimer = setTimeout(() => {
+        performSearch(query);
+    }, 300);
+}
+
+function performSearch(query) {
+    currentSearchQuery = query;
+    
+    if (transcriptData && transcriptData.messages) {
+        displayTranscript(transcriptData);
+    }
+}
+
+function highlightText(text, query) {
+    if (!query) return text;
+    
+    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+    return text.replace(regex, "<mark class=\"highlight-search\">$1</mark>");
+}
+
+function clearSearch() {
+    const searchInput = document.getElementById("searchInput");
+    const searchPanel = document.getElementById("searchPanel");
+    
+    if (searchInput) {
+        searchInput.value = "";
+    }
+    
+    if (searchPanel) {
+        searchPanel.style.display = "none";
+    }
+    
+    if (searchDebounceTimer) {
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = null;
+    }
+    
+    currentSearchQuery = "";
+    
+    if (transcriptData && transcriptData.messages) {
+        displayTranscript(transcriptData);
+    }
+}
+
+function resetSearch() {
+    const searchInput = document.getElementById("searchInput");
+    const searchPanel = document.getElementById("searchPanel");
+    
+    if (searchInput) {
+        searchInput.value = "";
+    }
+    
+    if (searchPanel) {
+        searchPanel.style.display = "none";
+    }
+    
+    if (searchDebounceTimer) {
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = null;
+    }
+    
+    currentSearchQuery = "";
+    originalMessages = [];
+}
+
+// Participant Filtering Functions
+function initializeFilters() {
+    const filterBtn = document.getElementById('filterBtn');
+    const filterDropdown = document.getElementById('filterDropdown');
+    
+    if (!filterBtn || !filterDropdown) {
+        console.error('Filter elements not found');
+        return;
+    }
+    
+    // Toggle filter dropdown
+    filterBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleFilterDropdown();
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!filterDropdown.contains(e.target) && !filterBtn.contains(e.target)) {
+            filterDropdown.style.display = 'none';
+            filterBtn.classList.remove('active');
+        }
+    });
+    
+    // Setup "All participants" checkbox
+    const allParticipantsCheckbox = document.getElementById('allParticipantsCheckbox');
+    if (allParticipantsCheckbox) {
+        allParticipantsCheckbox.addEventListener('change', handleAllParticipantsChange);
+    }
+    
+    console.log('Filters initialized');
+}
+
+function toggleFilterDropdown() {
+    const filterBtn = document.getElementById('filterBtn');
+    const filterDropdown = document.getElementById('filterDropdown');
+    
+    if (!filterBtn || !filterDropdown) return;
+    
+    const isVisible = filterDropdown.style.display === 'block';
+    
+    if (isVisible) {
+        filterDropdown.style.display = 'none';
+        filterBtn.classList.remove('active');
+    } else {
+        // Update participants list before showing
+        updateParticipantFiltersList();
+        filterDropdown.style.display = 'block';
+        filterBtn.classList.add('active');
+    }
+}
+
+function updateParticipantFiltersList() {
+    const filterParticipantsList = document.getElementById('filterParticipantsList');
+    const allParticipantsCheckbox = document.getElementById('allParticipantsCheckbox');
+    
+    if (!filterParticipantsList || !transcriptData || !transcriptData.messages) {
+        return;
+    }
+    
+    // Get unique participants
+    const participantsSet = new Set();
+    transcriptData.messages.forEach(message => {
+        if (message.speaker && message.speaker !== 'Nieznany') {
+            participantsSet.add(message.speaker);
+        }
+    });
+    
+    allParticipants = Array.from(participantsSet).sort();
+    
+    // Clear existing list
+    filterParticipantsList.innerHTML = '';
+    
+    if (allParticipants.length === 0) {
+        filterParticipantsList.innerHTML = '<div class="no-participants">Brak uczestników</div>';
+        return;
+    }
+    
+    // Get speaker colors for consistency
+    const speakerColors = getSpeakerColorMap(transcriptData.messages);
+    
+    // If no filters are set, initialize with all participants
+    if (activeParticipantFilters.size === 0) {
+        allParticipants.forEach(participant => {
+            activeParticipantFilters.add(participant);
+        });
+        if (allParticipantsCheckbox) {
+            allParticipantsCheckbox.checked = true;
+        }
+    }
+    
+    // Create participant filter items
+    allParticipants.forEach(participant => {
+        const participantItem = document.createElement('div');
+        participantItem.className = 'filter-participant-item';
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `filter-${participant}`;
+        checkbox.value = participant;
+        checkbox.checked = activeParticipantFilters.has(participant);
+        checkbox.addEventListener('change', handleParticipantFilterChange);
+        
+        const label = document.createElement('label');
+        label.htmlFor = `filter-${participant}`;
+        label.className = 'filter-participant-label';
+        
+        // Create avatar
+        const avatar = document.createElement('div');
+        avatar.className = 'filter-participant-avatar';
+        const colorIndex = speakerColors.get(participant) || 1;
+        avatar.classList.add(`color-${colorIndex}`);
+        avatar.textContent = participant.charAt(0).toUpperCase();
+        
+        const name = document.createElement('span');
+        name.className = 'filter-participant-name';
+        name.textContent = participant;
+        
+        label.appendChild(avatar);
+        label.appendChild(name);
+        
+        participantItem.appendChild(checkbox);
+        participantItem.appendChild(label);
+        
+        filterParticipantsList.appendChild(participantItem);
+    });
+    
+    // Update filter badge
+    updateFilterBadge();
+}
+
+function handleAllParticipantsChange(event) {
+    const isChecked = event.target.checked;
+    const participantCheckboxes = document.querySelectorAll('#filterParticipantsList input[type="checkbox"]');
+    
+    activeParticipantFilters.clear();
+    
+    if (isChecked) {
+        // Select all participants
+        allParticipants.forEach(participant => {
+            activeParticipantFilters.add(participant);
+        });
+        participantCheckboxes.forEach(checkbox => {
+            checkbox.checked = true;
+        });
+    } else {
+        // Deselect all participants
+        participantCheckboxes.forEach(checkbox => {
+            checkbox.checked = false;
+        });
+    }
+    
+    updateFilterBadge();
+    applyParticipantFilters();
+}
+
+function handleParticipantFilterChange(event) {
+    const participant = event.target.value;
+    const isChecked = event.target.checked;
+    const allParticipantsCheckbox = document.getElementById('allParticipantsCheckbox');
+    
+    if (isChecked) {
+        activeParticipantFilters.add(participant);
+    } else {
+        activeParticipantFilters.delete(participant);
+    }
+    
+    // Update "All participants" checkbox
+    if (allParticipantsCheckbox) {
+        const allSelected = allParticipants.length > 0 && 
+                           allParticipants.every(p => activeParticipantFilters.has(p));
+        allParticipantsCheckbox.checked = allSelected;
+    }
+    
+    updateFilterBadge();
+    applyParticipantFilters();
+}
+
+function updateFilterBadge() {
+    const filterBtn = document.getElementById('filterBtn');
+    if (!filterBtn) return;
+    
+    // Remove existing badge
+    const existingBadge = filterBtn.querySelector('.filter-badge');
+    if (existingBadge) {
+        existingBadge.remove();
+    }
+    
+    // Add badge if not all participants are selected
+    const filteredCount = allParticipants.length - activeParticipantFilters.size;
+    if (filteredCount > 0 && allParticipants.length > 0) {
+        const badge = document.createElement('span');
+        badge.className = 'filter-badge';
+        badge.textContent = filteredCount;
+        filterBtn.appendChild(badge);
+        filterBtn.classList.add('has-filters');
+    } else {
+        filterBtn.classList.remove('has-filters');
+    }
+}
+
+function applyParticipantFilters() {
+    if (transcriptData && transcriptData.messages) {
+        displayTranscript(transcriptData);
+    }
+}
+
+function resetParticipantFilters() {
+    activeParticipantFilters.clear();
+    allParticipants = [];
+    
+    const filterBtn = document.getElementById('filterBtn');
+    const filterDropdown = document.getElementById('filterDropdown');
+    const allParticipantsCheckbox = document.getElementById('allParticipantsCheckbox');
+    
+    if (filterBtn) {
+        filterBtn.classList.remove('active', 'has-filters');
+        const badge = filterBtn.querySelector('.filter-badge');
+        if (badge) badge.remove();
+    }
+    
+    if (filterDropdown) {
+        filterDropdown.style.display = 'none';
+    }
+    
+    if (allParticipantsCheckbox) {
+        allParticipantsCheckbox.checked = true;
+    }
+    
+    const filterParticipantsList = document.getElementById('filterParticipantsList');
+    if (filterParticipantsList) {
+        filterParticipantsList.innerHTML = '';
+    }
 }
