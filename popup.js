@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const realtimeBtn = document.getElementById('recordBtn');
         const exportTxtBtn = document.getElementById('exportTxtBtn');
         const clearBtn = document.getElementById('clearBtn');
+        const closeSessionBtn = document.getElementById('closeSessionBtn');
         const statusDiv = document.getElementById('recordingStatus');
         const previewDiv = document.getElementById('transcriptContent');
         const statsDiv = document.getElementById('transcriptStats');
@@ -80,8 +81,141 @@ document.addEventListener('DOMContentLoaded', function() {
 
     console.log('Popup loaded');
 
-    // Initialize session history
-    initializeSessionHistory();
+    // Function to restore state from storage
+    async function restoreStateFromStorage() {
+        try {
+            console.log('🔄 [RESTORE] Restoring state from storage');
+            
+            const result = await chrome.storage.local.get([
+                'realtimeMode', 
+                'recordingStartTime', 
+                'transcriptData',
+                'currentSessionId',
+                'sessionTotalDuration',
+                'currentSessionDuration'
+            ]);
+            
+            console.log('🔄 [RESTORE DEBUG] Storage contents:', {
+                realtimeMode: result.realtimeMode,
+                currentSessionId: result.currentSessionId,
+                hasTranscriptData: !!result.transcriptData,
+                sessionHistoryLength: sessionHistory.length
+            });
+            
+            // Restore recording state
+            if (result.realtimeMode) {
+                console.log('🔄 [RESTORE] Restoring recording state');
+                realtimeMode = true;
+                
+                // Restore recording start time and timer
+                if (result.recordingStartTime) {
+                    recordingStartTime = new Date(result.recordingStartTime);
+                    console.log('🔄 [RESTORE] Restored recording start time:', recordingStartTime);
+                    startDurationTimer();
+                }
+                
+                // Restore session data
+                if (result.currentSessionId) {
+                    currentSessionId = result.currentSessionId;
+                }
+                
+                if (result.sessionTotalDuration) {
+                    sessionTotalDuration = result.sessionTotalDuration;
+                }
+                
+                // Add any current session duration from before popup was closed
+                if (result.currentSessionDuration) {
+                    sessionTotalDuration += result.currentSessionDuration;
+                    // Clear the saved current duration to prevent accumulation
+                    chrome.storage.local.remove(['currentSessionDuration']);
+                }
+                
+                // Update UI to show recording state
+                const realtimeBtn = document.getElementById('recordBtn');
+                if (realtimeBtn) {
+                    realtimeBtn.classList.add('active');
+                    document.querySelector('.record-text').textContent = 'Zatrzymaj nagrywanie';
+                }
+                
+                updateStatus('Nagrywanie wznowione', 'success');
+            }
+            
+            // Restore transcript data only for active recording or historical sessions
+            if (result.transcriptData && result.currentSessionId) {
+                const isActiveRecording = result.realtimeMode;
+                const isHistoricalSession = sessionHistory.find(s => s.id === result.currentSessionId);
+                
+                console.log('🔄 [RESTORE DEBUG] Session analysis:', {
+                    currentSessionId: result.currentSessionId,
+                    isActiveRecording: isActiveRecording,
+                    isHistoricalSession: !!isHistoricalSession,
+                    historicalSessionId: isHistoricalSession ? isHistoricalSession.id : null
+                });
+                
+                if (isActiveRecording || isHistoricalSession) {
+                    console.log('🔄 [RESTORE] Restoring transcript data for', isActiveRecording ? 'active recording' : 'historical session');
+                    transcriptData = result.transcriptData;
+                    currentSessionId = result.currentSessionId;
+                    displayTranscript(transcriptData);
+                    updateStats(transcriptData);
+                    
+                    const exportTxtBtn = document.getElementById('exportTxtBtn');
+                    if (exportTxtBtn && transcriptData.messages.length > 0) {
+                        exportTxtBtn.disabled = false;
+                    }
+                    
+                    // Update session highlighting for restored session
+                    if (isHistoricalSession) {
+                        renderSessionHistory();
+                    }
+                    
+                    // Update clear button state
+                    if (window.updateClearButtonState) {
+                        window.updateClearButtonState();
+                    }
+                } else {
+                    // Session ID exists but not in history and not recording - show empty session
+                    console.log('🔄 [RESTORE] Session not in history and not recording - showing empty session');
+                    showEmptySession();
+                }
+            } else {
+                // No transcript data or session ID - show empty session
+                console.log('🔄 [RESTORE] No session data - showing empty session');
+                showEmptySession();
+            }
+            
+            // Show/hide buttons based on session type
+            const recordBtn = document.getElementById('recordBtn');
+            const closeSessionBtn = document.getElementById('closeSessionBtn');
+            
+            if (recordBtn && closeSessionBtn) {
+                if (result.realtimeMode) {
+                    // Active recording session - show record button, hide close button
+                    recordBtn.style.display = 'flex';
+                    closeSessionBtn.style.display = 'none';
+                } else if (result.currentSessionId && sessionHistory.find(s => s.id === result.currentSessionId)) {
+                    // Session exists in history - it's historical, hide record button, show close button
+                    recordBtn.style.display = 'none';
+                    closeSessionBtn.style.display = 'block';
+                } else {
+                    // New/empty session - show record button, hide close button
+                    recordBtn.style.display = 'flex';
+                    closeSessionBtn.style.display = 'none';
+                }
+            }
+            
+            console.log('🔄 [RESTORE] State restoration completed');
+            
+        } catch (error) {
+            console.error('🔄 [RESTORE] Error restoring state:', error);
+        }
+    }
+    
+    // Initialize session history first, then restore state
+    initializeSessionHistory().then(() => {
+        // Restore state from storage AFTER session history is loaded
+        restoreStateFromStorage();
+    });
     
     // Theme toggle is initialized in initializeTheme()
     
@@ -255,6 +389,11 @@ document.addEventListener('DOMContentLoaded', function() {
         // Start duration timer
         startDurationTimer();
         
+        // Update clear button state (disable during recording)
+        if (window.updateClearButtonState) {
+            window.updateClearButtonState();
+        }
+        
         // Save recording start time to storage
         chrome.storage.local.set({ recordingStartTime: recordingStartTime.toISOString() });
         
@@ -319,6 +458,11 @@ document.addEventListener('DOMContentLoaded', function() {
         // Stop duration timer
         stopDurationTimer();
         
+        // Update clear button state (enable after recording)
+        if (window.updateClearButtonState) {
+            window.updateClearButtonState();
+        }
+        
         // Set flag to ignore background updates
         recordingStopped = true;
         
@@ -359,96 +503,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // startPeriodicStorageCheck function removed - no longer needed in simplified version
 
-    async function restoreStateFromStorage() {
-        try {
-            console.log('🔄 [RESTORE] Restoring state from storage');
-            
-            const result = await chrome.storage.local.get([
-                'realtimeMode', 
-                'recordingStartTime', 
-                'transcriptData',
-                'currentSessionId',
-                'sessionTotalDuration',
-                'currentSessionDuration'
-            ]);
-            
-            // Restore recording state
-            if (result.realtimeMode) {
-                console.log('🔄 [RESTORE] Restoring recording state');
-                realtimeMode = true;
-                
-                // Restore recording start time and timer
-                if (result.recordingStartTime) {
-                    recordingStartTime = new Date(result.recordingStartTime);
-                    console.log('🔄 [RESTORE] Restored recording start time:', recordingStartTime);
-                    startDurationTimer();
-                }
-                
-                // Restore session data
-                if (result.currentSessionId) {
-                    currentSessionId = result.currentSessionId;
-                }
-                
-                if (result.sessionTotalDuration) {
-                    sessionTotalDuration = result.sessionTotalDuration;
-                }
-                
-                // Add any current session duration from before popup was closed
-                if (result.currentSessionDuration) {
-                    sessionTotalDuration += result.currentSessionDuration;
-                }
-                
-                // Baseline data no longer needed in simplified version
-                
-                // Update UI to show recording state
-                const realtimeBtn = document.getElementById('recordBtn');
-                if (realtimeBtn) {
-                    realtimeBtn.classList.add('active');
-                    document.querySelector('.record-text').textContent = 'Zatrzymaj nagrywanie';
-                }
-                
-                updateStatus('Nagrywanie wznowione', 'success');
-            }
-            
-            // Restore transcript data
-            if (result.transcriptData) {
-                console.log('🔄 [RESTORE] Restoring transcript data');
-                transcriptData = result.transcriptData;
-                displayTranscript(transcriptData);
-                updateStats(transcriptData);
-                
-                const exportTxtBtn = document.getElementById('exportTxtBtn');
-                if (exportTxtBtn && transcriptData.messages.length > 0) {
-                    exportTxtBtn.disabled = false;
-                }
-            }
-            
-            // Background scan data will be handled by background script directly
-            
-            // Show/hide record button based on session type
-            const recordBtn = document.getElementById('recordBtn');
-            if (recordBtn) {
-                if (result.realtimeMode) {
-                    // Active recording session - show button
-                    recordBtn.style.display = 'flex';
-                } else if (result.currentSessionId && sessionHistory.find(s => s.id === result.currentSessionId)) {
-                    // Session exists in history - it's historical, hide button
-                    recordBtn.style.display = 'none';
-                } else {
-                    // New/empty session - show button
-                    recordBtn.style.display = 'flex';
-                }
-            }
-            
-            console.log('🔄 [RESTORE] State restoration completed');
-            
-        } catch (error) {
-            console.error('🔄 [RESTORE] Error restoring state:', error);
-        }
-    }
+    // Function moved above to be defined before use
 
-    // Restore state from storage (recording status, timer, etc.)
-    restoreStateFromStorage();
+    // State restoration is now handled after session history loading
 
     // Wyczyść transkrypcję
     if (clearBtn) {
@@ -492,8 +549,43 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         });
+        
+        // Update clear button state based on recording status and data availability
+        function updateClearButtonState() {
+            const hasData = transcriptData && transcriptData.messages && transcriptData.messages.length > 0;
+            const isRecording = realtimeMode;
+            
+            if (isRecording) {
+                clearBtn.disabled = true;
+                clearBtn.classList.add('disabled');
+                clearBtn.title = 'Nie można wyczyścić podczas nagrywania';
+            } else if (!hasData) {
+                clearBtn.disabled = true;
+                clearBtn.classList.add('disabled');
+                clearBtn.title = 'Brak danych do wyczyszczenia';
+            } else {
+                clearBtn.disabled = false;
+                clearBtn.classList.remove('disabled');
+                clearBtn.title = 'Wyczyść';
+            }
+        }
+        
+        // Initial state
+        updateClearButtonState();
+        
+        // Store reference to update function for later use
+        window.updateClearButtonState = updateClearButtonState;
     } else {
         console.error('Clear button not found');
+    }
+    
+    // Close session button (for historical sessions)
+    if (closeSessionBtn) {
+        closeSessionBtn.addEventListener('click', () => {
+            showEmptySession();
+        });
+    } else {
+        console.error('Close session button not found');
     }
 
     // Export handlers will be set up by the modal system
@@ -503,6 +595,68 @@ document.addEventListener('DOMContentLoaded', function() {
     } catch (error) {
         console.error('Error during popup initialization:', error);
         updateStatus('Błąd inicjalizacji interfejsu', 'error');
+    }
+    
+    // Function to show empty session
+    function showEmptySession() {
+        console.log('🆕 [EMPTY SESSION] Showing empty session');
+        
+        // Clear session data
+        transcriptData = null;
+        currentSessionId = null;
+        recordingStartTime = null;
+        sessionTotalDuration = 0;
+        recordingStopped = false;
+        
+        // Stop any existing timer
+        stopDurationTimer();
+        
+        // Update UI to empty state
+        displayTranscript({ messages: [] });
+        updateStats({ messages: [] });
+        
+        // Reset duration display
+        const durationElement = document.getElementById('duration');
+        if (durationElement) {
+            durationElement.textContent = '00:00';
+        }
+        
+        // Update clear button state
+        if (window.updateClearButtonState) {
+            window.updateClearButtonState();
+        }
+        
+        // Disable export button
+        const exportTxtBtn = document.getElementById('exportTxtBtn');
+        if (exportTxtBtn) {
+            exportTxtBtn.disabled = true;
+        }
+        
+        // Show record button for new session
+        const recordBtn = document.getElementById('recordBtn');
+        if (recordBtn) {
+            recordBtn.style.display = 'flex';
+            recordBtn.classList.remove('active');
+            const recordText = document.querySelector('.record-text');
+            if (recordText) {
+                recordText.textContent = 'Rozpocznij nagrywanie';
+            }
+        }
+        
+        // Hide close session button (only for historical sessions)
+        const closeSessionBtn = document.getElementById('closeSessionBtn');
+        if (closeSessionBtn) {
+            closeSessionBtn.style.display = 'none';
+        }
+        
+        // Clear storage
+        chrome.storage.local.remove(['transcriptData', 'currentSessionId', 'recordingStartTime', 'sessionTotalDuration', 'currentSessionDuration', 'realtimeMode']);
+        
+        // Remove session highlighting
+        renderSessionHistory();
+        
+        
+        updateStatus('Gotowy do nagrywania', 'info');
     }
 });
 
@@ -849,36 +1003,47 @@ function generateSessionTitle() {
 }
 
 function initializeSessionHistory() {    
-    // Load session history from storage
-    chrome.storage.local.get(['sessionHistory'], (result) => {
-        try {
-            sessionHistory = result.sessionHistory || [];
-            renderSessionHistory();
-        } catch (error) {
-            console.error('Error loading session history:', error);
-            sessionHistory = [];
-            renderSessionHistory();
-        }
+    return new Promise((resolve) => {
+        // Load session history from storage
+        chrome.storage.local.get(['sessionHistory'], (result) => {
+            try {
+                sessionHistory = result.sessionHistory || [];
+                console.log('📁 [HISTORY] Loaded session history:', sessionHistory.length, 'sessions');
+                renderSessionHistory();
+                
+                // Add event listeners for history UI INSIDE the Promise
+                const newSessionBtn = document.getElementById('newSessionBtn');
+                if (newSessionBtn) {
+                    // Remove existing event listeners to prevent duplicates
+                    newSessionBtn.removeEventListener('click', createNewSession);
+                    newSessionBtn.addEventListener('click', createNewSession);
+                    console.log('📁 [HISTORY] New session button event listener added');
+                } else {
+                    console.error('New session button not found');
+                }
+                
+                resolve();
+            } catch (error) {
+                console.error('Error loading session history:', error);
+                sessionHistory = [];
+                renderSessionHistory();
+                resolve();
+            }
+        });
     });
-    
-    // Add event listeners for history UI
-    const newSessionBtn = document.getElementById('newSessionBtn');
-    if (newSessionBtn) {
-        // Remove existing event listeners to prevent duplicates
-        newSessionBtn.removeEventListener('click', createNewSession);
-        newSessionBtn.addEventListener('click', createNewSession);
-    } else {
-        console.error('New session button not found');
-    }
 }
 
 function createNewSession() {    
+    console.log('🆕 [NEW SESSION] createNewSession() called');
+    
     // Stop recording if active (auto-save will handle the session)
     if (realtimeMode) {
+        console.log('🆕 [NEW SESSION] Stopping active recording first');
         deactivateRealtimeMode();
     }
     
     // Create new session (no need to ask about saving - auto-save handles it)
+    console.log('🆕 [NEW SESSION] Calling performNewSessionCreation()');
     performNewSessionCreation();
 }
 
@@ -886,10 +1051,12 @@ function createNewSession() {
 function performNewSessionCreation() {    
     // Clear current data
     transcriptData = null;
-    currentSessionId = generateSessionId();
+    currentSessionId = generateSessionId(); // Generate ID but don't save to storage yet
     recordingStartTime = null;
     sessionTotalDuration = 0; // Reset total duration for new session
     recordingStopped = false; // Reset recording stopped flag
+    
+    console.log('🆕 [NEW SESSION] Created new session ID:', currentSessionId, '(not saved to storage yet)');
     
     // Stop any existing timer
     stopDurationTimer();
@@ -902,12 +1069,15 @@ function performNewSessionCreation() {
         exportTxtBtn.disabled = true;
     }
     
-    // Save new session ID (recording is always inactive for new sessions)
-    chrome.storage.local.set({ 
-        currentSessionId: currentSessionId, 
-        recordingStartTime: null,
-        realtimeMode: false
-    });
+    // Clear storage for new session (don't save currentSessionId until recording starts)
+    chrome.storage.local.remove([
+        'currentSessionId',
+        'transcriptData', 
+        'recordingStartTime',
+        'realtimeMode',
+        'sessionTotalDuration',
+        'currentSessionDuration'
+    ]);
     
     updateStatus('Utworzono nową sesję', 'success');
     
@@ -916,6 +1086,9 @@ function performNewSessionCreation() {
     if (recordBtn) {
         recordBtn.style.display = 'flex';
     }
+    
+    // Remove session highlighting (no session selected)
+    renderSessionHistory();
 }
 
 function autoSaveCurrentSession(data = null) {
@@ -980,6 +1153,12 @@ function autoSaveCurrentSession(data = null) {
     chrome.storage.local.set({ sessionHistory: sessionHistory }, () => {
         renderSessionHistory();
         console.log('🔄 [AUTOSAVE DEBUG] Session saved to storage and history rendered');
+        
+        // Highlight the new/updated session if it's the current one
+        if (sessionId === currentSessionId && existingIndex < 0) {
+            // New session was added, it will be highlighted automatically by renderSessionHistory
+            console.log('🔄 [AUTOSAVE DEBUG] New session highlighted in list');
+        }
     });
 }
 
@@ -1093,6 +1272,17 @@ function loadSessionFromHistory(sessionId) {
     const recordBtn = document.getElementById('recordBtn');
     if (recordBtn) {
         recordBtn.style.display = 'none';
+    }
+    
+    // Show close session button for historical sessions
+    const closeSessionBtn = document.getElementById('closeSessionBtn');
+    if (closeSessionBtn) {
+        closeSessionBtn.style.display = 'block';
+    }
+    
+    // Update clear button state
+    if (window.updateClearButtonState) {
+        window.updateClearButtonState();
     }
     
     // Refresh session list to update highlighting
@@ -1370,6 +1560,14 @@ function updateDurationDisplay() {
     if (durationElement) {
         durationElement.textContent = formatDuration(totalDuration);
     }
+    
+    // Save current duration to storage for persistence
+    if (realtimeMode) {
+        chrome.storage.local.set({
+            currentSessionDuration: currentSessionDuration,
+            sessionTotalDuration: sessionTotalDuration
+        });
+    }
 }
 
 function formatDuration(seconds) {
@@ -1569,24 +1767,52 @@ function showDeleteConfirmation(sessionId) {
 function performDeleteSession(sessionId) {    
     sessionHistory = sessionHistory.filter(s => s.id !== sessionId);
     
-    // If deleting current session, clear it
+    // If deleting current session, clear it and show empty session
     if (currentSessionId === sessionId) {
         transcriptData = null;
         currentSessionId = null;
         displayTranscript({ messages: [] });
-        updateStats({ entries: [] });
+        updateStats({ messages: [] });
         
         const exportTxtBtn = document.getElementById('exportTxtBtn');
         if (exportTxtBtn) {
             exportTxtBtn.disabled = true;
         }
         
-        chrome.storage.local.remove(['transcriptData', 'currentSessionId']);
+        // Reset timer and duration
+        recordingStartTime = null;
+        sessionTotalDuration = 0;
+        stopDurationTimer();
+        
+        // Update duration display to show 00:00
+        const durationElement = document.getElementById('duration');
+        if (durationElement) {
+            durationElement.textContent = '00:00';
+        }
+        
+        // Show record button for new session
+        const recordBtn = document.getElementById('recordBtn');
+        if (recordBtn) {
+            recordBtn.style.display = 'flex';
+            recordBtn.classList.remove('active');
+            const recordText = document.querySelector('.record-text');
+            if (recordText) {
+                recordText.textContent = 'Rozpocznij nagrywanie';
+            }
+        }
+        
+        chrome.storage.local.remove(['transcriptData', 'currentSessionId', 'recordingStartTime', 'sessionTotalDuration', 'currentSessionDuration']);
     }
     
     // Save updated history
     chrome.storage.local.set({ sessionHistory: sessionHistory }, () => {
         renderSessionHistory();
+        
+        // Update clear button state after deletion
+        if (window.updateClearButtonState) {
+            window.updateClearButtonState();
+        }
+        
         updateStatus('Sesja usunięta', 'success');
     });
 }

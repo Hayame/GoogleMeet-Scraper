@@ -571,6 +571,22 @@ body {
     outline-offset: 2px;
 }
 
+.icon-button.disabled,
+.icon-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+    transform: none !important;
+}
+
+.icon-button-danger.disabled,
+.icon-button-danger:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+    transform: none !important;
+}
+
 /* Transcript Content */
 .transcript-content {
     flex: 1;
