@@ -85,9 +85,9 @@ function startBackgroundScanning(tabId) {
             // Wyślij żądanie skanowania do content script
             const result = await chrome.tabs.sendMessage(tabId, { action: 'scrapeTranscript' });
             
-            if (result && result.success && result.data && result.data.entries.length > 0) {
-                console.log(`🔶 [BACKGROUND DEBUG] Scan #${scanCount} found`, result.data.entries.length, 'entries');
-                console.log('🔶 [BACKGROUND DEBUG] First entry:', result.data.entries[0] ? `${result.data.entries[0].speaker}: ${result.data.entries[0].text.substring(0, 30)}...` : 'none');
+            if (result && result.success && result.data && result.data.messages && result.data.messages.length > 0) {
+                console.log(`🔶 [BACKGROUND DEBUG] Scan #${scanCount} found`, result.data.messages.length, 'messages');
+                console.log('🔶 [BACKGROUND DEBUG] First message:', result.data.messages[0] ? `${result.data.messages[0].speaker}: ${result.data.messages[0].text.substring(0, 30)}...` : 'none');
                 
                 // Zapisz wyniki do storage
                 await chrome.storage.local.set({
@@ -109,7 +109,7 @@ function startBackgroundScanning(tabId) {
                     console.log('🔶 [BACKGROUND DEBUG] Popup not open, data saved to storage');
                 }
             } else {
-                console.log(`🔶 [BACKGROUND DEBUG] Scan #${scanCount} found no entries`);
+                console.log(`🔶 [BACKGROUND DEBUG] Scan #${scanCount} found no messages`);
             }
         } catch (error) {
             console.error('🔶 [BACKGROUND DEBUG] Scan error:', error);

@@ -389,10 +389,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // performRealtimeScrape function removed - no longer needed in simplified version
 
-    async function getCurrentTabId() {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        return tab.id;
-    }
+    // getCurrentTabId function removed - no longer needed
 
     // startPeriodicStorageCheck function removed - no longer needed in simplified version
 
@@ -460,17 +457,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
             
-            // If recording is active, also check for latest background scan data
-            if (result.realtimeMode) {
-                console.log('🔄 [RESTORE] Checking for latest background scan data');
-                const bgScanResult = await chrome.storage.local.get(['backgroundScan_' + await getCurrentTabId()]);
-                const bgScanKey = Object.keys(bgScanResult)[0];
-                
-                if (bgScanKey && bgScanResult[bgScanKey]) {
-                    console.log('🔄 [RESTORE] Found background scan data, processing...');
-                    handleBackgroundScanUpdate(bgScanResult[bgScanKey].data);
-                }
-            }
+            // Background scan data will be handled by background script directly
             
             console.log('🔄 [RESTORE] State restoration completed');
             
