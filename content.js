@@ -87,6 +87,8 @@ function scrapeTranscript() {
             const textElement = messageElement.querySelector('.ygicle.VbkSUe');
             const text = textElement ? textElement.textContent.trim() : '';
             
+            console.log(`🔍 [CONTENT DEBUG] Element ${index}: speaker="${speaker}", text="${text.substring(0, 50)}..."`);
+            
             // Waliduj i dodaj wpis
             if (text && isValidTranscriptText(text, speaker)) {
                 const sanitizedText = sanitizeTranscriptText(text);
@@ -99,7 +101,12 @@ function scrapeTranscript() {
                         hash: generateHash(speaker, sanitizedText)
                     };
                     messages.push(message);
+                    console.log(`✅ [CONTENT DEBUG] Added message ${index}`);
+                } else {
+                    console.log(`❌ [CONTENT DEBUG] Rejected message ${index} after sanitization`);
                 }
+            } else {
+                console.log(`❌ [CONTENT DEBUG] Rejected message ${index} - invalid text or too short`);
             }
         } catch (error) {
             console.error(`❌ Błąd przetwarzania elementu ${index + 1}:`, error);
