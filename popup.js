@@ -431,8 +431,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (result.realtimeMode) {
                     // Active recording session - show button
                     recordBtn.style.display = 'flex';
-                } else if (result.transcriptData && result.transcriptData.messages && result.transcriptData.messages.length > 0) {
-                    // Historical session with data - hide button
+                } else if (result.currentSessionId && sessionHistory.find(s => s.id === result.currentSessionId)) {
+                    // Session exists in history - it's historical, hide button
                     recordBtn.style.display = 'none';
                 } else {
                     // New/empty session - show button
@@ -453,31 +453,43 @@ document.addEventListener('DOMContentLoaded', function() {
     // Wyczyść transkrypcję
     if (clearBtn) {
         clearBtn.addEventListener('click', () => {
-            if (confirm('Czy na pewno chcesz wyczyścić całą transkrypcję?')) {
-                // Stop recording if active (auto-save will handle the session)
-                if (realtimeMode) {
-                    deactivateRealtimeMode();
+            // If there's a current session, delete it from history (same as clicking delete button)
+            if (currentSessionId) {
+                showDeleteConfirmation(currentSessionId);
+            } else {
+                // If no current session, just clear the UI
+                if (confirm('Czy na pewno chcesz wyczyścić całą transkrypcję?')) {
+                    // Stop recording if active
+                    if (realtimeMode) {
+                        deactivateRealtimeMode();
+                    }
+                    
+                    // Stop any active timer
+                    stopDurationTimer();
+                    
+                    // Reset ALL transcript-related variables
+                    transcriptData = null;
+                    currentSessionId = null;
+                    recordingStartTime = null;
+                    sessionTotalDuration = 0;
+                    recordingStopped = false;
+                    
+                    // Update UI
+                    displayTranscript({ messages: [] });
+                    updateStats({ messages: [] });
+                    updateDurationDisplay();
+                    if (exportTxtBtn) exportTxtBtn.disabled = true;
+                    updateStatus('Transkrypcja wyczyszczona', 'info');
+                    
+                    // Show record button for new session
+                    const recordBtn = document.getElementById('recordBtn');
+                    if (recordBtn) {
+                        recordBtn.style.display = 'flex';
+                    }
+                    
+                    // Clear from storage
+                    chrome.storage.local.remove(['transcriptData', 'currentSessionId', 'recordingStartTime']);
                 }
-                
-                // Stop any active timer
-                stopDurationTimer();
-                
-                // Reset ALL transcript-related variables
-                transcriptData = null;
-                currentSessionId = null;
-                recordingStartTime = null;
-                sessionTotalDuration = 0;
-                recordingStopped = false;
-                
-                // Update UI
-                displayTranscript({ messages: [] });
-                updateStats({ messages: [] });
-                updateDurationDisplay(); // Reset duration display
-                if (exportTxtBtn) exportTxtBtn.disabled = true;
-                updateStatus('Transkrypcja wyczyszczona', 'info');
-                
-                // Wyczyść z pamięci
-                chrome.storage.local.remove(['transcriptData', 'currentSessionId', 'recordingStartTime']);
             }
         });
     } else {
@@ -1082,6 +1094,9 @@ function loadSessionFromHistory(sessionId) {
     if (recordBtn) {
         recordBtn.style.display = 'none';
     }
+    
+    // Refresh session list to update highlighting
+    renderSessionHistory();
 }
 
 function deleteSessionFromHistory(sessionId, event) {
@@ -1351,7 +1366,7 @@ function updateDurationDisplay() {
     const currentSessionDuration = Math.floor((now - recordingStartTime) / 1000);
     const totalDuration = sessionTotalDuration + currentSessionDuration;
     
-    const durationElement = document.getElementById('recordingDuration');
+    const durationElement = document.getElementById('duration');
     if (durationElement) {
         durationElement.textContent = formatDuration(totalDuration);
     }
