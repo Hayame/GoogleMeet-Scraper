@@ -30,13 +30,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 function scrapeTranscript() {
-    const entries = [];
+    const messages = [];
     
     // Szukaj głównego kontenera transkrypcji
     const mainContainer = document.querySelector('div[jscontroller="D1tHje"]');
     if (!mainContainer) {
         return {
-            entries: [],
+            messages: [],
             scrapedAt: new Date().toISOString(),
             meetingUrl: window.location.href
         };
@@ -47,7 +47,7 @@ function scrapeTranscript() {
     
     if (captionElements.length === 0) {
         return {
-            entries: [],
+            messages: [],
             scrapedAt: new Date().toISOString(),
             meetingUrl: window.location.href
         };
@@ -69,12 +69,13 @@ function scrapeTranscript() {
                 const sanitizedText = sanitizeTranscriptText(text);
                 
                 if (sanitizedText && isValidTranscriptText(sanitizedText, speaker)) {
-                    const entry = {
+                    const message = {
+                        index: index,
                         speaker: speaker,
                         text: sanitizedText,
-                        timestamp: ''
+                        hash: generateHash(speaker, sanitizedText)
                     };
-                    entries.push(entry);
+                    messages.push(message);
                 }
             }
         } catch (error) {
@@ -82,11 +83,8 @@ function scrapeTranscript() {
         }
     });
     
-    // Usuń duplikaty
-    const uniqueEntries = removeDuplicates(entries);
-    
     const result = {
-        entries: uniqueEntries,
+        messages: messages,
         scrapedAt: new Date().toISOString(),
         meetingUrl: window.location.href
     };
@@ -94,16 +92,16 @@ function scrapeTranscript() {
     return result;
 }
 
-function removeDuplicates(entries) {
-    const seen = new Set();
-    return entries.filter(entry => {
-        const key = `${entry.speaker}:${entry.text}`;
-        if (seen.has(key)) {
-            return false;
-        }
-        seen.add(key);
-        return true;
-    });
+function generateHash(speaker, text) {
+    // Simple hash function for change detection
+    const combined = `${speaker}:${text}`;
+    let hash = 0;
+    for (let i = 0; i < combined.length; i++) {
+        const char = combined.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32-bit integer
+    }
+    return hash.toString(36);
 }
 
 function isLanguageSelectionText(text) {

@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Export button handling
     if (exportBtn) {
         exportBtn.addEventListener('click', () => {
-            if (!transcriptData || !transcriptData.entries || transcriptData.entries.length === 0) {
+            if (!transcriptData || !transcriptData.messages || transcriptData.messages.length === 0) {
                 updateStatus('Brak danych do eksportu', 'error');
                 return;
             }
@@ -134,7 +134,7 @@ document.addEventListener('DOMContentLoaded', function() {
             deactivateRealtimeMode();
         } else {
             // Check if there's existing transcript data
-            if (transcriptData && transcriptData.entries.length > 0) {
+            if (transcriptData && transcriptData.messages.length > 0) {
                 showResumeOptions();
             } else {
                 activateRealtimeMode();
@@ -147,7 +147,7 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Current state:', {
             realtimeMode,
             currentSessionId,
-            transcriptData: transcriptData ? transcriptData.entries.length : 0,
+            transcriptData: transcriptData ? transcriptData.messages.length : 0,
             sessionTotalDuration
         });
         // Don't reset sessionTotalDuration or create new session
@@ -259,7 +259,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         // Always save session when stopping recording
-        if (transcriptData && transcriptData.entries.length > 0) {
+        if (transcriptData && transcriptData.messages.length > 0) {
             saveCurrentSessionToHistory();
         }
         
@@ -275,6 +275,114 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         // No manual scraping interval to clear in simplified version
+
+    function detectChanges(oldMessages, newMessages) {
+        const changes = {
+            added: [],
+            updated: [],
+            removed: []
+        };
+        
+        if (!oldMessages || oldMessages.length === 0) {
+            // All messages are new
+            changes.added = newMessages.slice();
+            return changes;
+        }
+        
+        // Create hash maps for quick lookup
+        const oldHashes = new Map();
+        oldMessages.forEach((msg, index) => {
+            oldHashes.set(msg.index, msg.hash);
+        });
+        
+        const newHashes = new Map();
+        newMessages.forEach((msg, index) => {
+            newHashes.set(msg.index, msg.hash);
+        });
+        
+        // Find added and updated messages
+        newMessages.forEach(newMsg => {
+            if (!oldHashes.has(newMsg.index)) {
+                // New message
+                changes.added.push(newMsg);
+            } else if (oldHashes.get(newMsg.index) !== newMsg.hash) {
+                // Updated message
+                changes.updated.push(newMsg);
+            }
+        });
+        
+        // Find removed messages
+        oldMessages.forEach(oldMsg => {
+            if (!newHashes.has(oldMsg.index)) {
+                changes.removed.push(oldMsg.index);
+            }
+        });
+        
+        return changes;
+    }
+    
+    function updateDOMChanges(changes) {
+        const container = document.getElementById('transcriptContent');
+        if (!container) return;
+        
+        // Add new messages
+        changes.added.forEach(msg => {
+            const messageElement = createMessageElement(msg);
+            container.appendChild(messageElement);
+        });
+        
+        // Update changed messages
+        changes.updated.forEach(msg => {
+            const existingElement = container.querySelector(`[data-message-index="${msg.index}"]`);
+            if (existingElement) {
+                updateMessageElement(existingElement, msg);
+            } else {
+                // Element doesn't exist, add it
+                const messageElement = createMessageElement(msg);
+                container.appendChild(messageElement);
+            }
+        });
+        
+        // Remove deleted messages
+        changes.removed.forEach(index => {
+            const element = container.querySelector(`[data-message-index="${index}"]`);
+            if (element) {
+                element.remove();
+            }
+        });
+    }
+    
+    function createMessageElement(message) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'transcript-entry';
+        messageDiv.setAttribute('data-message-index', message.index);
+        
+        const speakerSpan = document.createElement('span');
+        speakerSpan.className = 'speaker';
+        speakerSpan.textContent = message.speaker;
+        
+        const textSpan = document.createElement('span');
+        textSpan.className = 'text';
+        textSpan.textContent = message.text;
+        
+        messageDiv.appendChild(speakerSpan);
+        messageDiv.appendChild(document.createTextNode(': '));
+        messageDiv.appendChild(textSpan);
+        
+        return messageDiv;
+    }
+    
+    function updateMessageElement(element, message) {
+        const textSpan = element.querySelector('.text');
+        if (textSpan) {
+            textSpan.textContent = message.text;
+        }
+        
+        const speakerSpan = element.querySelector('.speaker');
+        if (speakerSpan) {
+            speakerSpan.textContent = message.speaker;
+        }
+    }
     }
 
     // takeBaselineSnapshot function removed - no longer needed in simplified version
@@ -347,7 +455,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateStats(transcriptData);
                 
                 const exportTxtBtn = document.getElementById('exportTxtBtn');
-                if (exportTxtBtn && transcriptData.entries.length > 0) {
+                if (exportTxtBtn && transcriptData.messages.length > 0) {
                     exportTxtBtn.disabled = false;
                 }
             }
@@ -374,7 +482,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function handleBackgroundScanUpdate(data) {
         const timestamp = new Date().toISOString();
         console.log('🟡 [BACKGROUND DEBUG] Handling background scan update at:', timestamp);
-        console.log('🟡 [BACKGROUND DEBUG] Data entries length:', data ? data.entries?.length : 'undefined');
+        console.log('🟡 [BACKGROUND DEBUG] Data messages length:', data ? data.messages?.length : 'undefined');
         
         if (!realtimeMode) {
             console.log('🟡 [BACKGROUND DEBUG] Ignoring - not in realtime mode');
@@ -386,50 +494,62 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        if (!data || !data.entries || data.entries.length === 0) {
-            console.log('🟡 [BACKGROUND DEBUG] No entries in background scan update');
+        if (!data || !data.messages || data.messages.length === 0) {
+            console.log('🟡 [BACKGROUND DEBUG] No messages in background scan update');
             return;
         }
         
         const exportTxtBtn = document.getElementById('exportTxtBtn');
         
-        // Simplified: just use all entries from the scan
-        const entriesToProcess = data.entries;
+        // Detect changes using hash comparison
+        const changes = detectChanges(transcriptData ? transcriptData.messages : [], data.messages);
         
         if (!transcriptData) {
+            // Initialize with new data structure
             transcriptData = {
-                entries: entriesToProcess,
+                messages: data.messages,
                 scrapedAt: data.scrapedAt,
                 meetingUrl: data.meetingUrl
             };
             console.log('✅ Initialized transcript data from background scan');
-        } else {
-            // Simple replacement - just update with new data
-            const hasChanges = JSON.stringify(transcriptData.entries) !== JSON.stringify(entriesToProcess);
             
-            if (hasChanges) {
-                transcriptData.entries = entriesToProcess;
-                transcriptData.scrapedAt = data.scrapedAt;
+            // Update display
+            displayTranscript(transcriptData);
+            updateStats(transcriptData);
+            
+            if (exportTxtBtn) {
+                exportTxtBtn.disabled = false;
+            }
+            
+            // Auto-save session to history
+            autoSaveCurrentSession();
+            
+            updateStatus(`Nagrywanie w tle... (${transcriptData.messages.length} wpisów)`, 'info');
+        } else if (changes.added.length > 0 || changes.updated.length > 0) {
+            // Update data with changes
+            transcriptData.messages = data.messages;
+            transcriptData.scrapedAt = data.scrapedAt;
 
-                // Update display
-                displayTranscript(transcriptData);
-                updateStats(transcriptData);
-                
-                if (exportTxtBtn) {
-                    exportTxtBtn.disabled = false;
-                }
-                
-                // Scroll to bottom
+            // Update only changed elements in DOM
+            updateDOMChanges(changes);
+            updateStats(transcriptData);
+            
+            if (exportTxtBtn) {
+                exportTxtBtn.disabled = false;
+            }
+            
+            // Scroll to bottom if new messages added
+            if (changes.added.length > 0) {
                 const preview = document.getElementById('transcriptContent');
                 if (preview) {
                     preview.scrollTop = preview.scrollHeight;
                 }
-                
-                // Auto-save session to history on every update
-                autoSaveCurrentSession({ entries: entriesToProcess });
-                
-                updateStatus(`Nagrywanie w tle... (${transcriptData.entries.length} wpisów)`, 'info');
             }
+            
+            // Auto-save session to history on every update
+            autoSaveCurrentSession();
+            
+            updateStatus(`Nagrywanie w tle... (${transcriptData.messages.length} wpisów)`, 'info');
         }
         
         // Save to storage
@@ -453,15 +573,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 currentSessionId = null;
                 recordingStartTime = null;
                 sessionTotalDuration = 0;
-                baselineEntryCount = 0;
-                lastSeenEntry = null;
-                isFirstUpdate = false;
-                isFirstBackgroundScan = false;
                 recordingStopped = false;
-                processingScan = false; // Reset mutex
                 
                 // Update UI
-                displayTranscript({ entries: [] });
+                displayTranscript({ messages: [] });
                 updateStats({ entries: [] });
                 updateDurationDisplay(); // Reset duration display
                 if (exportTxtBtn) exportTxtBtn.disabled = true;
@@ -523,7 +638,9 @@ function displayTranscript(data) {
     
     previewDiv.innerHTML = '';
 
-    if (!data || !data.entries || data.entries.length === 0) {
+    const dataToDisplay = data.messages || [];
+    
+    if (!data || dataToDisplay.length === 0) {
         previewDiv.innerHTML = `
             <div class="empty-transcript">
                 <svg class="empty-icon" width="48" height="48" viewBox="0 0 24 24">
@@ -540,7 +657,7 @@ function displayTranscript(data) {
     let colorIndex = 1;
 
     // Pokaż pierwsze 10 wpisów
-    const entriesToShow = data.entries.slice(0, 10);
+    const entriesToShow = dataToDisplay.slice(0, 10);
     entriesToShow.forEach((entry, index) => {
         // Przypisz kolor dla użytkownika
         if (!speakerColors.has(entry.speaker)) {
@@ -671,13 +788,13 @@ function displayTranscript(data) {
         }, index * 50); // Stagger animation
     });
 
-    if (data.entries.length > 10) {
+    if (dataToDisplay.length > 10) {
         const moreDiv = document.createElement('div');
         moreDiv.style.textAlign = 'center';
         moreDiv.style.color = '#666';
         moreDiv.style.margin = '20px 0 10px 0';
         moreDiv.style.fontSize = '13px';
-        moreDiv.textContent = `... i ${data.entries.length - 10} więcej wiadomości`;
+        moreDiv.textContent = `... i ${dataToDisplay.length - 10} więcej wiadomości`;
         previewDiv.appendChild(moreDiv);
     }
     
@@ -700,16 +817,16 @@ function updateStats(data) {
         return;
     }
 
-    if (!data || !data.entries) {
+    if (!data || !data.messages) {
         console.error('Invalid data provided to updateStats');
         return;
     }
 
-    // Simplified: just use all entries from data
-    const uniqueParticipants = new Set(data.entries.map(e => e.speaker)).size;
+    // Simplified: just use all messages from data
+    const uniqueParticipants = new Set(data.messages.map(m => m.speaker)).size;
 
     // Update stats with all data
-    entryCountSpan.textContent = data.entries.length;
+    entryCountSpan.textContent = data.messages.length;
     participantCountSpan.textContent = uniqueParticipants;
     
     // Duration is now handled by the continuous timer
@@ -871,16 +988,12 @@ function performNewSessionCreation() {
     currentSessionId = generateSessionId();
     recordingStartTime = null;
     sessionTotalDuration = 0; // Reset total duration for new session
-    baselineEntryCount = 0; // Reset baseline for new session
-    lastSeenEntry = null;
-    isFirstUpdate = false; // Reset first update flag
-    isFirstBackgroundScan = false; // Reset first background scan flag
     recordingStopped = false; // Reset recording stopped flag
     
     // Stop any existing timer
     stopDurationTimer();
     
-    displayTranscript({ entries: [] });
+    displayTranscript({ messages: [] });
     updateStats({ entries: [] });
     
     const exportTxtBtn = document.getElementById('exportTxtBtn');
@@ -899,15 +1012,15 @@ function performNewSessionCreation() {
 }
 
 function autoSaveCurrentSession(data = null) {
-    if (!transcriptData || transcriptData.entries.length === 0) {
+    if (!transcriptData || transcriptData.messages.length === 0) {
         return;
     }
     
-    // Simplified: just use all entries from transcriptData
-    const validEntries = transcriptData.entries;
+    // Simplified: just use all messages from transcriptData
+    const validMessages = transcriptData.messages;
     
     const sessionId = currentSessionId || generateSessionId();
-    const uniqueParticipants = new Set(validEntries.map(e => e.speaker)).size;
+    const uniqueParticipants = new Set(validMessages.map(m => m.speaker)).size;
     
     // Check if session already exists and preserve its original date
     const existingIndex = sessionHistory.findIndex(s => s.id === sessionId);
@@ -922,7 +1035,7 @@ function autoSaveCurrentSession(data = null) {
     }
     
     const filteredTranscriptData = {
-        entries: validEntries,
+        messages: validMessages,
         scrapedAt: transcriptData.scrapedAt,
         meetingUrl: transcriptData.meetingUrl
     };
@@ -932,14 +1045,14 @@ function autoSaveCurrentSession(data = null) {
         title: generateSessionTitle(),
         date: originalDate, // Preserve original date or set new one
         participantCount: uniqueParticipants,
-        entryCount: validEntries.length,
+        entryCount: validMessages.length,
         transcript: filteredTranscriptData,
         totalDuration: currentTotalDuration
     };
     
     console.log('🔄 [AUTOSAVE DEBUG] Creating session with:', {
         id: sessionId,
-        entryCount: validEntries.length,
+        entryCount: validMessages.length,
         participantCount: uniqueParticipants
     });
     
@@ -966,31 +1079,25 @@ function autoSaveCurrentSession(data = null) {
 function saveCurrentSessionToHistory() {
     console.log('💾 [SAVE DEBUG] saveCurrentSessionToHistory called');
     
-    if (!transcriptData || transcriptData.entries.length === 0) {
+    if (!transcriptData || transcriptData.messages.length === 0) {
         console.log('💾 [SAVE DEBUG] No transcript data to save');
         return;
     }
     
     console.log('💾 [SAVE DEBUG] Saving session:');
-    console.log('   - Original entries count:', transcriptData.entries.length);
-    console.log('   - baselineEntryCount:', baselineEntryCount);
+    console.log('   - Original entries count:', transcriptData.messages.length);
+    // Baseline system removed in simplified version
     
-    // Validate and filter baseline entries if they somehow got through
-    let validEntries = transcriptData.entries;
-    if (baselineEntryCount > 0 && transcriptData.entries.length >= baselineEntryCount) {
-        validEntries = transcriptData.entries.slice(baselineEntryCount);
-        console.log('💾 [SAVE DEBUG] Filtered entries count:', validEntries.length);
-        
-        if (validEntries.length === 0) {
-            console.log('💾 [SAVE DEBUG] No valid entries after filtering - not saving');
-            return;
-        }
-    } else {
-        console.log('💾 [SAVE DEBUG] No baseline filtering applied');
+    // Simplified: just use all messages
+    let validMessages = transcriptData.messages;
+    
+    if (validMessages.length === 0) {
+        console.log('💾 [SAVE DEBUG] No valid messages - not saving');
+        return;
     }
     
     const sessionId = currentSessionId || generateSessionId();
-    const uniqueParticipants = new Set(validEntries.map(e => e.speaker)).size;
+    const uniqueParticipants = new Set(validMessages.map(m => m.speaker)).size;
     
     // Calculate current total duration
     let currentTotalDuration = sessionTotalDuration;
@@ -1005,9 +1112,9 @@ function saveCurrentSessionToHistory() {
         title: generateSessionTitle(),
         date: new Date().toISOString(),
         participantCount: uniqueParticipants,
-        entryCount: validEntries.length,
+        entryCount: validMessages.length,
         transcript: {
-            entries: validEntries,
+            messages: validMessages,
             scrapedAt: transcriptData.scrapedAt,
             meetingUrl: transcriptData.meetingUrl
         },
@@ -1140,15 +1247,15 @@ function renderSessionHistory() {
 
 // Auto-save functionality
 setInterval(() => {
-    if (transcriptData && transcriptData.entries.length > 0 && currentSessionId) {
+    if (transcriptData && transcriptData.messages.length > 0 && currentSessionId) {
         // Auto-save current session
         const existingIndex = sessionHistory.findIndex(s => s.id === currentSessionId);
         if (existingIndex >= 0) {
             // Update existing session silently
-            const uniqueParticipants = new Set(transcriptData.entries.map(e => e.speaker)).size;
+            const uniqueParticipants = new Set(transcriptData.messages.map(e => e.speaker)).size;
             sessionHistory[existingIndex].transcript = transcriptData;
             sessionHistory[existingIndex].participantCount = uniqueParticipants;
-            sessionHistory[existingIndex].entryCount = transcriptData.entries.length;
+            sessionHistory[existingIndex].entryCount = transcriptData.messages.length;
             sessionHistory[existingIndex].date = new Date().toISOString();
             
             chrome.storage.local.set({ sessionHistory: sessionHistory });
@@ -1449,7 +1556,7 @@ function performDeleteSession(sessionId) {
     if (currentSessionId === sessionId) {
         transcriptData = null;
         currentSessionId = null;
-        displayTranscript({ entries: [] });
+        displayTranscript({ messages: [] });
         updateStats({ entries: [] });
         
         const exportTxtBtn = document.getElementById('exportTxtBtn');
@@ -1534,13 +1641,9 @@ function initializeResumeModalEventListeners() {
                     currentSessionId = generateSessionId();
                     recordingStartTime = null;
                     sessionTotalDuration = 0;
-                    baselineEntryCount = 0; // Reset baseline
-                    lastSeenEntry = null;
-                    isFirstUpdate = false; // Reset first update flag
-                    isFirstBackgroundScan = false; // Reset first background scan flag
                     recordingStopped = false; // Reset recording stopped flag
-                    displayTranscript({ entries: [] });
-                    updateStats({ entries: [] });
+                    displayTranscript({ messages: [] });
+                    updateStats({ messages: [] });
                     chrome.storage.local.set({ 
                         currentSessionId: currentSessionId,
                         recordingStartTime: null,
@@ -1617,7 +1720,7 @@ function setupExportButtonHandlers() {
 }
 
 function generateTxtContent() {    
-    if (!transcriptData || !transcriptData.entries) {
+    if (!transcriptData || !transcriptData.messages) {
         console.error('No transcript data available');
         return '';
     }
@@ -1627,7 +1730,7 @@ function generateTxtContent() {
     txtContent += `URL spotkania: ${transcriptData.meetingUrl || 'Nieznany'}\n`;
     txtContent += `=====================================\n\n`;
 
-    transcriptData.entries.forEach(entry => {
+    transcriptData.messages.forEach(entry => {
         txtContent += `${entry.speaker}`;
         if (entry.timestamp) {
             txtContent += ` [${entry.timestamp}]`;
@@ -1639,7 +1742,7 @@ function generateTxtContent() {
 }
 
 function generateJsonContent() {    
-    if (!transcriptData || !transcriptData.entries) {
+    if (!transcriptData || !transcriptData.messages) {
         console.error('No transcript data available');
         return '{}';
     }
@@ -1648,10 +1751,10 @@ function generateJsonContent() {
         exportDate: new Date().toISOString(),
         meetingUrl: transcriptData.meetingUrl || 'Nieznany',
         scrapedAt: transcriptData.scrapedAt,
-        entries: transcriptData.entries,
+        messages: transcriptData.messages,
         stats: {
-            totalEntries: transcriptData.entries.length,
-            uniqueParticipants: new Set(transcriptData.entries.map(e => e.speaker)).size
+            totalEntries: transcriptData.messages.length,
+            uniqueParticipants: new Set(transcriptData.messages.map(e => e.speaker)).size
         }
     };
 
