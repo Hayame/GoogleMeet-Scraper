@@ -183,7 +183,8 @@ function isValidTranscriptText(text, speaker) {
     }
     
     // Sprawdź czy tekst nie jest zbyt krótki (prawdopodobnie UI)
-    if (text.length < 5) {
+    // Zmniejszamy próg z 5 na 2, ponieważ rzeczywiste fragmenty transkrypcji mogą być krótkie
+    if (text.length < 2) {
         return false;
     }
     
