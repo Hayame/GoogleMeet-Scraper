@@ -7,14 +7,7 @@ let recordingStartTime = null;
 let durationTimer = null;
 let expandedEntries = new Set(); // Track which entries are expanded
 let sessionTotalDuration = 0; // Track total session duration across pauses
-let baselineEntryCount = 0; // Number of entries before recording starts
-let lastSeenEntry = null; // Last entry before recording starts
-let isFirstUpdate = false; // Track if this is the first update after recording starts
-let isFirstBackgroundScan = false; // Track if this is the first background scan after recording starts
 let recordingStopped = false; // Flag to ignore background updates after recording stops
-let processingScan = false; // Mutex to prevent race conditions between manual and background scanning
-let lastProcessedBgTimestamp = 0; // Track last processed background scan timestamp
-let storageCheckInterval = null; // Interval for checking storage periodically
 
 document.addEventListener('DOMContentLoaded', function() {
     try {
@@ -98,9 +91,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Restore state from storage (recording status, timer, etc.)
     restoreStateFromStorage();
     
-    // Start periodic storage check for background scan data
-    startPeriodicStorageCheck();
-    
     // Listen for background scan updates
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {        
         if (request.action === 'backgroundScanUpdate') {
@@ -116,7 +106,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadExpandedState();
     
     // Przywróć stan trybu rzeczywistego
-    chrome.storage.local.get(['realtimeMode', 'transcriptData', 'currentSessionId', 'recordingStartTime', 'baselineEntryCount'], (result) => {
+    chrome.storage.local.get(['realtimeMode', 'transcriptData', 'currentSessionId', 'recordingStartTime'], (result) => {
         if (result.currentSessionId) {
             currentSessionId = result.currentSessionId;
         }
@@ -129,9 +119,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 startDurationTimer();
             }
             activateRealtimeMode();
-        }
-        if (result.baselineEntryCount) {
-            baselineEntryCount = result.baselineEntryCount;
         }
         if (result.transcriptData) {
             transcriptData = result.transcriptData;
@@ -178,18 +165,6 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Take baseline snapshot for new recordings
-        if (!isContinuation) {
-            console.log('🟢 [ACTIVATION DEBUG] Taking baseline snapshot before recording');
-            await takeBaselineSnapshot();
-            isFirstUpdate = true; // Mark that we need to filter the first update
-            isFirstBackgroundScan = true; // Mark that we need to filter the first background scan
-            console.log('🟢 [ACTIVATION DEBUG] Baseline snapshot complete, isFirstUpdate set to:', isFirstUpdate);
-            console.log('🟢 [ACTIVATION DEBUG] isFirstBackgroundScan set to:', isFirstBackgroundScan);
-        } else {
-            console.log('🟢 [ACTIVATION DEBUG] Skipping baseline snapshot for continuation');
-        }
-        
         // Reset recording stopped flag
         recordingStopped = false;
         console.log('🟢 [ACTIVATION DEBUG] recordingStopped reset to:', recordingStopped);
@@ -217,8 +192,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Zapisz stan
         chrome.storage.local.set({ 
             realtimeMode: true, 
-            recordingStartTime: recordingStartTime.toISOString(),
-            baselineEntryCount: baselineEntryCount
+            recordingStartTime: recordingStartTime.toISOString()
         });
         
         // Uruchom skanowanie w tle
@@ -241,14 +215,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         updateStatus('Błąd uruchomienia skanowania w tle', 'error');
                     }
                 });
-                
-                // Natychmiastowe pierwsze pobranie
-                console.log('🟢 [ACTIVATION DEBUG] Performing immediate first scrape');
-                performRealtimeScrape();
-                
-                // Ustaw interwał pobierania co 2 sekundy (jako backup)
-                console.log('🟢 [ACTIVATION DEBUG] Setting up 2-second interval backup');
-                realtimeInterval = setInterval(performRealtimeScrape, 2000);
             }
         } catch (error) {
             console.error('Error starting realtime mode:', error);
@@ -297,262 +263,30 @@ document.addEventListener('DOMContentLoaded', function() {
             saveCurrentSessionToHistory();
         }
         
-        // Clear transcript data and baseline info from storage
+        // Clear transcript data from storage
         transcriptData = null;
-        baselineEntryCount = 0;
-        lastSeenEntry = null;
         
         // Zapisz stan
         chrome.storage.local.set({ 
             realtimeMode: false, 
             recordingStartTime: null,
             transcriptData: null,
-            baselineEntryCount: 0,
             sessionTotalDuration: sessionTotalDuration
         });
         
-        // Wyczyść interwał
-        if (realtimeInterval) {
-            clearInterval(realtimeInterval);
-            realtimeInterval = null;
-        }
+        // No manual scraping interval to clear in simplified version
     }
 
-    async function takeBaselineSnapshot() {
-        const startTime = Date.now();
-        console.log('🔵 [BASELINE DEBUG] Starting baseline snapshot at:', new Date().toISOString());
-        
-        try {
-            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            if (!tab || !tab.url.includes('meet.google.com')) {
-                console.log('🔵 [BASELINE DEBUG] Not on Google Meet, skipping baseline');
-                baselineEntryCount = 0;
-                lastSeenEntry = null;
-                return;
-            }
-            
-            console.log('🔵 [BASELINE DEBUG] Sending scrapeTranscript message to tab:', tab.id);
-            
-            return new Promise((resolve) => {
-                chrome.tabs.sendMessage(tab.id, { action: 'scrapeTranscript', realtime: false }, (response) => {
-                    const endTime = Date.now();
-                    const duration = endTime - startTime;
-                    
-                    if (chrome.runtime.lastError || !response || !response.success) {
-                        console.log('🔵 [BASELINE DEBUG] Could not get baseline, starting fresh. Duration:', duration + 'ms');
-                        baselineEntryCount = 0;
-                        lastSeenEntry = null;
-                        resolve();
-                        return;
-                    }
-                    
-                    if (response.data && response.data.entries) {
-                        baselineEntryCount = response.data.entries.length;
-                        if (baselineEntryCount > 0) {
-                            lastSeenEntry = response.data.entries[baselineEntryCount - 1];
-                            console.log('🔵 [BASELINE DEBUG] Baseline captured successfully:');
-                            console.log('   - Entry count:', baselineEntryCount);
-                            console.log('   - Last entry speaker:', lastSeenEntry.speaker);
-                            console.log('   - Last entry text preview:', lastSeenEntry.text.substring(0, 50) + '...');
-                            console.log('   - Duration:', duration + 'ms');
-                            console.log('   - Timestamp:', new Date().toISOString());
-                        } else {
-                            console.log('🔵 [BASELINE DEBUG] Baseline: No existing entries found. Duration:', duration + 'ms');
-                        }
-                    } else {
-                        console.log('🔵 [BASELINE DEBUG] No data in response. Duration:', duration + 'ms');
-                        baselineEntryCount = 0;
-                        lastSeenEntry = null;
-                    }
-                    
-                    console.log('🔵 [BASELINE DEBUG] Baseline snapshot completed at:', new Date().toISOString());
-                    resolve();
-                });
-            });
-        } catch (error) {
-            console.error('🔵 [BASELINE DEBUG] Error taking baseline:', error);
-            baselineEntryCount = 0;
-            lastSeenEntry = null;
-        }
-    }
+    // takeBaselineSnapshot function removed - no longer needed in simplified version
 
-    async function performRealtimeScrape() {
-        // Prevent race conditions
-        if (processingScan) {
-            console.log('🔵 [MANUAL SCRAPE DEBUG] Skipping - already processing scan');
-            return;
-        }
-        
-        processingScan = true;
-        
-        try {
-            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            console.log('📍 Current tab:', tab.url);
-            
-            if (!tab.url.includes('meet.google.com')) {
-                deactivateRealtimeMode();
-                updateStatus('Opuściłeś Google Meet - nagrywanie zatrzymane', 'error');
-                processingScan = false; // Release mutex
-                return;
-            }
-
-            chrome.tabs.sendMessage(tab.id, { action: 'scrapeTranscript', realtime: true }, (response) => {
-                console.log('📥 Response received:', response);
-                
-                if (chrome.runtime.lastError) {
-                    console.error('Realtime error:', chrome.runtime.lastError);
-                    updateStatus('Nie można połączyć się ze stroną. Odśwież Google Meet.', 'error');
-                    deactivateRealtimeMode();
-                    processingScan = false; // Release mutex
-                    return;
-                }
-
-                if (response && response.success) {                    
-                    if (response.data.entries.length > 0) {
-                        // Use centralized filtering for manual scraping
-                        const filteredResult = getFilteredEntries(response.data, '🔵 [MANUAL SCRAPE DEBUG]');
-                        
-                        if (filteredResult.entries.length === 0) {
-                            console.log('🔵 [MANUAL SCRAPE DEBUG] No new entries after baseline filtering');
-                            processingScan = false; // Release mutex
-                            return;
-                        }
-                        
-                        const entriesToProcess = filteredResult.entries;
-                        
-                        // Reset first update flag after first successful processing
-                        if (isFirstUpdate) {
-                            isFirstUpdate = false;
-                        }
-                        
-                        // Merge new data with existing
-                        if (!transcriptData) {
-                            transcriptData = {
-                                entries: entriesToProcess,
-                                scrapedAt: response.data.scrapedAt,
-                                meetingUrl: response.data.meetingUrl
-                            };
-                        } else {
-                            // Inteligentne scalanie - sprawdź czy ostatni wpis należy do tej samej osoby
-                            const newEntries = entriesToProcess;
-                            let hasChanges = false;
-                                                        
-                            for (const newEntry of newEntries) {                                
-                                const existingIndex = transcriptData.entries.findIndex(e => 
-                                    (e.speaker === newEntry.speaker && e.timestamp === newEntry.timestamp) ||
-                                    (e.speaker === newEntry.speaker && e.text === newEntry.text)
-                                );
-                                
-                                if (existingIndex >= 0) {
-                                    // Aktualizuj istniejący wpis jeśli tekst się zmienił
-                                    if (transcriptData.entries[existingIndex].text !== newEntry.text) {
-                                        transcriptData.entries[existingIndex].text = newEntry.text;
-                                        transcriptData.entries[existingIndex].timestamp = newEntry.timestamp;
-                                        hasChanges = true;
-                                    }
-                                } else {
-                                    // Sprawdź czy to kontynuacja ostatniego wpisu tej samej osoby
-                                    const lastEntry = transcriptData.entries[transcriptData.entries.length - 1];
-                                    if (lastEntry && lastEntry.speaker === newEntry.speaker && 
-                                        !lastEntry.timestamp && !newEntry.timestamp) {
-                                        // Aktualizuj ostatni wpis zamiast dodawać nowy
-                                        lastEntry.text = newEntry.text;
-                                        lastEntry.timestamp = newEntry.timestamp;
-                                        hasChanges = true;
-                                    } else {
-                                        // Dodaj nowy wpis
-                                        transcriptData.entries.push(newEntry);
-                                        hasChanges = true;
-                                    }
-                                }
-                            }
-                            
-                            if (hasChanges) {
-                                transcriptData.scrapedAt = response.data.scrapedAt;
-                                
-                                // Animacja dla nowych wpisów
-                                displayTranscript(transcriptData);
-                                
-                                // Przewiń do nowych wpisów
-                                const preview = document.getElementById('transcriptContent');
-                                preview.scrollTop = preview.scrollHeight;
-                                
-                                // Auto-save session to history on every update
-                                autoSaveCurrentSession(filteredResult);
-                                
-                                updateStatus(`Nagrywanie... (${transcriptData.entries.length} wpisów)`, 'info');
-                                                }
-                        }
-                        
-                        // Use the same filtered data for stats to avoid re-filtering with stale lastSeenEntry
-                        updateStats(transcriptData, filteredResult);
-                        exportTxtBtn.disabled = false;
-                        
-                        // Zapisz dane
-                        chrome.storage.local.set({ transcriptData: transcriptData });
-                    } else {
-                        console.log('⚠️ No entries found in transcript');
-                        updateStatus('Czekam na napisy... Upewnij się, że są włączone', 'info');
-                        processingScan = false; // Release mutex
-                    }
-                } else {
-                    console.log('❌ Response not successful:', response);
-                    updateStatus('Nie znaleziono napisów. Włącz napisy (CC) w Google Meet', 'error');
-                    processingScan = false; // Release mutex
-                }
-                
-                // Release mutex after processing
-                processingScan = false;
-            });
-        } catch (error) {
-            console.error('Realtime scrape error:', error);
-            updateStatus('Błąd: ' + error.message, 'error');
-            processingScan = false; // Release mutex on error
-        } finally {
-            // Ensure mutex is released if deactivateRealtimeMode was called
-            if (!realtimeMode) {
-                processingScan = false;
-            }
-        }
-    }
+    // performRealtimeScrape function removed - no longer needed in simplified version
 
     async function getCurrentTabId() {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         return tab.id;
     }
 
-    function startPeriodicStorageCheck() {
-        // Clear any existing interval
-        if (storageCheckInterval) {
-            clearInterval(storageCheckInterval);
-        }
-        
-        console.log('🔄 [STORAGE CHECK] Starting periodic storage check');
-        
-        storageCheckInterval = setInterval(async () => {
-            // Only check when recording is active
-            if (!realtimeMode) {
-                return;
-            }
-            
-            try {
-                const tabId = await getCurrentTabId();
-                const result = await chrome.storage.local.get([`backgroundScan_${tabId}`]);
-                const bgScanKey = `backgroundScan_${tabId}`;
-                
-                if (result[bgScanKey] && result[bgScanKey].timestamp > lastProcessedBgTimestamp) {
-                    console.log('🔄 [STORAGE CHECK] Found new background scan data, processing...');
-                    console.log('   - Last processed:', lastProcessedBgTimestamp);
-                    console.log('   - New timestamp:', result[bgScanKey].timestamp);
-                    
-                    lastProcessedBgTimestamp = result[bgScanKey].timestamp;
-                    handleBackgroundScanUpdate(result[bgScanKey].data);
-                }
-            } catch (error) {
-                console.error('🔄 [STORAGE CHECK] Error:', error);
-            }
-        }, 2000); // Check every 2 seconds
-    }
+    // startPeriodicStorageCheck function removed - no longer needed in simplified version
 
     async function restoreStateFromStorage() {
         try {
@@ -564,9 +298,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 'transcriptData',
                 'currentSessionId',
                 'sessionTotalDuration',
-                'currentSessionDuration',
-                'baselineEntryCount',
-                'lastSeenEntry'
+                'currentSessionDuration'
             ]);
             
             // Restore recording state
@@ -595,14 +327,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     sessionTotalDuration += result.currentSessionDuration;
                 }
                 
-                // Restore baseline data
-                if (result.baselineEntryCount) {
-                    baselineEntryCount = result.baselineEntryCount;
-                }
-                
-                if (result.lastSeenEntry) {
-                    lastSeenEntry = result.lastSeenEntry;
-                }
+                // Baseline data no longer needed in simplified version
                 
                 // Update UI to show recording state
                 const realtimeBtn = document.getElementById('recordBtn');
@@ -661,12 +386,6 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Prevent race conditions with manual scraping
-        if (processingScan) {
-            console.log('🟡 [BACKGROUND DEBUG] Skipping - manual scan in progress');
-            return;
-        }
-        
         if (!data || !data.entries || data.entries.length === 0) {
             console.log('🟡 [BACKGROUND DEBUG] No entries in background scan update');
             return;
@@ -674,29 +393,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const exportTxtBtn = document.getElementById('exportTxtBtn');
         
-        // Debug baseline filtering state
-        console.log('🟡 [BACKGROUND DEBUG] Baseline filtering state:');
-        console.log('   - isFirstUpdate:', isFirstUpdate);
-        console.log('   - isFirstBackgroundScan:', isFirstBackgroundScan);
-        console.log('   - baselineEntryCount:', baselineEntryCount);
-        console.log('   - lastSeenEntry:', lastSeenEntry ? `${lastSeenEntry.speaker}: ${lastSeenEntry.text.substring(0, 30)}...` : 'null');
-        console.log('   - data.entries.length:', data.entries.length);
-        
-        // Reset first background scan flag after first scan
-        if (isFirstBackgroundScan) {
-            isFirstBackgroundScan = false;
-            console.log('🟡 [BACKGROUND DEBUG] isFirstBackgroundScan reset to:', isFirstBackgroundScan);
-        }
-        
-        // Apply baseline filtering using centralized function
-        const filteredResult = getFilteredEntries(data, '🟡 [BACKGROUND DEBUG]');
-        
-        if (filteredResult.entries.length === 0) {
-            console.log('🟡 [BACKGROUND DEBUG] No new entries after baseline filtering - RETURNING');
-            return;
-        }
-        
-        const entriesToProcess = filteredResult.entries;
+        // Simplified: just use all entries from the scan
+        const entriesToProcess = data.entries;
         
         if (!transcriptData) {
             transcriptData = {
@@ -706,36 +404,16 @@ document.addEventListener('DOMContentLoaded', function() {
             };
             console.log('✅ Initialized transcript data from background scan');
         } else {
-            // Merge new entries with existing ones
-            const newEntries = entriesToProcess;
-            let hasChanges = false;
-                        
-            for (const newEntry of newEntries) {
-                const existingIndex = transcriptData.entries.findIndex(e => 
-                    (e.speaker === newEntry.speaker && e.timestamp === newEntry.timestamp) ||
-                    (e.speaker === newEntry.speaker && e.text === newEntry.text)
-                );
-                
-                if (existingIndex >= 0) {
-                    // Update existing entry if text changed
-                    if (transcriptData.entries[existingIndex].text !== newEntry.text) {
-                        transcriptData.entries[existingIndex].text = newEntry.text;
-                        transcriptData.entries[existingIndex].timestamp = newEntry.timestamp;
-                        hasChanges = true;
-                    }
-                } else {
-                    // Add new entry
-                    transcriptData.entries.push(newEntry);
-                    hasChanges = true;
-                }
-            }
+            // Simple replacement - just update with new data
+            const hasChanges = JSON.stringify(transcriptData.entries) !== JSON.stringify(entriesToProcess);
             
             if (hasChanges) {
+                transcriptData.entries = entriesToProcess;
                 transcriptData.scrapedAt = data.scrapedAt;
 
-                // Only update display if there are actual changes
+                // Update display
                 displayTranscript(transcriptData);
-                updateStats(transcriptData, filteredResult);
+                updateStats(transcriptData);
                 
                 if (exportTxtBtn) {
                     exportTxtBtn.disabled = false;
@@ -748,7 +426,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
                 // Auto-save session to history on every update
-                autoSaveCurrentSession(filteredResult);
+                autoSaveCurrentSession({ entries: entriesToProcess });
                 
                 updateStatus(`Nagrywanie w tle... (${transcriptData.entries.length} wpisów)`, 'info');
             }
@@ -1007,70 +685,11 @@ function displayTranscript(data) {
     reinitializeEnhancedInteractions();
 }
 
-function getFilteredEntries(data, logPrefix = '📊 [STATS DEBUG]') {
-    if (!data || !data.entries) {
-        console.log(`${logPrefix} No data or entries`);
-        return { entries: [], contentChanged: false };
-    }
-    
-    console.log(`${logPrefix} Filtering data:`, {
-        originalCount: data.entries.length,
-        baselineEntryCount,
-        hasLastSeenEntry: !!lastSeenEntry
-    });
-    
-    // If no baseline filtering needed, return all entries
-    if (baselineEntryCount === 0) {
-        console.log(`${logPrefix} No baseline filtering needed`);
-        return { entries: data.entries, contentChanged: false };
-    }
-    
-    let filteredEntries = [];
-    let contentChanged = false;
-    
-    if (data.entries.length > baselineEntryCount) {
-        // More entries than baseline - return new entries
-        filteredEntries = data.entries.slice(baselineEntryCount);
-        console.log(`${logPrefix} NEW ENTRIES detected:`, filteredEntries.length);
-    } else if (data.entries.length === baselineEntryCount && lastSeenEntry) {
-        // Same number of entries - check if content changed
-        const lastEntryIndex = baselineEntryCount - 1;
-        const currentLastEntry = data.entries[lastEntryIndex];
-        
-        if (currentLastEntry && currentLastEntry.text !== lastSeenEntry.text) {
-            // Content changed - update reference and return updated entry
-            filteredEntries = [currentLastEntry];
-            contentChanged = true;
-            lastSeenEntry = { ...currentLastEntry }; // Update reference
-            console.log(`${logPrefix} CONTENT CHANGED detected:`, {
-                speaker: currentLastEntry.speaker,
-                oldLength: lastSeenEntry.text?.length || 0,
-                newLength: currentLastEntry.text.length
-            });
-        } else {
-            // No changes
-            filteredEntries = [];
-            console.log(`${logPrefix} NO CHANGES detected`);
-        }
-    } else {
-        // Less entries than baseline
-        filteredEntries = [];
-        console.log(`${logPrefix} BELOW BASELINE count`);
-    }
-    
-    return {
-        entries: filteredEntries,
-        contentChanged,
-        scrapedAt: data.scrapedAt,
-        meetingUrl: data.meetingUrl
-    };
-}
+// getFilteredEntries function removed - no longer needed in simplified version
 
-function getFilteredStatsData(data) {
-    return getFilteredEntries(data, '📊 [STATS DEBUG]');
-}
+// getFilteredStatsData function removed - no longer needed in simplified version
 
-function updateStats(data, preFilteredData = null) {
+function updateStats(data) {
     const statsDiv = document.getElementById('transcriptStats');
     const entryCountSpan = document.getElementById('entryCount');
     const participantCountSpan = document.getElementById('participantCount');
@@ -1086,12 +705,11 @@ function updateStats(data, preFilteredData = null) {
         return;
     }
 
-    // Use pre-filtered data if provided, otherwise filter now
-    const filteredData = preFilteredData || getFilteredStatsData(data);
-    const uniqueParticipants = new Set(filteredData.entries.map(e => e.speaker)).size;
+    // Simplified: just use all entries from data
+    const uniqueParticipants = new Set(data.entries.map(e => e.speaker)).size;
 
-    // Update stats with filtered data
-    entryCountSpan.textContent = filteredData.entries.length;
+    // Update stats with all data
+    entryCountSpan.textContent = data.entries.length;
     participantCountSpan.textContent = uniqueParticipants;
     
     // Duration is now handled by the continuous timer
@@ -1280,20 +898,13 @@ function performNewSessionCreation() {
     updateStatus('Utworzono nową sesję', 'success');    
 }
 
-function autoSaveCurrentSession(preFilteredData = null) {
+function autoSaveCurrentSession(data = null) {
     if (!transcriptData || transcriptData.entries.length === 0) {
         return;
     }
     
-    // Use pre-filtered data if provided, otherwise filter now
-    const filteredResult = preFilteredData || getFilteredEntries(transcriptData, '🔄 [AUTOSAVE DEBUG]');
-    
-    if (filteredResult.entries.length === 0) {
-        console.log('🔄 [AUTOSAVE DEBUG] No valid entries after filtering - not auto-saving');
-        return;
-    }
-    
-    const validEntries = filteredResult.entries;
+    // Simplified: just use all entries from transcriptData
+    const validEntries = transcriptData.entries;
     
     const sessionId = currentSessionId || generateSessionId();
     const uniqueParticipants = new Set(validEntries.map(e => e.speaker)).size;
