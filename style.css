@@ -1754,7 +1754,7 @@ body {
 /* Filter Items - Matching Participants Modal Style */
 .filter-item {
     position: relative;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
 }
 
 .filter-item input[type="checkbox"] {
@@ -1767,31 +1767,29 @@ body {
 .filter-item-content {
     display: flex;
     align-items: center;
-    padding: 8px 12px;
-    background: var(--bg-hover);
-    border-radius: 8px;
-    border: 1px solid var(--border-primary);
+    padding: 6px 4px;
     cursor: pointer;
     transition: all 0.15s ease;
+    border-radius: 6px;
 }
 
 .filter-item-content:hover {
-    background: var(--bg-accent);
+    background: var(--bg-hover);
 }
 
 .filter-participant-avatar {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 600;
-    font-size: 14px;
+    font-size: 12px;
     color: white;
     flex-shrink: 0;
-    margin-right: 12px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-right: 10px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 /* Avatar colors matching transcript */
@@ -1805,8 +1803,8 @@ body {
 .filter-item-text,
 .filter-participant-name {
     flex: 1;
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 13px;
+    font-weight: 400;
     color: var(--text-secondary);
 }
 
@@ -1815,18 +1813,22 @@ body {
 }
 
 .filter-checkbox {
-    width: 16px;
-    height: 16px;
-    border: 1px solid var(--border-secondary);
-    border-radius: 3px;
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--border-primary);
+    border-radius: 4px;
     background: var(--bg-secondary);
     position: relative;
     transition: all 0.15s ease;
 }
 
+.filter-item-content:hover .filter-checkbox {
+    border-color: var(--text-secondary);
+}
+
 .filter-item input[type="checkbox"]:checked ~ .filter-item-content .filter-checkbox {
-    background: var(--text-tertiary);
-    border-color: var(--text-tertiary);
+    background: var(--text-secondary);
+    border-color: var(--text-secondary);
 }
 
 .filter-item input[type="checkbox"]:checked ~ .filter-item-content .filter-checkbox::after {
@@ -1834,10 +1836,10 @@ body {
     position: absolute;
     left: 5px;
     top: 2px;
-    width: 4px;
-    height: 8px;
+    width: 5px;
+    height: 9px;
     border: solid white;
-    border-width: 0 1.5px 1.5px 0;
+    border-width: 0 2px 2px 0;
     transform: rotate(45deg);
 }
 
