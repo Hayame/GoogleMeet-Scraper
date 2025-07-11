@@ -1810,6 +1810,11 @@ body {
     order: -1;           /* Move to beginning in flex */
     min-width: 20px;     /* Ensure space for checkbox */
     min-height: 20px;    /* Ensure space for checkbox */
+    background: #0000ff !important; /* BRIGHT BLUE BACKGROUND */
+    border: 2px solid #ffff00 !important; /* YELLOW BORDER */
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
 }
 
 .filter-checkbox {
@@ -1817,13 +1822,15 @@ body {
     height: 18px;
     min-width: 18px;
     min-height: 18px;
-    border: 1.5px solid var(--text-secondary);
+    border: 3px solid #ff0000 !important; /* BRIGHT RED BORDER */
     border-radius: 3px;
-    background: var(--bg-tertiary);
+    background: #00ff00 !important; /* BRIGHT GREEN BACKGROUND */
     position: relative;
     transition: all 0.15s ease;
-    display: block;
+    display: block !important;
     flex-shrink: 0;
+    opacity: 1 !important;
+    visibility: visible !important;
 }
 
 .filter-item-content:hover .filter-checkbox {
