@@ -1761,12 +1761,13 @@ body {
 }
 
 .filter-item-content {
-    display: flex !important;
-    align-items: center !important;
-    padding: 6px 4px;
+    display: flex;
+    align-items: center;
+    padding: 8px 6px;
     cursor: pointer;
     transition: all 0.15s ease;
     border-radius: 6px;
+    gap: 0;
 }
 
 .filter-item-content:hover {
@@ -1805,16 +1806,12 @@ body {
 }
 
 .filter-checkbox-wrapper {
-    margin-left: 0;
-    margin-right: 10px;  /* Space after checkbox */
-    order: -1;           /* Move to beginning in flex */
-    min-width: 20px;     /* Ensure space for checkbox */
-    min-height: 20px;    /* Ensure space for checkbox */
-    background: #0000ff !important; /* BRIGHT BLUE BACKGROUND */
-    border: 2px solid #ffff00 !important; /* YELLOW BORDER */
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
+    margin-right: 12px;
+    order: -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
 }
 
 .filter-checkbox {
@@ -1822,37 +1819,41 @@ body {
     height: 18px;
     min-width: 18px;
     min-height: 18px;
-    border: 3px solid #ff0000 !important; /* BRIGHT RED BORDER */
+    border: 2px solid var(--border-secondary);
     border-radius: 3px;
-    background: #00ff00 !important; /* BRIGHT GREEN BACKGROUND */
+    background: var(--bg-secondary);
     position: relative;
     transition: all 0.15s ease;
-    display: block !important;
+    display: block;
     flex-shrink: 0;
-    opacity: 1 !important;
-    visibility: visible !important;
 }
 
 .filter-item-content:hover .filter-checkbox {
-    border-color: var(--text-primary);
-    background: var(--bg-hover);
+    border-color: var(--btn-primary-bg);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.filter-item input[type="checkbox"]:focus + .filter-item-content .filter-checkbox {
+    border-color: var(--btn-primary-bg);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
 .filter-item input[type="checkbox"]:checked + .filter-item-content .filter-checkbox {
-    background: var(--text-secondary);
-    border-color: var(--text-secondary);
+    background: var(--btn-primary-bg);
+    border-color: var(--btn-primary-bg);
 }
 
 .filter-item input[type="checkbox"]:checked + .filter-item-content .filter-checkbox::after {
     content: '';
     position: absolute;
     left: 5px;
-    top: 2px;
-    width: 5px;
-    height: 9px;
+    top: 1px;
+    width: 4px;
+    height: 8px;
     border: solid white;
     border-width: 0 2px 2px 0;
     transform: rotate(45deg);
+    opacity: 1;
 }
 
 .filter-all .filter-item-text {
