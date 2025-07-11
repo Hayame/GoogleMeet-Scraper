@@ -582,6 +582,7 @@ body {
     display: flex;
     align-items: center;
     gap: 12px;
+    overflow: visible;
 }
 
 .action-group-left,
@@ -957,6 +958,7 @@ body {
 
 .action-group-left {
     position: relative;
+    overflow: visible;
 }
 
 @media (max-width: 400px) {
@@ -1924,7 +1926,7 @@ body {
 /* Ripple effect for filter button */
 .icon-button {
     position: relative;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .icon-button::before {
