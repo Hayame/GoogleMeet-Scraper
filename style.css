@@ -1811,11 +1811,12 @@ body {
 .filter-checkbox {
     width: 18px;
     height: 18px;
-    border: 2px solid var(--border-secondary);
+    border: 2px solid #ff0000; /* Debug: red border */
     border-radius: 4px;
-    background: var(--bg-secondary);
+    background: #00ff00; /* Debug: green background */
     position: relative;
     transition: all 0.15s ease;
+    display: block; /* Ensure visibility */
 }
 
 .filter-item-content:hover .filter-checkbox {
