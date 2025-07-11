@@ -1761,8 +1761,8 @@ body {
 }
 
 .filter-item-content {
-    display: flex;
-    align-items: center;
+    display: flex !important;
+    align-items: center !important;
     padding: 6px 4px;
     cursor: pointer;
     transition: all 0.15s ease;
@@ -1806,17 +1806,24 @@ body {
 
 .filter-checkbox-wrapper {
     margin-left: auto;
+    background: #ff00ff; /* Debug: bright magenta */
+    min-width: 30px;     /* Force minimum width */
+    min-height: 30px;    /* Force minimum height */
+    border: 3px solid #000; /* Black border */
 }
 
 .filter-checkbox {
     width: 18px;
     height: 18px;
+    min-width: 18px !important;
+    min-height: 18px !important;
     border: 2px solid #ff0000; /* Debug: red border */
     border-radius: 4px;
     background: #00ff00; /* Debug: green background */
     position: relative;
     transition: all 0.15s ease;
-    display: block; /* Ensure visibility */
+    display: block !important; /* Ensure visibility */
+    flex-shrink: 0 !important;
 }
 
 .filter-item-content:hover .filter-checkbox {
