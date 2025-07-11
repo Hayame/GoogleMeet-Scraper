@@ -1808,10 +1808,14 @@ body {
 .filter-checkbox-wrapper {
     margin-right: 12px;
     order: -1;
-    display: flex;
+    display: flex !important;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    background: #ffff00 !important;
+    border: 2px solid #ff00ff !important;
+    min-width: 24px !important;
+    min-height: 24px !important;
 }
 
 .filter-checkbox {
@@ -1819,13 +1823,15 @@ body {
     height: 18px !important;
     min-width: 18px !important;
     min-height: 18px !important;
-    border: 2px solid var(--border-primary) !important;
+    border: 3px solid #ff0000 !important;
     border-radius: 3px !important;
-    background: var(--bg-tertiary) !important;
+    background: #00ff00 !important;
     position: relative !important;
     transition: all 0.15s ease !important;
     display: block !important;
     flex-shrink: 0 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
 }
 
 .filter-item-content:hover .filter-checkbox {
