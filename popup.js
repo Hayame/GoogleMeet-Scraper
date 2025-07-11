@@ -2914,29 +2914,51 @@ function updateParticipantFiltersList() {
         }
     }
     
-    // Create participant filter items using the new structure
+    // Create participant filter items matching participants modal style
     allParticipants.forEach(participant => {
-        const participantLabel = document.createElement('label');
-        participantLabel.className = 'filter-checkbox-label';
+        const filterItem = document.createElement('div');
+        filterItem.className = 'filter-item';
         
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
+        checkbox.id = `filter-${participant.replace(/\s/g, '-')}`;
         checkbox.value = participant;
         checkbox.checked = activeParticipantFilters.has(participant);
         checkbox.addEventListener('change', handleParticipantFilterChange);
         
-        const checkmark = document.createElement('span');
-        checkmark.className = 'checkmark';
+        const label = document.createElement('label');
+        label.htmlFor = checkbox.id;
+        label.className = 'filter-item-content';
         
-        const checkboxText = document.createElement('span');
-        checkboxText.className = 'checkbox-text';
-        checkboxText.textContent = participant;
+        // Create avatar
+        const avatar = document.createElement('div');
+        avatar.className = 'filter-participant-avatar';
+        const colorIndex = speakerColors.get(participant) || 1;
+        avatar.classList.add(`color-${colorIndex}`);
+        avatar.textContent = participant.charAt(0).toUpperCase();
         
-        participantLabel.appendChild(checkbox);
-        participantLabel.appendChild(checkmark);
-        participantLabel.appendChild(checkboxText);
+        // Create name
+        const name = document.createElement('span');
+        name.className = 'filter-participant-name';
+        name.textContent = participant;
         
-        filterParticipantsList.appendChild(participantLabel);
+        // Create checkbox wrapper
+        const checkboxWrapper = document.createElement('div');
+        checkboxWrapper.className = 'filter-checkbox-wrapper';
+        
+        const checkboxDiv = document.createElement('div');
+        checkboxDiv.className = 'filter-checkbox';
+        
+        checkboxWrapper.appendChild(checkboxDiv);
+        
+        label.appendChild(avatar);
+        label.appendChild(name);
+        label.appendChild(checkboxWrapper);
+        
+        filterItem.appendChild(checkbox);
+        filterItem.appendChild(label);
+        
+        filterParticipantsList.appendChild(filterItem);
     });
     
     // Update filter badge

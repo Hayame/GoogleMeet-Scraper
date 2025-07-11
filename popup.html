@@ -126,17 +126,19 @@
                             <!-- Filter Dropdown -->
                             <div id="filterDropdown" class="filter-dropdown" style="display: none;" aria-hidden="true">
                                 <div class="filter-header">
-                                    <h4>Filtruj uczestników</h4>
+                                    <h4 class="filter-title">Filtruj uczestników</h4>
                                 </div>
                                 <div class="filter-content">
-                                    <div class="filter-all-participants">
-                                        <label class="filter-checkbox-label">
-                                            <input type="checkbox" id="allParticipantsCheckbox" checked>
-                                            <span class="checkmark"></span>
-                                            <span class="checkbox-text">Wszyscy uczestnicy</span>
+                                    <div class="filter-item filter-all">
+                                        <input type="checkbox" id="allParticipantsCheckbox" checked>
+                                        <label for="allParticipantsCheckbox" class="filter-item-content">
+                                            <span class="filter-item-text">Wszyscy uczestnicy</span>
+                                            <div class="filter-checkbox-wrapper">
+                                                <div class="filter-checkbox"></div>
+                                            </div>
                                         </label>
                                     </div>
-                                    <div class="filter-separator"></div>
+                                    <div class="filter-divider"></div>
                                     <div id="filterParticipantsList" class="filter-participants-list">
                                         <!-- Individual participant filters will be populated here -->
                                     </div>
