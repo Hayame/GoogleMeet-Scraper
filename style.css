@@ -1815,32 +1815,32 @@ body {
 }
 
 .filter-checkbox {
-    width: 18px;
-    height: 18px;
-    min-width: 18px;
-    min-height: 18px;
-    border: 2px solid var(--border-secondary);
-    border-radius: 3px;
-    background: var(--bg-secondary);
-    position: relative;
-    transition: all 0.15s ease;
-    display: block;
-    flex-shrink: 0;
+    width: 18px !important;
+    height: 18px !important;
+    min-width: 18px !important;
+    min-height: 18px !important;
+    border: 2px solid var(--border-primary) !important;
+    border-radius: 3px !important;
+    background: var(--bg-tertiary) !important;
+    position: relative !important;
+    transition: all 0.15s ease !important;
+    display: block !important;
+    flex-shrink: 0 !important;
 }
 
 .filter-item-content:hover .filter-checkbox {
-    border-color: var(--btn-primary-bg);
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+    border-color: var(--btn-primary-bg) !important;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1) !important;
 }
 
 .filter-item input[type="checkbox"]:focus + .filter-item-content .filter-checkbox {
-    border-color: var(--btn-primary-bg);
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    border-color: var(--btn-primary-bg) !important;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
 }
 
 .filter-item input[type="checkbox"]:checked + .filter-item-content .filter-checkbox {
-    background: var(--btn-primary-bg);
-    border-color: var(--btn-primary-bg);
+    background: var(--btn-primary-bg) !important;
+    border-color: var(--btn-primary-bg) !important;
 }
 
 .filter-item input[type="checkbox"]:checked + .filter-item-content .filter-checkbox::after {
