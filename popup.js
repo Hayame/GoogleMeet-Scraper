@@ -915,11 +915,8 @@ function updateStats(data) {
     // Update participant count clickability based on count
     updateParticipantCountClickability(uniqueParticipants);
     
-    // Duration is now handled by the continuous timer
-    // Only update duration if we're not in realtime mode
-    if (!realtimeMode) {
-        updateDurationDisplay();
-    }
+    // Duration is handled by the continuous timer for recording sessions
+    // For historical sessions, duration is updated when loading session data
     
     statsDiv.style.display = 'block';
     
@@ -1178,6 +1175,7 @@ function performNewSessionCreation() {
     console.log('🆕 [NEW SESSION] About to call displayTranscript with:', { messages: [] });
     displayTranscript({ messages: [] });
     updateStats({ messages: [] });
+    updateDurationDisplay(); // Reset duration display to 00:00
     console.log('🆕 [NEW SESSION] After displayTranscript, transcriptData:', transcriptData);
     
     const exportTxtBtn = document.getElementById('exportTxtBtn');
