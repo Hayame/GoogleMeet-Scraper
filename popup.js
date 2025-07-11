@@ -704,8 +704,11 @@ function displayTranscript(data) {
     let messagesToDisplay = dataToDisplay;
     
     // Apply participant filters first
-    if (activeParticipantFilters.size === 0) {
-        // No participants selected - show no messages
+    if (realtimeMode && allParticipants.length === 0) {
+        // Active recording with no participants yet - show all messages
+        // (no filtering needed, let new messages appear)
+    } else if (activeParticipantFilters.size === 0 && allParticipants.length > 0) {
+        // No participants selected (but participants exist) - show no messages
         messagesToDisplay = [];
     } else if (activeParticipantFilters.size < allParticipants.length) {
         // Some participants selected - show only their messages
@@ -725,8 +728,18 @@ function displayTranscript(data) {
 
     // Check if no messages after filtering
     if (messagesToDisplay.length === 0) {
-        if (activeParticipantFilters.size === 0) {
-            // No participants selected
+        if (realtimeMode && allParticipants.length === 0) {
+            // Active recording but no participants yet
+            previewDiv.innerHTML = `
+                <div class="empty-transcript">
+                    <svg class="empty-icon" width="48" height="48" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                    <p>Nagrywanie w toku...</p>
+                    <p class="empty-subtitle">Czekam na pierwsze wypowiedzi uczestników</p>
+                </div>`;
+        } else if (activeParticipantFilters.size === 0 && allParticipants.length > 0) {
+            // No participants selected (but participants exist)
             previewDiv.innerHTML = `
                 <div class="empty-transcript">
                     <svg class="empty-icon" width="48" height="48" viewBox="0 0 24 24">
@@ -2920,7 +2933,18 @@ function updateParticipantFiltersList() {
         }
     });
     
+    const previousParticipants = new Set(allParticipants);
     allParticipants = Array.from(participantsSet).sort();
+    
+    // Auto-select new participants during recording
+    if (realtimeMode) {
+        allParticipants.forEach(participant => {
+            if (!previousParticipants.has(participant)) {
+                // New participant - auto-select during recording
+                activeParticipantFilters.add(participant);
+            }
+        });
+    }
     
     // Clear existing list
     filterParticipantsList.innerHTML = '';
