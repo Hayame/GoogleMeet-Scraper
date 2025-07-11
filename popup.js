@@ -704,11 +704,16 @@ function displayTranscript(data) {
     let messagesToDisplay = dataToDisplay;
     
     // Apply participant filters first
-    if (activeParticipantFilters.size > 0) {
+    if (activeParticipantFilters.size === 0) {
+        // No participants selected - show no messages
+        messagesToDisplay = [];
+    } else if (activeParticipantFilters.size < allParticipants.length) {
+        // Some participants selected - show only their messages
         messagesToDisplay = messagesToDisplay.filter(entry => 
             activeParticipantFilters.has(entry.speaker)
         );
     }
+    // If activeParticipantFilters.size === allParticipants.length, show all messages (no filtering needed)
     
     // Then apply search filter
     if (currentSearchQuery) {
@@ -716,6 +721,32 @@ function displayTranscript(data) {
             entry.text.toLowerCase().includes(currentSearchQuery.toLowerCase()) ||
             entry.speaker.toLowerCase().includes(currentSearchQuery.toLowerCase())
         );
+    }
+
+    // Check if no messages after filtering
+    if (messagesToDisplay.length === 0) {
+        if (activeParticipantFilters.size === 0) {
+            // No participants selected
+            previewDiv.innerHTML = `
+                <div class="empty-transcript">
+                    <svg class="empty-icon" width="48" height="48" viewBox="0 0 24 24">
+                        <path d="M16 4c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zM4 18v-1c0-1.38 2.91-2.5 6.5-2.5s6.5 1.12 6.5 2.5v1H4zm6.5-6.5c1.38 0 2.5-1.12 2.5-2.5s-1.12-2.5-2.5-2.5S8 7.62 8 9s1.12 2.5 2.5 2.5z"/>
+                    </svg>
+                    <p>Nie wybrano żadnego uczestnika</p>
+                    <p class="empty-subtitle">Zaznacz przynajmniej jednego uczestnika w filtrach, aby zobaczyć transkrypcję</p>
+                </div>`;
+        } else if (currentSearchQuery) {
+            // No messages found for search
+            previewDiv.innerHTML = `
+                <div class="empty-transcript">
+                    <svg class="empty-icon" width="48" height="48" viewBox="0 0 24 24">
+                        <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                    </svg>
+                    <p>Brak wyników wyszukiwania</p>
+                    <p class="empty-subtitle">Nie znaleziono wiadomości zawierających "${currentSearchQuery}"</p>
+                </div>`;
+        }
+        return;
     }
 
     // Use shared color mapping function
@@ -3025,14 +3056,24 @@ function updateFilterBadge() {
     // Remove active classes
     filterBtn.classList.remove('has-filters', 'filter-active');
     
-    // Add badge if not all participants are selected
-    const filteredCount = allParticipants.length - activeParticipantFilters.size;
-    if (filteredCount > 0 && allParticipants.length > 0) {
-        const badge = document.createElement('span');
-        badge.className = 'filter-badge';
-        badge.textContent = filteredCount;
-        filterBtn.appendChild(badge);
-        filterBtn.classList.add('filter-active');
+    // Add badge based on filter state
+    if (allParticipants.length > 0) {
+        if (activeParticipantFilters.size === 0) {
+            // No participants selected - show "0"
+            const badge = document.createElement('span');
+            badge.className = 'filter-badge';
+            badge.textContent = '0';
+            filterBtn.appendChild(badge);
+            filterBtn.classList.add('filter-active');
+        } else if (activeParticipantFilters.size < allParticipants.length) {
+            // Some participants selected - show count of selected
+            const badge = document.createElement('span');
+            badge.className = 'filter-badge';
+            badge.textContent = activeParticipantFilters.size;
+            filterBtn.appendChild(badge);
+            filterBtn.classList.add('filter-active');
+        }
+        // If activeParticipantFilters.size === allParticipants.length, no badge (all selected)
     }
 }
 
