@@ -228,6 +228,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
+    // Initialize status visibility (hide by default)
+    initializeStatusVisibility();
+    
     // Initialize session history first, then restore state
     initializeSessionHistory().then(() => {
         // Restore state from storage AFTER session history is loaded
@@ -567,6 +570,26 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// Initialize status visibility on popup load
+function initializeStatusVisibility() {
+    const statusDiv = document.getElementById('recordingStatus');
+    if (!statusDiv) {
+        return;
+    }
+    
+    // Hide status elements by default (will be shown only during recording)
+    const statusText = statusDiv.querySelector('.status-text');
+    const statusDot = statusDiv.querySelector('.status-dot');
+    if (statusText) statusText.style.display = 'none';
+    if (statusDot) statusDot.style.display = 'none';
+    
+    // Hide meeting name by default (will be shown when loading historical sessions)
+    const meetingContainer = statusDiv.querySelector('.meeting-name-container');
+    if (meetingContainer) {
+        meetingContainer.style.display = 'none';
+    }
+}
+
 // Meeting Name Display Functions
 function showMeetingName(meetingTitle, sessionId) {
     const statusDiv = document.getElementById('recordingStatus');
@@ -603,18 +626,26 @@ function hideMeetingName() {
         return;
     }
     
-    // Show status elements
-    const statusText = statusDiv.querySelector('.status-text');
-    const statusDot = statusDiv.querySelector('.status-dot');
-    if (statusText) statusText.style.display = '';
-    if (statusDot) statusDot.style.display = '';
-    
     // Hide meeting name container
     const meetingContainer = statusDiv.querySelector('.meeting-name-container');
     if (meetingContainer) {
         meetingContainer.style.display = 'none';
         // Cancel any ongoing editing
         cancelMeetingNameEdit();
+    }
+    
+    // Only show status elements if we're in recording mode
+    const statusText = statusDiv.querySelector('.status-text');
+    const statusDot = statusDiv.querySelector('.status-dot');
+    
+    if (realtimeMode) {
+        // Recording mode - show status elements
+        if (statusText) statusText.style.display = '';
+        if (statusDot) statusDot.style.display = '';
+    } else {
+        // Not recording - hide status elements completely
+        if (statusText) statusText.style.display = 'none';
+        if (statusDot) statusDot.style.display = 'none';
     }
 }
 
@@ -811,9 +842,8 @@ function showEmptySession() {
     // Reset filters for new session
     resetFilters();
     
-    // Hide meeting name and show status
+    // Hide meeting name and ensure status is hidden for empty sessions
     hideMeetingName();
-    updateStatus('Gotowy do nagrywania', 'info');
 }
 
 function updateStatus(message, type = '') {
@@ -831,6 +861,23 @@ function updateStatus(message, type = '') {
         return;
     }
     
+    // Only show status during active recording, hide it in all other cases
+    const meetingContainer = statusDiv.querySelector('.meeting-name-container');
+    const isMeetingNameVisible = meetingContainer && meetingContainer.style.display !== 'none';
+    
+    if (!realtimeMode && !isMeetingNameVisible) {
+        // Empty/new session state - hide status completely
+        statusText.style.display = 'none';
+        statusDot.style.display = 'none';
+        return;
+    } else if (isMeetingNameVisible) {
+        // Historical session - status should already be hidden by showMeetingName
+        return;
+    }
+    
+    // Recording mode - show status
+    statusText.style.display = '';
+    statusDot.style.display = '';
     statusText.textContent = message;
     statusDiv.className = 'recording-status';
     
@@ -2190,13 +2237,14 @@ function toggleTheme() {
     updateThemeToggleTitle(newTheme);
     chrome.storage.local.set({ theme: newTheme });
     
-    // Brief status update to show theme change
-    updateStatus(`Przełączono na ${newTheme === 'dark' ? 'ciemny' : 'jasny'} motyw`, 'info');
-    setTimeout(() => {
-        if (!realtimeMode) {
-            updateStatus('Gotowy do nagrywania', '');
-        }
-    }, 1500);
+    // Brief status update to show theme change (only during recording)
+    if (realtimeMode) {
+        updateStatus(`Przełączono na ${newTheme === 'dark' ? 'ciemny' : 'jasny'} motyw`, 'info');
+        setTimeout(() => {
+            // Restore previous recording status after theme change message
+            updateStatus('Nagrywanie aktywne - skanowanie w tle', 'info');
+        }, 1500);
+    }
 }
 
 function updateThemeToggleIcon(theme) {
