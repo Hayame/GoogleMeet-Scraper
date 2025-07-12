@@ -1604,14 +1604,14 @@ function performNewSessionCreation() {
     // Stop any existing timer
     stopDurationTimer();
     
+    // Reset filters and hide meeting name for clean new session (BEFORE updateStats like in performLoadSession)
+    resetParticipantFilters();
+    hideMeetingName();
+    
     console.log('🆕 [NEW SESSION] About to call displayTranscript with:', { messages: [] });
     displayTranscript({ messages: [] });
     updateStats({ messages: [] });
     updateDurationDisplay(); // Reset duration display to 00:00
-    
-    // Reset filters and hide meeting name for clean new session
-    resetParticipantFilters();
-    hideMeetingName();
     
     console.log('🆕 [NEW SESSION] After displayTranscript, transcriptData:', transcriptData);
     
