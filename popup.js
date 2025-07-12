@@ -9,6 +9,7 @@ let durationTimer = null;
 let expandedEntries = new Set(); // Track which entries are expanded
 let sessionTotalDuration = 0; // Track total session duration across pauses
 let recordingStopped = false; // Flag to ignore background updates after recording stops
+let recordingPaused = false; // Flag to track if recording is paused (vs completely stopped)
 let currentSearchQuery = '';
 let searchDebounceTimer = null;
 let originalMessages = [];
@@ -281,8 +282,27 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const exportTxtBtn = document.getElementById('exportTxtBtn');
         
+        // Debug: log state before detecting changes
+        console.log('🔍 [DEBUG] handleBackgroundScanUpdate - Before detectChanges:', {
+            hasTranscriptData: !!transcriptData,
+            oldMessagesCount: transcriptData ? transcriptData.messages.length : 0,
+            newMessagesCount: data.messages.length,
+            recordingPaused: recordingPaused,
+            recordingStopped: recordingStopped,
+            oldHashesSample: transcriptData ? transcriptData.messages.slice(0,3).map(m => ({ speaker: m.speaker, hash: m.hash, text: m.text.substring(0,30) })) : [],
+            newHashesSample: data.messages.slice(0,3).map(m => ({ speaker: m.speaker, hash: m.hash, text: m.text.substring(0,30) }))
+        });
+        
         // Detect changes using hash comparison
         const changes = detectChanges(transcriptData ? transcriptData.messages : [], data.messages);
+        
+        // Debug: log changes detected
+        console.log('🔍 [DEBUG] detectChanges result:', {
+            added: changes.added.length,
+            updated: changes.updated.length,
+            removed: changes.removed.length,
+            addedSample: changes.added.slice(0,3).map(m => ({ speaker: m.speaker, hash: m.hash, text: m.text.substring(0,30) }))
+        });
         
         if (!transcriptData) {
             // Check if this is a session continuation (has sessionStartTime) or completely new session
@@ -408,10 +428,18 @@ document.addEventListener('DOMContentLoaded', function() {
         if (realtimeMode) {
             deactivateRealtimeMode();
         } else {
-            // Check if there's existing transcript data
-            if (transcriptData && transcriptData.messages.length > 0) {
+            // Check if recording was paused in current session
+            if (recordingPaused && transcriptData && transcriptData.messages.length > 0) {
+                // Resume paused recording directly
+                console.log('🔄 Resuming paused recording in same session');
+                recordingPaused = false;
+                recordingStopped = false;
+                continueCurrentSession();
+            } else if (transcriptData && transcriptData.messages.length > 0) {
+                // Different session - show resume options
                 showResumeOptions();
             } else {
+                // Completely new recording
                 activateRealtimeMode();
             }
         }
@@ -440,8 +468,9 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Reset recording stopped flag
+        // Reset recording stopped and paused flags
         recordingStopped = false;
+        recordingPaused = false;
         console.log('🟢 [ACTIVATION DEBUG] recordingStopped reset to:', recordingStopped);
         
         realtimeMode = true;
@@ -552,6 +581,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     sessionStartTime = null;
                     sessionTotalDuration = 0;
                     recordingStopped = false;
+                    recordingPaused = false;
                     
                     // Update UI
                     displayTranscript({ messages: [] });
@@ -849,6 +879,7 @@ function showEmptySession() {
     sessionStartTime = null;
     sessionTotalDuration = 0;
     recordingStopped = false;
+    recordingPaused = false;
     
     // Reset search and filters
     resetSearch();
@@ -978,7 +1009,15 @@ function displayTranscript(data, changes = null) {
     
     // Determine if we should do incremental update
     const hasChanges = changes && (changes.added.length > 0 || changes.updated.length > 0 || changes.removed.length > 0);
-    const shouldIncrementalUpdate = hasChanges && previewDiv.children.length > 0;
+    const hasEmptyMessage = previewDiv.querySelector('.empty-transcript');
+    const shouldIncrementalUpdate = hasChanges && previewDiv.children.length > 0 && !hasEmptyMessage;
+    
+    console.log('🔍 [DEBUG] displayTranscript update decision:', {
+        hasChanges,
+        hasChildren: previewDiv.children.length > 0,
+        hasEmptyMessage: !!hasEmptyMessage,
+        shouldIncrementalUpdate
+    });
     
     if (!shouldIncrementalUpdate) {
         previewDiv.innerHTML = '';
@@ -1108,12 +1147,19 @@ function handleIncrementalUpdate(changes, messagesToDisplay, speakerColors, prev
     
     // Update existing messages
     changes.updated.forEach(updatedMessage => {
-        const existingElement = previewDiv.querySelector(`[data-message-hash="${updatedMessage.old.hash}"]`);
-        if (existingElement) {
+        // Find existing element by position (index) since hash may have changed
+        const messageIndex = updatedMessage.index;
+        const allMessageElements = previewDiv.querySelectorAll('.transcript-entry');
+        
+        if (messageIndex < allMessageElements.length) {
+            const existingElement = allMessageElements[messageIndex];
             // Update the element with new content
-            updateMessageElement(existingElement, updatedMessage.new, speakerColors);
+            updateMessageElement(existingElement, updatedMessage, speakerColors);
             // Update hash for future lookups
-            existingElement.setAttribute('data-message-hash', updatedMessage.new.hash);
+            existingElement.setAttribute('data-message-hash', updatedMessage.hash);
+            console.log(`🔄 Updated message element at position ${messageIndex}:`, updatedMessage.speaker, updatedMessage.text.substring(0, 30));
+        } else {
+            console.warn(`🔄 Could not find message element at position ${messageIndex} for update`);
         }
     });
     
@@ -1443,8 +1489,9 @@ function deactivateRealtimeMode() {
         window.updateClearButtonState();
     }
     
-    // Set flag to ignore background updates
+    // Set flags to ignore background updates and mark as paused
     recordingStopped = true;
+    recordingPaused = true;
     
     // Zatrzymaj skanowanie w tle PRZED zapisem sesji
     chrome.runtime.sendMessage({
@@ -1465,14 +1512,14 @@ function deactivateRealtimeMode() {
         saveCurrentSessionToHistory();
     }
     
-    // Clear transcript data from storage
-    transcriptData = null;
+    // DON'T clear transcript data - keep it for potential resume
+    // transcriptData = null; // REMOVED - this was causing duplication on resume
     
-    // Zapisz stan
+    // Zapisz stan (keep transcriptData for resume)
     chrome.storage.local.set({ 
         realtimeMode: false, 
         recordingStartTime: null,
-        transcriptData: null,
+        // transcriptData: null, // REMOVED - keep data for resume
         sessionTotalDuration: sessionTotalDuration
     });
     
@@ -1645,6 +1692,7 @@ function performNewSessionCreation() {
     sessionStartTime = null;
     sessionTotalDuration = 0; // Reset total duration for new session
     recordingStopped = false; // Reset recording stopped flag
+    recordingPaused = false; // Reset recording paused flag
     
     console.log('🆕 [NEW SESSION] Created new session ID:', currentSessionId, '(not saved to storage yet)');
     console.log('🆕 [NEW SESSION] transcriptData set to:', transcriptData);
@@ -1712,9 +1760,10 @@ function autoSaveCurrentSession(data = null) {
     const sessionId = currentSessionId || generateSessionId();
     const uniqueParticipants = new Set(validMessages.map(m => m.speaker)).size;
     
-    // Check if session already exists and preserve its original date
+    // Check if session already exists and preserve its original date and title
     const existingIndex = sessionHistory.findIndex(s => s.id === sessionId);
     const originalDate = existingIndex >= 0 ? sessionHistory[existingIndex].date : new Date().toISOString();
+    const originalTitle = existingIndex >= 0 ? sessionHistory[existingIndex].title : generateSessionTitle();
     
     // Calculate current total duration
     let currentTotalDuration = sessionTotalDuration;
@@ -1732,7 +1781,7 @@ function autoSaveCurrentSession(data = null) {
     
     const session = {
         id: sessionId,
-        title: generateSessionTitle(),
+        title: originalTitle, // Preserve original title or generate new one
         date: originalDate, // Preserve original date or set new one
         participantCount: uniqueParticipants,
         entryCount: validMessages.length,
@@ -2132,40 +2181,108 @@ function detectChanges(oldMessages, newMessages) {
         removed: []
     };
     
-    // Create hash maps for fast lookup
-    const oldHashes = new Map();
-    const newHashes = new Map();
-    
-    // Map old messages by hash
-    if (oldMessages) {
-        oldMessages.forEach((msg, index) => {
-            oldHashes.set(msg.hash, { ...msg, originalIndex: index });
-        });
-    }
-    
-    // Map new messages by hash
-    if (newMessages) {
-        newMessages.forEach((msg, index) => {
-            newHashes.set(msg.hash, { ...msg, originalIndex: index });
-        });
-    }
-    
-    // Find added messages (in new but not in old)
-    newHashes.forEach((msg, hash) => {
-        if (!oldHashes.has(hash)) {
-            changes.added.push(msg);
-        }
+    // Debug: log input parameters
+    console.log('🔍 [DEBUG] detectChanges input:', {
+        oldCount: oldMessages ? oldMessages.length : 0,
+        newCount: newMessages ? newMessages.length : 0
     });
     
-    // Find updated messages (same hash but different content - shouldn't happen with hash-based comparison)
-    // For now, we'll consider any message with same hash as unchanged
-    
-    // Find removed messages (in old but not in new)
-    oldHashes.forEach((msg, hash) => {
-        if (!newHashes.has(hash)) {
-            changes.removed.push(msg);
+    // Handle null/empty cases
+    if (!oldMessages || oldMessages.length === 0) {
+        // All new messages are added
+        if (newMessages && newMessages.length > 0) {
+            changes.added = [...newMessages];
+            console.log('🔍 [DEBUG] No old messages, all new messages added:', changes.added.length);
         }
+        return changes;
+    }
+    
+    if (!newMessages || newMessages.length === 0) {
+        // All old messages are removed
+        changes.removed = [...oldMessages];
+        console.log('🔍 [DEBUG] No new messages, all old messages removed:', changes.removed.length);
+        return changes;
+    }
+    
+    // Compare messages by position and speaker to detect updates
+    const maxLength = Math.max(oldMessages.length, newMessages.length);
+    
+    for (let i = 0; i < maxLength; i++) {
+        const oldMsg = oldMessages[i];
+        const newMsg = newMessages[i];
+        
+        if (!oldMsg && newMsg) {
+            // New message added at the end
+            changes.added.push(newMsg);
+            console.log(`🔍 [DEBUG] Added new message at position ${i}:`, newMsg.speaker, newMsg.text.substring(0, 30));
+        } else if (oldMsg && !newMsg) {
+            // Old message removed from the end
+            changes.removed.push(oldMsg);
+            console.log(`🔍 [DEBUG] Removed message at position ${i}:`, oldMsg.speaker, oldMsg.text.substring(0, 30));
+        } else if (oldMsg && newMsg) {
+            // Compare messages at same position
+            if (oldMsg.speaker === newMsg.speaker) {
+                // Same speaker at same position
+                if (oldMsg.text !== newMsg.text) {
+                    // Same speaker, different text = update
+                    changes.updated.push({
+                        ...newMsg,
+                        previousText: oldMsg.text
+                    });
+                    console.log(`🔍 [DEBUG] Updated message at position ${i}:`, newMsg.speaker, `"${oldMsg.text.substring(0, 20)}" -> "${newMsg.text.substring(0, 20)}"`);
+                }
+                // Same speaker, same text = no change (continue)
+            } else {
+                // Different speaker at same position = structural change
+                // This is complex - could be insertion/deletion in the middle
+                // For now, treat as remove old + add new
+                changes.removed.push(oldMsg);
+                changes.added.push(newMsg);
+                console.log(`🔍 [DEBUG] Speaker change at position ${i}:`, `${oldMsg.speaker} -> ${newMsg.speaker}`);
+            }
+        }
+    }
+    
+    // Additional check: look for messages that may have shifted positions
+    // This handles cases where messages are inserted in the middle
+    if (changes.added.length > 0 && changes.removed.length > 0) {
+        // Try to match removed messages with added messages by speaker+text
+        const unmatchedAdded = [];
+        const unmatchedRemoved = [...changes.removed];
+        
+        for (const addedMsg of changes.added) {
+            const matchIndex = unmatchedRemoved.findIndex(removedMsg => 
+                removedMsg.speaker === addedMsg.speaker && removedMsg.text === addedMsg.text
+            );
+            
+            if (matchIndex >= 0) {
+                // Found exact match - this message just moved position, not a real add/remove
+                unmatchedRemoved.splice(matchIndex, 1);
+                console.log(`🔍 [DEBUG] Message position shift detected:`, addedMsg.speaker, addedMsg.text.substring(0, 30));
+            } else {
+                unmatchedAdded.push(addedMsg);
+            }
+        }
+        
+        // Update changes to only include truly added/removed messages
+        changes.added = unmatchedAdded;
+        changes.removed = unmatchedRemoved;
+    }
+    
+    console.log('🔍 [DEBUG] detectChanges final result:', {
+        added: changes.added.length,
+        updated: changes.updated.length,
+        removed: changes.removed.length
     });
+    
+    // Log samples for debugging
+    if (changes.updated.length > 0) {
+        console.log('🔍 [DEBUG] Updated message sample:', {
+            speaker: changes.updated[0].speaker,
+            oldText: changes.updated[0].previousText?.substring(0, 30),
+            newText: changes.updated[0].text.substring(0, 30)
+        });
+    }
     
     return changes;
 }
@@ -3014,7 +3131,8 @@ function initializeResumeModalEventListeners() {
                     recordingStartTime = null;
                     sessionStartTime = null;
                     sessionTotalDuration = 0;
-                    recordingStopped = false; // Reset recording stopped flag
+                    recordingStopped = false;
+                    recordingPaused = false; // Reset recording stopped flag
                     displayTranscript({ messages: [] });
                     updateStats({ messages: [] });
                     chrome.storage.local.set({ 
@@ -3181,52 +3299,6 @@ function reinitializeEnhancedInteractions() {
             this.style.transform = 'scale(1)';
         });
     });
-}
-
-// Detect changes between old and new messages using hash comparison
-function detectChanges(oldMessages, newMessages) {
-    const changes = {
-        added: [],
-        updated: [],
-        removed: []
-    };
-    
-    // Create hash maps for fast lookup
-    const oldHashes = new Map();
-    const newHashes = new Map();
-    
-    // Map old messages by hash
-    if (oldMessages) {
-        oldMessages.forEach((msg, index) => {
-            oldHashes.set(msg.hash, { ...msg, originalIndex: index });
-        });
-    }
-    
-    // Map new messages by hash
-    if (newMessages) {
-        newMessages.forEach((msg, index) => {
-            newHashes.set(msg.hash, { ...msg, originalIndex: index });
-        });
-    }
-    
-    // Find added messages (in new but not in old)
-    newHashes.forEach((msg, hash) => {
-        if (!oldHashes.has(hash)) {
-            changes.added.push(msg);
-        }
-    });
-    
-    // Find updated messages (same hash but different content - shouldn't happen with hash-based comparison)
-    // For now, we'll consider any message with same hash as unchanged
-    
-    // Find removed messages (in old but not in new)
-    oldHashes.forEach((msg, hash) => {
-        if (!newHashes.has(hash)) {
-            changes.removed.push(msg);
-        }
-    });
-    
-    return changes;
 }
 
 
