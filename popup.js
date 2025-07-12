@@ -398,6 +398,8 @@ document.addEventListener('DOMContentLoaded', function() {
         realtimeMode = true;
         realtimeBtn.classList.add('active');
         document.querySelector('.record-text').textContent = 'Zatrzymaj nagrywanie';
+        // Hide meeting name and show status for recording
+        hideMeetingName();
         updateStatus('Nagrywanie aktywne - skanowanie w tle', 'info');
         
         // Set recording start time only for new recordings
@@ -563,6 +565,189 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('Error during popup initialization:', error);
         updateStatus('Błąd inicjalizacji interfejsu', 'error');
     }
+});
+
+// Meeting Name Display Functions
+function showMeetingName(meetingTitle, sessionId) {
+    const statusDiv = document.getElementById('recordingStatus');
+    if (!statusDiv) {
+        console.error('Status div not found');
+        return;
+    }
+    
+    // Hide status elements
+    const statusText = statusDiv.querySelector('.status-text');
+    const statusDot = statusDiv.querySelector('.status-dot');
+    if (statusText) statusText.style.display = 'none';
+    if (statusDot) statusDot.style.display = 'none';
+    
+    // Show meeting name container
+    const meetingContainer = statusDiv.querySelector('.meeting-name-container');
+    const meetingNameText = statusDiv.querySelector('.meeting-name-text');
+    
+    if (meetingContainer && meetingNameText) {
+        meetingContainer.style.display = 'flex';
+        meetingNameText.textContent = meetingTitle;
+        
+        // Store session ID for editing
+        meetingContainer.setAttribute('data-session-id', sessionId);
+        
+        // Initialize editing functionality
+        initializeMeetingNameEditing();
+    }
+}
+
+function hideMeetingName() {
+    const statusDiv = document.getElementById('recordingStatus');
+    if (!statusDiv) {
+        return;
+    }
+    
+    // Show status elements
+    const statusText = statusDiv.querySelector('.status-text');
+    const statusDot = statusDiv.querySelector('.status-dot');
+    if (statusText) statusText.style.display = '';
+    if (statusDot) statusDot.style.display = '';
+    
+    // Hide meeting name container
+    const meetingContainer = statusDiv.querySelector('.meeting-name-container');
+    if (meetingContainer) {
+        meetingContainer.style.display = 'none';
+        // Cancel any ongoing editing
+        cancelMeetingNameEdit();
+    }
+}
+
+function initializeMeetingNameEditing() {
+    const meetingDisplay = document.querySelector('.meeting-name-display');
+    const meetingEdit = document.querySelector('.meeting-name-edit');
+    const meetingInput = document.querySelector('.meeting-name-input');
+    const saveBtn = document.querySelector('.meeting-name-save');
+    const cancelBtn = document.querySelector('.meeting-name-cancel');
+    
+    if (!meetingDisplay || !meetingEdit || !meetingInput || !saveBtn || !cancelBtn) {
+        console.error('Meeting name editing elements not found');
+        return;
+    }
+    
+    // Remove existing event listeners to prevent duplication
+    meetingDisplay.replaceWith(meetingDisplay.cloneNode(true));
+    saveBtn.replaceWith(saveBtn.cloneNode(true));
+    cancelBtn.replaceWith(cancelBtn.cloneNode(true));
+    
+    // Get fresh references after replacement
+    const newMeetingDisplay = document.querySelector('.meeting-name-display');
+    const newSaveBtn = document.querySelector('.meeting-name-save');
+    const newCancelBtn = document.querySelector('.meeting-name-cancel');
+    const newMeetingInput = document.querySelector('.meeting-name-input');
+    
+    // Click to edit
+    newMeetingDisplay.addEventListener('click', () => {
+        startMeetingNameEdit();
+    });
+    
+    // Save button
+    newSaveBtn.addEventListener('click', () => {
+        saveMeetingNameEdit();
+    });
+    
+    // Cancel button
+    newCancelBtn.addEventListener('click', () => {
+        cancelMeetingNameEdit();
+    });
+    
+    // Enter to save, Escape to cancel
+    newMeetingInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveMeetingNameEdit();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelMeetingNameEdit();
+        }
+    });
+}
+
+function startMeetingNameEdit() {
+    const meetingDisplay = document.querySelector('.meeting-name-display');
+    const meetingEdit = document.querySelector('.meeting-name-edit');
+    const meetingInput = document.querySelector('.meeting-name-input');
+    const meetingText = document.querySelector('.meeting-name-text');
+    
+    if (!meetingDisplay || !meetingEdit || !meetingInput || !meetingText) {
+        return;
+    }
+    
+    // Set input value to current name
+    meetingInput.value = meetingText.textContent;
+    
+    // Switch to edit mode
+    meetingDisplay.style.display = 'none';
+    meetingEdit.style.display = 'flex';
+    
+    // Focus input and select text
+    setTimeout(() => {
+        meetingInput.focus();
+        meetingInput.select();
+    }, 10);
+}
+
+function cancelMeetingNameEdit() {
+    const meetingDisplay = document.querySelector('.meeting-name-display');
+    const meetingEdit = document.querySelector('.meeting-name-edit');
+    
+    if (!meetingDisplay || !meetingEdit) {
+        return;
+    }
+    
+    // Switch back to display mode
+    meetingEdit.style.display = 'none';
+    meetingDisplay.style.display = 'flex';
+}
+
+function saveMeetingNameEdit() {
+    const meetingInput = document.querySelector('.meeting-name-input');
+    const meetingText = document.querySelector('.meeting-name-text');
+    const meetingContainer = document.querySelector('.meeting-name-container');
+    
+    if (!meetingInput || !meetingText || !meetingContainer) {
+        return;
+    }
+    
+    const newName = meetingInput.value.trim();
+    const sessionId = meetingContainer.getAttribute('data-session-id');
+    
+    if (!newName || !sessionId) {
+        cancelMeetingNameEdit();
+        return;
+    }
+    
+    // Update session in history
+    const sessionIndex = sessionHistory.findIndex(s => s.id === sessionId);
+    if (sessionIndex !== -1) {
+        sessionHistory[sessionIndex].title = newName;
+        
+        // Save to storage
+        chrome.storage.local.set({ sessionHistory: sessionHistory }, () => {
+            // Update display
+            meetingText.textContent = newName;
+            
+            // Re-render session history to show updated name
+            renderSessionHistory();
+            
+            // Switch back to display mode
+            cancelMeetingNameEdit();
+            
+            // Show success message briefly
+            updateStatus(`Zmieniono nazwę na: ${newName}`, 'success');
+            setTimeout(() => {
+                showMeetingName(newName, sessionId);
+            }, 2000);
+        });
+    } else {
+        cancelMeetingNameEdit();
+    }
+}
     
     // Function to show empty session
     function showEmptySession() {
@@ -626,6 +811,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Reset filters for new session
         resetFilters();
         
+        // Hide meeting name and show status
+        hideMeetingName();
         updateStatus('Gotowy do nagrywania', 'info');
     }
 });
@@ -1420,7 +1607,8 @@ function performLoadSession(session) {
         realtimeMode: false
     });
     
-    updateStatus(`Wczytano sesję: ${session.title}`, 'success');
+    // Show meeting name instead of status for historical sessions
+    showMeetingName(session.title, session.id);
     
     // Hide record button for historical sessions (they are read-only)
     const recordBtn = document.getElementById('recordBtn');

@@ -496,6 +496,101 @@ body {
     transition: var(--transition-theme);
 }
 
+/* Meeting Name Component */
+.meeting-name-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.meeting-name-display {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.meeting-name-display:hover {
+    background: var(--bg-hover);
+}
+
+.meeting-name-text {
+    color: var(--text-heading);
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.meeting-name-edit-hint {
+    color: var(--text-muted);
+    font-size: 11px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.meeting-name-display:hover .meeting-name-edit-hint {
+    opacity: 1;
+}
+
+.meeting-name-edit {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.meeting-name-input {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-primary);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 14px;
+    color: var(--text-heading);
+    min-width: 200px;
+    transition: var(--transition-theme);
+}
+
+.meeting-name-input:focus {
+    outline: none;
+    border-color: var(--btn-primary-bg);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.meeting-name-save,
+.meeting-name-cancel {
+    background: transparent;
+    border: 1px solid var(--border-primary);
+    padding: 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.meeting-name-save {
+    color: var(--btn-record-bg);
+    border-color: var(--btn-record-bg);
+}
+
+.meeting-name-save:hover {
+    background: var(--btn-record-bg);
+    color: white;
+}
+
+.meeting-name-cancel {
+    color: var(--text-muted);
+}
+
+.meeting-name-cancel:hover {
+    background: var(--status-error-bg);
+    color: var(--btn-danger-bg);
+    border-color: var(--btn-danger-bg);
+}
+
 .status-dot {
     width: 8px;
     height: 8px;

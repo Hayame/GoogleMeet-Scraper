@@ -64,6 +64,25 @@
                     <div id="recordingStatus" class="recording-status">
                         <span class="status-dot"></span>
                         <span class="status-text">Gotowy do nagrywania</span>
+                        <div class="meeting-name-container" style="display: none;">
+                            <div class="meeting-name-display">
+                                <span class="meeting-name-text"></span>
+                                <span class="meeting-name-edit-hint">Kliknij aby edytować</span>
+                            </div>
+                            <div class="meeting-name-edit" style="display: none;">
+                                <input type="text" class="meeting-name-input" placeholder="Nazwa spotkania">
+                                <button class="meeting-name-save" title="Zapisz zmiany">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                                    </svg>
+                                </button>
+                                <button class="meeting-name-cancel" title="Anuluj">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                     <button id="closeSessionBtn" class="icon-button" title="Zamknij sesję" style="display: none;">
                         <svg width="20" height="20" viewBox="0 0 24 24">
