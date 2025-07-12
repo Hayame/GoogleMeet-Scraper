@@ -211,10 +211,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     recordBtn.style.display = 'flex';
                     closeSessionBtn.style.display = 'none';
                 } else if (result.currentSessionId && sessionHistory.find(s => s.id === result.currentSessionId)) {
-                    // Session exists in history - it's historical, show meeting name and hide record button
+                    // Session exists in history - it's historical, show meeting name and restore duration
                     const session = sessionHistory.find(s => s.id === result.currentSessionId);
                     if (session) {
                         showMeetingName(session.title, session.id);
+                        sessionTotalDuration = session.totalDuration || 0; // Restore duration
+                        updateDurationDisplay(); // Update duration display
                     }
                     recordBtn.style.display = 'none';
                     closeSessionBtn.style.display = 'block';
