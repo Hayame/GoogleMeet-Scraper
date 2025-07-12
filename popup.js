@@ -152,12 +152,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     sessionTotalDuration = result.sessionTotalDuration;
                 }
                 
-                // Add any current session duration from before popup was closed
-                if (result.currentSessionDuration) {
-                    sessionTotalDuration += result.currentSessionDuration;
-                    // Clear the saved current duration to prevent accumulation
-                    chrome.storage.local.remove(['currentSessionDuration']);
-                }
+                // Remove any stale currentSessionDuration to prevent accumulation
+                chrome.storage.local.remove(['currentSessionDuration']);
                 
                 // Update UI to show recording state
                 const realtimeBtn = document.getElementById('recordBtn');
@@ -1516,11 +1512,12 @@ function updateDurationDisplay() {
             });
         }
         
-        // Save current total duration to storage periodically (every 10 seconds)
+        // Save timer state to storage periodically (every 10 seconds) for popup restoration
         if (totalDuration % 10 === 0) {
             chrome.storage.local.set({ 
                 sessionTotalDuration: sessionTotalDuration,
-                currentSessionDuration: currentSessionDuration 
+                // Don't save currentSessionDuration - it's calculated from recordingStartTime
+                recordingStartTime: recordingStartTime.toISOString()
             });
         }
     } else {
@@ -1592,6 +1589,9 @@ function deactivateRealtimeMode() {
         sessionTotalDuration: sessionTotalDuration,
         meetTabId: null  // Clear the saved Meet tab ID
     });
+    
+    // Clean up any stale currentSessionDuration
+    chrome.storage.local.remove(['currentSessionDuration']);
     
     // No manual scraping interval to clear in simplified version
 }
