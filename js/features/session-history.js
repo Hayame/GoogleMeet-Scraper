@@ -390,4 +390,12 @@ window.SessionHistoryManager = {
         window.showModal('confirmModal', { title: 'Zatrzymaj nagrywanie?' });
     },
 
+    /**
+     * Initialize SessionHistoryManager module
+     */
+    initialize() {
+        console.log('📚 [SESSION] SessionHistoryManager initialized');
+        this.initializeSessionHistory();
+    }
+
 };

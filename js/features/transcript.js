@@ -565,5 +565,14 @@ window.TranscriptManager = {
             const expandedArray = Array.from(window.expandedEntries);
             chrome.storage.local.set({ expandedEntries: expandedArray });
         }
+    },
+
+    /**
+     * Initialize TranscriptManager module
+     */
+    initialize() {
+        console.log('📄 [TRANSCRIPT] TranscriptManager initialized');
+        // TranscriptManager doesn't need special initialization
+        // Transcript functionality is managed through data updates and rendering calls
     }
 };

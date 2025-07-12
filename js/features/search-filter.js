@@ -565,5 +565,14 @@ window.SearchFilterManager = {
         });
         
         return speakerColors;
+    },
+
+    /**
+     * Initialize SearchFilterManager module
+     */
+    initialize() {
+        console.log('🔍 [SEARCH] SearchFilterManager initialized');
+        this.initializeSearch();
+        this.initializeFilters();
     }
 };

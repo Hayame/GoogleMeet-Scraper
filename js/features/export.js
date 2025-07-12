@@ -170,5 +170,13 @@ window.ExportManager = {
                 modal.style.display = 'none';
             }
         }
+    },
+
+    /**
+     * Initialize ExportManager module
+     */
+    initialize() {
+        console.log('📤 [EXPORT] ExportManager initialized');
+        this.initializeExportModal();
     }
 };

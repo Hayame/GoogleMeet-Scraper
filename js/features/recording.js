@@ -312,5 +312,14 @@ window.RecordingManager = {
             recordingPaused: window.StateManager?.getRecordingPaused() || false,
             recordingStopped: window.StateManager?.getRecordingStopped() || false
         };
+    },
+
+    /**
+     * Initialize RecordingManager module
+     */
+    initialize() {
+        console.log('🎙️ [RECORDING] RecordingManager initialized');
+        // RecordingManager doesn't need special initialization
+        // Recording functionality is managed through button clicks and state changes
     }
 };

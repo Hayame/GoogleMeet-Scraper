@@ -474,5 +474,13 @@ window.ModalManager = {
         document.body.removeChild(a);
         
         URL.revokeObjectURL(url);
+    },
+
+    /**
+     * Initialize ModalManager module
+     */
+    initialize() {
+        console.log('🪟 [MODAL] ModalManager initialized');
+        this.initializeModalSystem();
     }
 };
