@@ -1122,38 +1122,105 @@ function createMessageElement(entry, speakerColors) {
     avatarDiv.className = `avatar color-${speakerColors.get(entry.speaker)}`;
     avatarDiv.textContent = entry.speaker.charAt(0).toUpperCase();
     
-    // Message content
+    // Message content container
     const messageDiv = document.createElement('div');
-    messageDiv.className = 'message';
+    messageDiv.className = 'message-content';
     
     // Message header
     const headerDiv = document.createElement('div');
     headerDiv.className = 'message-header';
     
     const speakerSpan = document.createElement('span');
-    speakerSpan.className = 'speaker';
+    speakerSpan.className = 'speaker-name';
     speakerSpan.textContent = entry.speaker;
     
-    const timestampSpan = document.createElement('span');
-    timestampSpan.className = 'timestamp';
-    timestampSpan.textContent = entry.timestamp || '';
-    
     headerDiv.appendChild(speakerSpan);
-    headerDiv.appendChild(timestampSpan);
     
-    // Message text
-    const textDiv = document.createElement('div');
-    textDiv.className = 'text';
-    
-    // Handle search highlighting
-    if (currentSearchQuery) {
-        textDiv.innerHTML = highlightText(entry.text, currentSearchQuery);
-    } else {
-        textDiv.textContent = entry.text;
+    if (entry.timestamp) {
+        const timestampSpan = document.createElement('span');
+        timestampSpan.className = 'timestamp';
+        timestampSpan.textContent = entry.timestamp;
+        headerDiv.appendChild(timestampSpan);
     }
     
+    // Message bubble wrapper (this provides the chat bubble styling)
+    const bubbleDiv = document.createElement('div');
+    bubbleDiv.className = 'message-bubble';
+    
+    const textP = document.createElement('p');
+    textP.className = 'transcript-text';
+    
+    // Check if text is long enough to need collapsing
+    const isLongText = entry.text.length > 200;
+    
+    if (isLongText) {
+        // Generate unique entry ID
+        const entryId = generateEntryId(entry);
+        const isExpanded = expandedEntries.has(entryId);
+        
+        const shortText = entry.text.substring(0, 200);
+        const fullText = entry.text;
+        
+        // Create collapsed version
+        const collapsedSpan = document.createElement('span');
+        collapsedSpan.className = 'text-collapsed';
+        collapsedSpan.innerHTML = currentSearchQuery ? highlightText(shortText + '...', currentSearchQuery) : shortText + '...';
+        collapsedSpan.style.display = isExpanded ? 'none' : 'inline';
+        
+        // Create full version 
+        const expandedSpan = document.createElement('span');
+        expandedSpan.className = 'text-expanded';
+        expandedSpan.innerHTML = currentSearchQuery ? highlightText(fullText, currentSearchQuery) : fullText;
+        expandedSpan.style.display = isExpanded ? 'inline' : 'none';
+        
+        // Create button container
+        const buttonContainer = document.createElement('div');
+        buttonContainer.className = 'expand-collapse-container';
+        
+        // Create expand button
+        const expandBtn = document.createElement('button');
+        expandBtn.className = 'expand-btn';
+        expandBtn.textContent = 'Więcej';
+        expandBtn.style.display = isExpanded ? 'none' : 'inline-block';
+        expandBtn.onclick = () => {
+            collapsedSpan.style.display = 'none';
+            expandedSpan.style.display = 'inline';
+            expandBtn.style.display = 'none';
+            collapseBtn.style.display = 'inline-block';
+            expandedEntries.add(entryId);
+            saveExpandedState();
+        };
+        
+        // Create collapse button
+        const collapseBtn = document.createElement('button');
+        collapseBtn.className = 'collapse-btn';
+        collapseBtn.textContent = 'Mniej';
+        collapseBtn.style.display = isExpanded ? 'inline-block' : 'none';
+        collapseBtn.onclick = () => {
+            collapsedSpan.style.display = 'inline';
+            expandedSpan.style.display = 'none';
+            expandBtn.style.display = 'inline-block';
+            collapseBtn.style.display = 'none';
+            expandedEntries.delete(entryId);
+            saveExpandedState();
+        };
+        
+        // Add elements to text paragraph
+        textP.appendChild(collapsedSpan);
+        textP.appendChild(expandedSpan);
+        
+        // Add button container to bubble
+        buttonContainer.appendChild(expandBtn);
+        buttonContainer.appendChild(collapseBtn);
+        bubbleDiv.appendChild(buttonContainer);
+    } else {
+        // Short text - just add it directly
+        textP.innerHTML = currentSearchQuery ? highlightText(entry.text, currentSearchQuery) : entry.text;
+    }
+    
+    bubbleDiv.appendChild(textP);
     messageDiv.appendChild(headerDiv);
-    messageDiv.appendChild(textDiv);
+    messageDiv.appendChild(bubbleDiv);
     
     entryDiv.appendChild(avatarDiv);
     entryDiv.appendChild(messageDiv);
@@ -1167,14 +1234,32 @@ function createMessageElement(entry, speakerColors) {
 
 // Update existing message element
 function updateMessageElement(element, message, speakerColors) {
-    const textDiv = element.querySelector('.text');
+    const textP = element.querySelector('.transcript-text');
     const timestampSpan = element.querySelector('.timestamp');
     
-    if (textDiv) {
-        if (currentSearchQuery) {
-            textDiv.innerHTML = highlightText(message.text, currentSearchQuery);
+    if (textP) {
+        // Check if this is a long text message with expand/collapse
+        const isLongText = message.text.length > 200;
+        
+        if (isLongText) {
+            // For long messages, we need to update the collapsed and expanded spans
+            const collapsedSpan = textP.querySelector('.text-collapsed');
+            const expandedSpan = textP.querySelector('.text-expanded');
+            
+            if (collapsedSpan && expandedSpan) {
+                const shortText = message.text.substring(0, 200);
+                const fullText = message.text;
+                
+                collapsedSpan.innerHTML = currentSearchQuery ? highlightText(shortText + '...', currentSearchQuery) : shortText + '...';
+                expandedSpan.innerHTML = currentSearchQuery ? highlightText(fullText, currentSearchQuery) : fullText;
+            }
         } else {
-            textDiv.textContent = message.text;
+            // For short messages, update directly
+            if (currentSearchQuery) {
+                textP.innerHTML = highlightText(message.text, currentSearchQuery);
+            } else {
+                textP.textContent = message.text;
+            }
         }
     }
     
