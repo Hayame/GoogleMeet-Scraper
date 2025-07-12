@@ -119,7 +119,7 @@ function initializeApplication() {
     
     // 14. Restore application state
     if (window.StateManager) {
-        window.StateManager.restoreState();
+        window.StateManager.restoreStateFromStorage();
         console.log('✅ Application state restored');
     }
 }

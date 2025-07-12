@@ -9,18 +9,22 @@ let realtimeMode = false;
 let realtimeInterval = null;
 let currentSessionId = null;
 let sessionHistory = [];
-let recordingStartTime = null;
-let sessionStartTime = null; // Original session start time for stable titles
 let durationTimer = null;
 let expandedEntries = new Set(); // Track which entries are expanded
-let sessionTotalDuration = 0; // Track total session duration across pauses
-let recordingStopped = false; // Flag to ignore background updates after recording stops
-let recordingPaused = false; // Flag to track if recording is paused (vs completely stopped)
 let currentSearchQuery = '';
 let searchDebounceTimer = null;
 let originalMessages = [];
 let activeParticipantFilters = new Set(); // Active participant filters
 let allParticipants = []; // List of all participants
+
+// Consolidated session state object
+let sessionState = {
+    recordingStartTime: null,     // Current recording start timestamp
+    sessionStartTime: null,       // Original session start time for stable titles
+    totalDuration: 0,            // Total accumulated duration across pauses
+    isRecordingStopped: false,   // Flag to ignore background updates after recording stops
+    isRecordingPaused: false     // Flag to track if recording is paused (vs completely stopped)
+};
 
 /**
  * Get current application state
@@ -33,18 +37,14 @@ function getCurrentState() {
         realtimeInterval,
         currentSessionId,
         sessionHistory,
-        recordingStartTime,
-        sessionStartTime,
         durationTimer,
         expandedEntries,
-        sessionTotalDuration,
-        recordingStopped,
-        recordingPaused,
         currentSearchQuery,
         searchDebounceTimer,
         originalMessages,
         activeParticipantFilters,
-        allParticipants
+        allParticipants,
+        sessionState
     };
 }
 
@@ -101,7 +101,7 @@ function getCurrentSessionId() {
  * @param {Date} startTime - Recording start timestamp
  */
 function setRecordingStartTime(startTime) {
-    recordingStartTime = startTime;
+    sessionState.recordingStartTime = startTime;
 }
 
 /**
@@ -109,7 +109,7 @@ function setRecordingStartTime(startTime) {
  * @returns {Date} Recording start timestamp
  */
 function getRecordingStartTime() {
-    return recordingStartTime;
+    return sessionState.recordingStartTime;
 }
 
 /**
@@ -117,7 +117,7 @@ function getRecordingStartTime() {
  * @param {Date} startTime - Session start timestamp
  */
 function setSessionStartTime(startTime) {
-    sessionStartTime = startTime;
+    sessionState.sessionStartTime = startTime;
 }
 
 /**
@@ -125,7 +125,7 @@ function setSessionStartTime(startTime) {
  * @returns {Date} Session start timestamp
  */
 function getSessionStartTime() {
-    return sessionStartTime;
+    return sessionState.sessionStartTime;
 }
 
 /**
@@ -173,7 +173,7 @@ function getExpandedEntries() {
  * @param {number} duration - Total duration in seconds
  */
 function setSessionTotalDuration(duration) {
-    sessionTotalDuration = duration;
+    sessionState.totalDuration = duration;
 }
 
 /**
@@ -181,7 +181,7 @@ function setSessionTotalDuration(duration) {
  * @returns {number} Total duration in seconds
  */
 function getSessionTotalDuration() {
-    return sessionTotalDuration;
+    return sessionState.totalDuration;
 }
 
 /**
@@ -189,7 +189,7 @@ function getSessionTotalDuration() {
  * @param {boolean} stopped - Whether recording is stopped
  */
 function setRecordingStopped(stopped) {
-    recordingStopped = stopped;
+    sessionState.isRecordingStopped = stopped;
 }
 
 /**
@@ -197,7 +197,7 @@ function setRecordingStopped(stopped) {
  * @returns {boolean} Whether recording is stopped
  */
 function getRecordingStopped() {
-    return recordingStopped;
+    return sessionState.isRecordingStopped;
 }
 
 /**
@@ -205,7 +205,7 @@ function getRecordingStopped() {
  * @param {boolean} paused - Whether recording is paused
  */
 function setRecordingPaused(paused) {
-    recordingPaused = paused;
+    sessionState.isRecordingPaused = paused;
 }
 
 /**
@@ -213,7 +213,7 @@ function setRecordingPaused(paused) {
  * @returns {boolean} Whether recording is paused
  */
 function getRecordingPaused() {
-    return recordingPaused;
+    return sessionState.isRecordingPaused;
 }
 
 /**
@@ -276,13 +276,8 @@ function resetState() {
     realtimeMode = false;
     clearRealtimeInterval();
     currentSessionId = null;
-    recordingStartTime = null;
-    sessionStartTime = null;
     clearDurationTimer();
     expandedEntries = new Set();
-    sessionTotalDuration = 0;
-    recordingStopped = false;
-    recordingPaused = false;
     currentSearchQuery = '';
     if (searchDebounceTimer) {
         clearTimeout(searchDebounceTimer);
@@ -291,6 +286,15 @@ function resetState() {
     originalMessages = [];
     activeParticipantFilters = new Set();
     allParticipants = [];
+    
+    // Reset consolidated session state
+    sessionState = {
+        recordingStartTime: null,
+        sessionStartTime: null,
+        totalDuration: 0,
+        isRecordingStopped: false,
+        isRecordingPaused: false
+    };
 }
 
 /**
@@ -326,15 +330,15 @@ async function restoreStateFromStorage() {
             
             // Restore recording start time and timer
             if (result[window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME]) {
-                recordingStartTime = new Date(result[window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME]);
-                console.log('🔄 [RESTORE] Restored recording start time:', recordingStartTime);
+                sessionState.recordingStartTime = new Date(result[window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME]);
+                console.log('🔄 [RESTORE] Restored recording start time:', sessionState.recordingStartTime);
                 // Note: UI update functions will be called from popup.js
             }
             
             // Restore session start time
             if (result[window.AppConstants.STORAGE_KEYS.SESSION_START_TIME]) {
-                sessionStartTime = new Date(result[window.AppConstants.STORAGE_KEYS.SESSION_START_TIME]);
-                console.log('🔄 [RESTORE] Restored session start time:', sessionStartTime);
+                sessionState.sessionStartTime = new Date(result[window.AppConstants.STORAGE_KEYS.SESSION_START_TIME]);
+                console.log('🔄 [RESTORE] Restored session start time:', sessionState.sessionStartTime);
             }
             
             // Restore session data
@@ -343,15 +347,15 @@ async function restoreStateFromStorage() {
             }
             
             if (result[window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION]) {
-                sessionTotalDuration = result[window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION];
+                sessionState.totalDuration = result[window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION];
             }
             
             // Remove any stale currentSessionDuration to prevent accumulation
             await window.StorageManager.clearCurrentSessionDuration();
             
             // Update UI state flags
-            recordingStopped = false;
-            recordingPaused = false;
+            sessionState.isRecordingStopped = false;
+            sessionState.isRecordingPaused = false;
             
             return {
                 restored: true,
@@ -388,6 +392,35 @@ async function restoreStateFromStorage() {
     }
 }
 
+/**
+ * Get the complete session state object
+ * @returns {Object} Session state object
+ */
+function getSessionState() {
+    return sessionState;
+}
+
+/**
+ * Set the complete session state object
+ * @param {Object} newState - New session state
+ */
+function setSessionState(newState) {
+    sessionState = { ...sessionState, ...newState };
+}
+
+/**
+ * Reset only the session state (not all application state)
+ */
+function resetSessionState() {
+    sessionState = {
+        recordingStartTime: null,
+        sessionStartTime: null,
+        totalDuration: 0,
+        isRecordingStopped: false,
+        isRecordingPaused: false
+    };
+}
+
 // Export all state management functions
 window.StateManager = {
     // State getters and setters
@@ -419,6 +452,11 @@ window.StateManager = {
     setRealtimeInterval,
     getRealtimeInterval,
     clearRealtimeInterval,
+    
+    // Session state management
+    getSessionState,
+    setSessionState,
+    resetSessionState,
     
     // State management functions
     resetState,
