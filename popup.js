@@ -3516,7 +3516,7 @@ function updateFilterBadge() {
     
     // Add badge based on filter state
     if (allParticipants.length > 0) {
-        if (activeParticipantFilters.size === 0) {
+        if (allParticipants.length > 0 && activeParticipantFilters.size === 0) {
             // No participants selected - show "0"
             const badge = document.createElement('span');
             badge.className = 'filter-badge';
@@ -3530,8 +3530,10 @@ function updateFilterBadge() {
             badge.textContent = activeParticipantFilters.size;
             filterBtn.appendChild(badge);
             filterBtn.classList.add('filter-active');
+        } else {
+            // All participants selected (no filtering) - neutral appearance
+            filterBtn.classList.remove('filter-active');
         }
-        // If activeParticipantFilters.size === allParticipants.length, no badge (all selected)
     } else {
         // Empty session - remove active state for neutral appearance
         filterBtn.classList.remove('active', 'filter-active');
@@ -3553,7 +3555,7 @@ function resetParticipantFilters() {
     const allParticipantsCheckbox = document.getElementById('allParticipantsCheckbox');
     
     if (filterBtn) {
-        filterBtn.classList.remove('active', 'has-filters');
+        filterBtn.classList.remove('active', 'has-filters', 'filter-active');
         const badge = filterBtn.querySelector('.filter-badge');
         if (badge) badge.remove();
     }
