@@ -1171,6 +1171,16 @@ function handleIncrementalUpdate(changes, messagesToDisplay, speakerColors, prev
         removed: changes.removed.length
     });
     
+    // Debug: log samples
+    if (changes.updated.length > 0) {
+        console.log('🔄 [DEBUG] Updated messages sample:', changes.updated.slice(0, 2).map(m => ({
+            index: m.index,
+            speaker: m.speaker,
+            newText: m.text.substring(0, 30),
+            prevText: m.previousText?.substring(0, 30)
+        })));
+    }
+    
     // Remove deleted messages
     changes.removed.forEach(removedMessage => {
         const existingElement = previewDiv.querySelector(`[data-message-hash="${removedMessage.hash}"]`);
@@ -1180,20 +1190,28 @@ function handleIncrementalUpdate(changes, messagesToDisplay, speakerColors, prev
     });
     
     // Update existing messages
-    changes.updated.forEach(updatedMessage => {
+    changes.updated.forEach((updatedMessage, updateIndex) => {
         // Find existing element by position (index) since hash may have changed
         const messageIndex = updatedMessage.index;
         const allMessageElements = previewDiv.querySelectorAll('.transcript-entry');
         
-        if (messageIndex < allMessageElements.length) {
+        console.log(`🔄 [DEBUG] Processing update ${updateIndex}:`, {
+            messageIndex,
+            totalElements: allMessageElements.length,
+            hasIndex: messageIndex !== undefined,
+            speaker: updatedMessage.speaker,
+            newText: updatedMessage.text.substring(0, 30)
+        });
+        
+        if (messageIndex !== undefined && messageIndex < allMessageElements.length) {
             const existingElement = allMessageElements[messageIndex];
             // Update the element with new content
             updateMessageElement(existingElement, updatedMessage, speakerColors);
             // Update hash for future lookups
             existingElement.setAttribute('data-message-hash', updatedMessage.hash);
-            console.log(`🔄 Updated message element at position ${messageIndex}:`, updatedMessage.speaker, updatedMessage.text.substring(0, 30));
+            console.log(`🔄 ✅ Updated message element at position ${messageIndex}:`, updatedMessage.speaker, updatedMessage.text.substring(0, 30));
         } else {
-            console.warn(`🔄 Could not find message element at position ${messageIndex} for update`);
+            console.warn(`🔄 ❌ Could not find message element at position ${messageIndex} for update (total elements: ${allMessageElements.length})`);
         }
     });
     
@@ -2240,70 +2258,68 @@ function detectChanges(oldMessages, newMessages) {
         return changes;
     }
     
-    // Compare messages by position and speaker to detect updates
-    const maxLength = Math.max(oldMessages.length, newMessages.length);
+    // Create hash maps for efficient lookups
+    const oldHashes = new Map();
+    const newHashes = new Map();
     
-    for (let i = 0; i < maxLength; i++) {
+    // Map old messages by hash for quick lookup
+    oldMessages.forEach((msg, index) => {
+        oldHashes.set(msg.hash, { ...msg, originalIndex: index });
+    });
+    
+    // Map new messages by hash  
+    newMessages.forEach((msg, index) => {
+        newHashes.set(msg.hash, { ...msg, originalIndex: index });
+    });
+    
+    console.log('🔍 [DEBUG] Hash comparison:', {
+        oldHashes: oldHashes.size,
+        newHashes: newHashes.size,
+        oldHashSample: Array.from(oldHashes.keys()).slice(0, 3),
+        newHashSample: Array.from(newHashes.keys()).slice(0, 3)
+    });
+    
+    // First pass: Position-based comparison for updates (same position, same speaker, different text)
+    const minLength = Math.min(oldMessages.length, newMessages.length);
+    for (let i = 0; i < minLength; i++) {
         const oldMsg = oldMessages[i];
         const newMsg = newMessages[i];
         
-        if (!oldMsg && newMsg) {
-            // New message added at the end
-            changes.added.push(newMsg);
-            console.log(`🔍 [DEBUG] Added new message at position ${i}:`, newMsg.speaker, newMsg.text.substring(0, 30));
-        } else if (oldMsg && !newMsg) {
-            // Old message removed from the end
-            changes.removed.push(oldMsg);
-            console.log(`🔍 [DEBUG] Removed message at position ${i}:`, oldMsg.speaker, oldMsg.text.substring(0, 30));
-        } else if (oldMsg && newMsg) {
-            // Compare messages at same position
-            if (oldMsg.speaker === newMsg.speaker) {
-                // Same speaker at same position
-                if (oldMsg.text !== newMsg.text) {
-                    // Same speaker, different text = update
-                    changes.updated.push({
-                        ...newMsg,
-                        previousText: oldMsg.text
-                    });
-                    console.log(`🔍 [DEBUG] Updated message at position ${i}:`, newMsg.speaker, `"${oldMsg.text.substring(0, 20)}" -> "${newMsg.text.substring(0, 20)}"`);
-                }
-                // Same speaker, same text = no change (continue)
-            } else {
-                // Different speaker at same position = structural change
-                // This is complex - could be insertion/deletion in the middle
-                // For now, treat as remove old + add new
-                changes.removed.push(oldMsg);
-                changes.added.push(newMsg);
-                console.log(`🔍 [DEBUG] Speaker change at position ${i}:`, `${oldMsg.speaker} -> ${newMsg.speaker}`);
-            }
+        if (oldMsg.speaker === newMsg.speaker && oldMsg.hash !== newMsg.hash) {
+            // Same speaker at same position but different hash = update
+            changes.updated.push({
+                ...newMsg,
+                index: i,  // Preserve position index
+                previousText: oldMsg.text
+            });
+            console.log(`🔍 [DEBUG] Updated message at position ${i}:`, newMsg.speaker, `"${oldMsg.text.substring(0, 20)}" -> "${newMsg.text.substring(0, 20)}"`);
+            
+            // Remove from hash maps to avoid double-processing
+            oldHashes.delete(oldMsg.hash);
+            newHashes.delete(newMsg.hash);
+        } else if (oldMsg.hash === newMsg.hash) {
+            // Identical messages - remove from hash maps
+            oldHashes.delete(oldMsg.hash);
+            newHashes.delete(newMsg.hash);
         }
     }
     
-    // Additional check: look for messages that may have shifted positions
-    // This handles cases where messages are inserted in the middle
-    if (changes.added.length > 0 && changes.removed.length > 0) {
-        // Try to match removed messages with added messages by speaker+text
-        const unmatchedAdded = [];
-        const unmatchedRemoved = [...changes.removed];
-        
-        for (const addedMsg of changes.added) {
-            const matchIndex = unmatchedRemoved.findIndex(removedMsg => 
-                removedMsg.speaker === addedMsg.speaker && removedMsg.text === addedMsg.text
-            );
-            
-            if (matchIndex >= 0) {
-                // Found exact match - this message just moved position, not a real add/remove
-                unmatchedRemoved.splice(matchIndex, 1);
-                console.log(`🔍 [DEBUG] Message position shift detected:`, addedMsg.speaker, addedMsg.text.substring(0, 30));
-            } else {
-                unmatchedAdded.push(addedMsg);
-            }
+    // Second pass: Hash-based comparison for additions/removals
+    // Find new messages (in new but not in old)
+    newHashes.forEach((newMsg, hash) => {
+        if (!oldHashes.has(hash)) {
+            changes.added.push(newMsg);
+            console.log(`🔍 [DEBUG] Added new message:`, newMsg.speaker, newMsg.text.substring(0, 30));
         }
-        
-        // Update changes to only include truly added/removed messages
-        changes.added = unmatchedAdded;
-        changes.removed = unmatchedRemoved;
-    }
+    });
+    
+    // Find removed messages (in old but not in new)
+    oldHashes.forEach((oldMsg, hash) => {
+        if (!newHashes.has(hash)) {
+            changes.removed.push(oldMsg);
+            console.log(`🔍 [DEBUG] Removed message:`, oldMsg.speaker, oldMsg.text.substring(0, 30));
+        }
+    });
     
     console.log('🔍 [DEBUG] detectChanges final result:', {
         added: changes.added.length,
