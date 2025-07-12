@@ -1778,7 +1778,7 @@ function performNewSessionCreation() {
     console.log('🆕 [NEW SESSION] About to call displayTranscript with:', { messages: [] });
     displayTranscript({ messages: [] });
     updateStats({ messages: [] });
-    updateDurationDisplay(); // Reset duration display to 00:00
+    updateDurationDisplay(); // Reset duration display to 0:00
     
     console.log('🆕 [NEW SESSION] After displayTranscript, transcriptData:', transcriptData);
     
@@ -1810,11 +1810,8 @@ function performNewSessionCreation() {
     
     updateStatus('Utworzono nową sesję', 'success');
     
-    // Show record button for new sessions (they can be recorded)
-    const recordBtn = document.getElementById('recordBtn');
-    if (recordBtn) {
-        recordBtn.style.display = 'flex';
-    }
+    // Update button visibility for new session (show record button, hide close button)
+    updateButtonVisibility('NEW');
     
     // Remove session highlighting (no session selected)
     renderSessionHistory();
@@ -3031,10 +3028,10 @@ function performDeleteSession(sessionId) {
         sessionTotalDuration = 0;
         stopDurationTimer();
         
-        // Update duration display to show 00:00
+        // Update duration display to show 0:00
         const durationElement = document.getElementById('duration');
         if (durationElement) {
-            durationElement.textContent = '00:00';
+            durationElement.textContent = '0:00';
         }
         
         // Update UI for new session state
