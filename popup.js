@@ -4,6 +4,7 @@ let realtimeInterval = null;
 let currentSessionId = null;
 let sessionHistory = [];
 let recordingStartTime = null;
+let sessionStartTime = null; // Original session start time for stable titles
 let durationTimer = null;
 let expandedEntries = new Set(); // Track which entries are expanded
 let sessionTotalDuration = 0; // Track total session duration across pauses
@@ -106,6 +107,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const result = await chrome.storage.local.get([
                 'realtimeMode', 
                 'recordingStartTime', 
+                'sessionStartTime',
                 'transcriptData',
                 'currentSessionId',
                 'sessionTotalDuration',
@@ -131,6 +133,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Ensure immediate timer update with restored time
                     updateDurationDisplay();
                     startDurationTimer();
+                }
+                
+                // Restore session start time
+                if (result.sessionStartTime) {
+                    sessionStartTime = new Date(result.sessionStartTime);
+                    console.log('🔄 [RESTORE] Restored session start time:', sessionStartTime);
                 }
                 
                 // Restore session data
@@ -277,16 +285,38 @@ document.addEventListener('DOMContentLoaded', function() {
         const changes = detectChanges(transcriptData ? transcriptData.messages : [], data.messages);
         
         if (!transcriptData) {
+            // Check if this is a session continuation (has sessionStartTime) or completely new session
+            const isContinuation = sessionStartTime !== null || recordingStartTime !== null;
+            
+            if (isContinuation) {
+                console.log('🔄 [CONTINUATION] Initializing transcript data for continued session');
+                console.log('🔄 [CONTINUATION] SessionStartTime exists:', !!sessionStartTime);
+                console.log('🔄 [CONTINUATION] RecordingStartTime exists:', !!recordingStartTime);
+            } else {
+                console.log('✅ [NEW] Initializing transcript data for completely new session');
+            }
+            
             // Initialize with new data structure
             transcriptData = {
                 messages: data.messages,
                 scrapedAt: data.scrapedAt,
                 meetingUrl: data.meetingUrl
             };
-            console.log('✅ Initialized transcript data from background scan');
             
-            // Update display with incremental changes
-            displayTranscript(transcriptData, changes);
+            // For continuations, treat all messages as "added" for proper incremental display
+            if (isContinuation && data.messages.length > 0) {
+                const continuationChanges = {
+                    added: data.messages,
+                    updated: [],
+                    removed: []
+                };
+                console.log(`🔄 [CONTINUATION] Treating ${data.messages.length} messages as newly added`);
+                displayTranscript(transcriptData, continuationChanges);
+            } else {
+                // New session - use normal display
+                displayTranscript(transcriptData, changes);
+            }
+            
             updateStats(transcriptData);
             
             if (exportTxtBtn) {
@@ -343,13 +373,17 @@ document.addEventListener('DOMContentLoaded', function() {
     loadExpandedState();
     
     // Przywróć stan trybu rzeczywistego
-    chrome.storage.local.get(['realtimeMode', 'transcriptData', 'currentSessionId', 'recordingStartTime'], (result) => {
+    chrome.storage.local.get(['realtimeMode', 'transcriptData', 'currentSessionId', 'recordingStartTime', 'sessionStartTime'], (result) => {
         if (result.currentSessionId) {
             currentSessionId = result.currentSessionId;
         }
         if (result.recordingStartTime) {
             recordingStartTime = new Date(result.recordingStartTime);
             console.log('🔄 [SECONDARY] Recordtime restored (secondary restoration):', recordingStartTime);
+        }
+        if (result.sessionStartTime) {
+            sessionStartTime = new Date(result.sessionStartTime);
+            console.log('🔄 [SECONDARY] SessionStartTime restored:', sessionStartTime);
         }
         if (result.realtimeMode) {
             // Timer already started in restoreStateFromStorage(), just activate UI mode
@@ -417,8 +451,15 @@ document.addEventListener('DOMContentLoaded', function() {
         hideMeetingName();
         updateStatus('Nagrywanie aktywne - skanowanie w tle', 'info');
         
-        // Set recording start time only for new recordings
-        recordingStartTime = new Date();
+        // Set recording start time only for new recordings (not continuations)
+        if (!isContinuation) {
+            recordingStartTime = new Date();
+            sessionStartTime = recordingStartTime; // Also set session start time for new sessions
+            console.log('🟢 [ACTIVATION DEBUG] New session - setting recordingStartTime:', recordingStartTime);
+        } else {
+            console.log('🟢 [ACTIVATION DEBUG] Continuation - keeping existing recordingStartTime:', recordingStartTime);
+            console.log('🟢 [ACTIVATION DEBUG] Continuation - keeping existing sessionStartTime:', sessionStartTime);
+        }
         
         // Start duration timer
         startDurationTimer();
@@ -428,8 +469,11 @@ document.addEventListener('DOMContentLoaded', function() {
             window.updateClearButtonState();
         }
         
-        // Save recording start time to storage
-        chrome.storage.local.set({ recordingStartTime: recordingStartTime.toISOString() });
+        // Save recording start time and session start time to storage
+        chrome.storage.local.set({ 
+            recordingStartTime: recordingStartTime ? recordingStartTime.toISOString() : null,
+            sessionStartTime: sessionStartTime ? sessionStartTime.toISOString() : null
+        });
         
         // Create new session ID if none exists (session will be added to history when first entry appears)
         if (!currentSessionId) {
@@ -440,7 +484,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Zapisz stan
         chrome.storage.local.set({ 
             realtimeMode: true, 
-            recordingStartTime: recordingStartTime.toISOString()
+            recordingStartTime: recordingStartTime ? recordingStartTime.toISOString() : null,
+            sessionStartTime: sessionStartTime ? sessionStartTime.toISOString() : null
         });
         
         // Uruchom skanowanie w tle
@@ -504,6 +549,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     transcriptData = null;
                     currentSessionId = null;
                     recordingStartTime = null;
+                    sessionStartTime = null;
                     sessionTotalDuration = 0;
                     recordingStopped = false;
                     
@@ -521,7 +567,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     
                     // Clear from storage
-                    chrome.storage.local.remove(['transcriptData', 'currentSessionId', 'recordingStartTime']);
+                    chrome.storage.local.remove(['transcriptData', 'currentSessionId', 'recordingStartTime', 'sessionStartTime']);
                 }
             }
         });
@@ -800,6 +846,7 @@ function showEmptySession() {
     transcriptData = null;
     currentSessionId = null;
     recordingStartTime = null;
+    sessionStartTime = null;
     sessionTotalDuration = 0;
     recordingStopped = false;
     
@@ -847,7 +894,7 @@ function showEmptySession() {
     }
     
     // Clear storage
-    chrome.storage.local.remove(['transcriptData', 'currentSessionId', 'recordingStartTime', 'sessionTotalDuration', 'currentSessionDuration', 'realtimeMode']);
+    chrome.storage.local.remove(['transcriptData', 'currentSessionId', 'recordingStartTime', 'sessionStartTime', 'sessionTotalDuration', 'currentSessionDuration', 'realtimeMode']);
     
     // Remove session highlighting
     renderSessionHistory();
@@ -1537,9 +1584,10 @@ function generateSessionId() {
     return Date.now().toString();
 }
 
-function generateSessionTitle() {
-    const now = new Date();
-    const time = now.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+function generateSessionTitle(startTime = null) {
+    // Use provided startTime, sessionStartTime, recordingStartTime, or current time as fallback
+    const timeToUse = startTime || sessionStartTime || recordingStartTime || new Date();
+    const time = timeToUse.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
     return `Spotkanie o ${time}`;
 }
 
@@ -1594,6 +1642,7 @@ function performNewSessionCreation() {
     transcriptData = null;
     currentSessionId = generateSessionId(); // Generate ID but don't save to storage yet
     recordingStartTime = null;
+    sessionStartTime = null;
     sessionTotalDuration = 0; // Reset total duration for new session
     recordingStopped = false; // Reset recording stopped flag
     
@@ -1818,6 +1867,7 @@ function performLoadSession(session) {
     transcriptData = session.transcript;
     currentSessionId = session.id;
     recordingStartTime = null; // Historic sessions don't have active recording
+    sessionStartTime = null; // Historic sessions don't need session start time
     sessionTotalDuration = session.totalDuration || 0; // Load total duration
     
     // Reset search and filters
@@ -2794,6 +2844,7 @@ function performDeleteSession(sessionId) {
         
         // Reset timer and duration
         recordingStartTime = null;
+        sessionStartTime = null;
         sessionTotalDuration = 0;
         stopDurationTimer();
         
@@ -2814,7 +2865,7 @@ function performDeleteSession(sessionId) {
             }
         }
         
-        chrome.storage.local.remove(['transcriptData', 'currentSessionId', 'recordingStartTime', 'sessionTotalDuration', 'currentSessionDuration']);
+        chrome.storage.local.remove(['transcriptData', 'currentSessionId', 'recordingStartTime', 'sessionStartTime', 'sessionTotalDuration', 'currentSessionDuration']);
     }
     
     // Save updated history
@@ -2961,6 +3012,7 @@ function initializeResumeModalEventListeners() {
                     transcriptData = null;
                     currentSessionId = generateSessionId();
                     recordingStartTime = null;
+                    sessionStartTime = null;
                     sessionTotalDuration = 0;
                     recordingStopped = false; // Reset recording stopped flag
                     displayTranscript({ messages: [] });
