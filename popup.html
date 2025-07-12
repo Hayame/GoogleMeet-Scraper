@@ -313,6 +313,28 @@
         </div>
     </div>
 
+    <!-- Core modules (load first) -->
+    <script src="js/utils/constants.js"></script>
+    <script src="js/core/storage-manager.js"></script>
+    <script src="js/core/state-manager.js"></script>
+    <script src="js/core/ui-manager.js"></script>
+    <script src="js/core/timer-manager.js"></script>
+    
+    <!-- Utility modules -->
+    <script src="js/utils/formatters.js"></script>
+    <script src="js/utils/dom-helpers.js"></script>
+    
+    <!-- Feature modules -->
+    <script src="js/features/modal-manager.js"></script>
+    <script src="js/features/recording.js"></script>
+    <script src="js/features/background-scanner.js"></script>
+    <script src="js/features/session-history.js"></script>
+    <script src="js/features/session-ui.js"></script>
+    <script src="js/features/transcript.js"></script>
+    <script src="js/features/export.js"></script>
+    <script src="js/features/search-filter.js"></script>
+    
+    <!-- Main popup script (load last) -->
     <script src="popup.js"></script>
 </body>
 </html>
