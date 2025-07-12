@@ -146,6 +146,30 @@ window.TimerManager = {
             const currentTotal = window.StateManager?.getSessionTotalDuration() || 0;
             window.StateManager?.setSessionTotalDuration(currentTotal + currentSessionDuration);
         }
+    },
+
+    /**
+     * Initialize TimerManager module
+     */
+    initialize() {
+        console.log('⏰ [TIMER] TimerManager initialized');
+        
+        // Set up global aliases for backward compatibility
+        this.setupGlobalAliases();
+    },
+
+    /**
+     * Set up global function aliases for backward compatibility
+     * This fixes timer function access issues in other modules
+     */
+    setupGlobalAliases() {
+        // Critical fix: Expose timer functions globally as expected by other modules
+        window.startDurationTimer = this.startDurationTimer.bind(this);
+        window.stopDurationTimer = this.stopDurationTimer.bind(this);
+        window.updateDurationDisplay = this.updateDurationDisplay.bind(this);
+        // NOTE: formatDuration is also available via UIManager for UI formatting
+        
+        console.log('🔗 [TIMER] Global timer function aliases created for backward compatibility');
     }
 };
 

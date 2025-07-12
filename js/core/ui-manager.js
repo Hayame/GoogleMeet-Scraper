@@ -285,29 +285,7 @@ window.UIManager = {
         }
     },
 
-    /**
-     * Update duration display
-     * Extracted from popup.js lines 1494-1531
-     */
-    updateDurationDisplay() {
-        const durationElement = document.querySelector('.duration-display');
-        if (!durationElement) return;
-        
-        let totalSeconds = window.sessionTotalDuration || 0;
-        
-        // Add current recording time if recording is active
-        if (window.realtimeMode && window.recordingStartTime) {
-            const currentRecordingDuration = Math.floor((Date.now() - new Date(window.recordingStartTime).getTime()) / 1000);
-            totalSeconds += currentRecordingDuration;
-        }
-        
-        // Format and display duration
-        const formatted = this.formatDuration(totalSeconds);
-        durationElement.textContent = formatted;
-        
-        // Update the global current session duration for other components
-        window.currentSessionDuration = totalSeconds;
-    },
+    // REMOVED: updateDurationDisplay() - Moved to TimerManager (more comprehensive implementation)
 
     /**
      * Format duration in seconds to HH:MM:SS or MM:SS format
@@ -348,7 +326,7 @@ window.UIManager = {
         window.updateStatus = this.updateStatus.bind(this);
         window.showMeetingName = this.showMeetingName.bind(this);
         window.hideMeetingName = this.hideMeetingName.bind(this);
-        window.updateDurationDisplay = this.updateDurationDisplay.bind(this);
+        // NOTE: updateDurationDisplay is now handled by TimerManager
         window.formatDuration = this.formatDuration.bind(this);
         
         console.log('🔗 [UI] Global function aliases created for backward compatibility');
