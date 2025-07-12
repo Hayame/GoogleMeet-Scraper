@@ -391,11 +391,101 @@ window.SessionHistoryManager = {
     },
 
     /**
+     * Create new session (from old popup.js createNewSession function)
+     */
+    createNewSession() {
+        console.log('🆕 [NEW SESSION] createNewSession() called');
+        
+        // Stop recording if active (auto-save will handle the session)
+        if (window.realtimeMode) {
+            console.log('🆕 [NEW SESSION] Stopping active recording first');
+            if (window.deactivateRealtimeMode) {
+                window.deactivateRealtimeMode();
+            }
+        }
+        
+        // Perform new session creation
+        this.performNewSessionCreation();
+    },
+
+    /**
+     * Perform new session creation (from old popup.js performNewSessionCreation function)
+     */
+    performNewSessionCreation() {
+        // Clear current data
+        window.transcriptData = null;
+        window.currentSessionId = window.generateSessionId ? window.generateSessionId() : 'session_' + Date.now();
+        
+        // Reset session state using StateManager
+        window.StateManager?.setRecordingStartTime(null);
+        window.StateManager?.setSessionStartTime(null);
+        window.StateManager?.setSessionTotalDuration(0);
+        window.StateManager?.setRecordingStopped(false);
+        window.StateManager?.setRecordingPaused(false);
+        
+        console.log('🆕 [NEW SESSION] Created new session ID:', window.currentSessionId);
+        
+        // Stop any existing timer
+        if (window.stopDurationTimer) {
+            window.stopDurationTimer();
+        }
+        
+        // Reset filters and hide meeting name for clean new session
+        if (window.resetParticipantFilters) {
+            window.resetParticipantFilters();
+        }
+        if (window.hideMeetingName) {
+            window.hideMeetingName();
+        }
+        
+        // Clear transcript display and update stats
+        if (window.displayTranscript) {
+            window.displayTranscript({ messages: [] });
+        }
+        if (window.updateStats) {
+            window.updateStats({ messages: [] });
+        }
+        if (window.updateDurationDisplay) {
+            window.updateDurationDisplay();
+        }
+        
+        // Disable export button for new empty session
+        const exportTxtBtn = document.getElementById('exportTxtBtn');
+        if (exportTxtBtn) {
+            exportTxtBtn.disabled = true;
+        }
+        
+        // Update UI for new session state
+        if (window.updateButtonVisibility) {
+            window.updateButtonVisibility('NEW');
+        }
+        
+        // Clear storage for new session
+        chrome.storage.local.remove(['transcriptData', 'currentSessionId', 'recordingStartTime', 'sessionStartTime', 'sessionTotalDuration', 'currentSessionDuration']);
+        
+        console.log('🆕 [NEW SESSION] New session created successfully');
+    },
+
+    /**
      * Initialize SessionHistoryManager module
      */
     initialize() {
         console.log('📚 [SESSION] SessionHistoryManager initialized');
         this.initializeSessionHistory();
+        
+        // Set up global aliases for backward compatibility
+        this.setupGlobalAliases();
+    },
+
+    /**
+     * Set up global function aliases for backward compatibility
+     * This fixes the critical bug where other modules expect global functions
+     */
+    setupGlobalAliases() {
+        // Critical fix: Expose session functions globally as expected by other modules
+        window.createNewSession = this.createNewSession.bind(this);
+        
+        console.log('🔗 [SESSION] Global session function aliases created for backward compatibility');
     }
 
 };

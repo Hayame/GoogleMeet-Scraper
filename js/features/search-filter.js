@@ -574,5 +574,20 @@ window.SearchFilterManager = {
         console.log('🔍 [SEARCH] SearchFilterManager initialized');
         this.initializeSearch();
         this.initializeFilters();
+        
+        // Set up global aliases for backward compatibility
+        this.setupGlobalAliases();
+    },
+
+    /**
+     * Set up global function aliases for backward compatibility
+     * This fixes the critical bug where other modules expect global functions
+     */
+    setupGlobalAliases() {
+        // Critical fix: Expose search/filter functions globally as expected by other modules
+        window.resetSearch = this.resetSearch.bind(this);
+        window.resetParticipantFilters = this.resetParticipantFilters.bind(this);
+        
+        console.log('🔗 [SEARCH] Global search function aliases created for backward compatibility');
     }
 };

@@ -321,5 +321,20 @@ window.RecordingManager = {
         console.log('🎙️ [RECORDING] RecordingManager initialized');
         // RecordingManager doesn't need special initialization
         // Recording functionality is managed through button clicks and state changes
+        
+        // Set up global aliases for backward compatibility
+        this.setupGlobalAliases();
+    },
+
+    /**
+     * Set up global function aliases for backward compatibility
+     * This fixes the critical bug where other modules expect global functions
+     */
+    setupGlobalAliases() {
+        // Critical fix: Expose recording functions globally as expected by other modules
+        window.deactivateRealtimeMode = this.deactivateRealtimeMode.bind(this);
+        window.activateRealtimeMode = this.activateRealtimeMode.bind(this);
+        
+        console.log('🔗 [RECORDING] Global recording function aliases created for backward compatibility');
     }
 };

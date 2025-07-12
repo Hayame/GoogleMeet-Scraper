@@ -574,5 +574,20 @@ window.TranscriptManager = {
         console.log('📄 [TRANSCRIPT] TranscriptManager initialized');
         // TranscriptManager doesn't need special initialization
         // Transcript functionality is managed through data updates and rendering calls
+        
+        // Set up global aliases for backward compatibility
+        this.setupGlobalAliases();
+    },
+
+    /**
+     * Set up global function aliases for backward compatibility
+     * This fixes the critical bug where other modules expect global functions
+     */
+    setupGlobalAliases() {
+        // Critical fix: Expose transcript functions globally as expected by other modules
+        window.displayTranscript = this.displayTranscript.bind(this);
+        window.updateStats = this.updateStats.bind(this);
+        
+        console.log('🔗 [TRANSCRIPT] Global transcript function aliases created for backward compatibility');
     }
 };
