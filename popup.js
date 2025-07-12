@@ -748,74 +748,73 @@ function saveMeetingNameEdit() {
         cancelMeetingNameEdit();
     }
 }
+
+// Function to show empty session
+function showEmptySession() {
+    console.log('🆕 [EMPTY SESSION] Showing empty session');
     
-    // Function to show empty session
-    function showEmptySession() {
-        console.log('🆕 [EMPTY SESSION] Showing empty session');
-        
-        // Clear session data
-        transcriptData = null;
-        currentSessionId = null;
-        recordingStartTime = null;
-        sessionTotalDuration = 0;
-        recordingStopped = false;
-        
-        // Reset search and filters
-        resetSearch();
-        resetParticipantFilters();
-        
-        // Stop any existing timer
-        stopDurationTimer();
-        
-        // Update UI to empty state
-        displayTranscript({ messages: [] });
-        updateStats({ messages: [] });
-        
-        // Reset duration display
-        updateDurationDisplay();
-        
-        // Update clear button state
-        if (window.updateClearButtonState) {
-            window.updateClearButtonState();
-        }
-        
-        // Disable export button
-        const exportTxtBtn = document.getElementById('exportTxtBtn');
-        if (exportTxtBtn) {
-            exportTxtBtn.disabled = true;
-        }
-        
-        // Show record button for new session
-        const recordBtn = document.getElementById('recordBtn');
-        if (recordBtn) {
-            recordBtn.style.display = 'flex';
-            recordBtn.classList.remove('active');
-            const recordText = document.querySelector('.record-text');
-            if (recordText) {
-                recordText.textContent = 'Rozpocznij nagrywanie';
-            }
-        }
-        
-        // Hide close session button (only for historical sessions)
-        const closeSessionBtn = document.getElementById('closeSessionBtn');
-        if (closeSessionBtn) {
-            closeSessionBtn.style.display = 'none';
-        }
-        
-        // Clear storage
-        chrome.storage.local.remove(['transcriptData', 'currentSessionId', 'recordingStartTime', 'sessionTotalDuration', 'currentSessionDuration', 'realtimeMode']);
-        
-        // Remove session highlighting
-        renderSessionHistory();
-        
-        // Reset filters for new session
-        resetFilters();
-        
-        // Hide meeting name and show status
-        hideMeetingName();
-        updateStatus('Gotowy do nagrywania', 'info');
+    // Clear session data
+    transcriptData = null;
+    currentSessionId = null;
+    recordingStartTime = null;
+    sessionTotalDuration = 0;
+    recordingStopped = false;
+    
+    // Reset search and filters
+    resetSearch();
+    resetParticipantFilters();
+    
+    // Stop any existing timer
+    stopDurationTimer();
+    
+    // Update UI to empty state
+    displayTranscript({ messages: [] });
+    updateStats({ messages: [] });
+    
+    // Reset duration display
+    updateDurationDisplay();
+    
+    // Update clear button state
+    if (window.updateClearButtonState) {
+        window.updateClearButtonState();
     }
-});
+    
+    // Disable export button
+    const exportTxtBtn = document.getElementById('exportTxtBtn');
+    if (exportTxtBtn) {
+        exportTxtBtn.disabled = true;
+    }
+    
+    // Show record button for new session
+    const recordBtn = document.getElementById('recordBtn');
+    if (recordBtn) {
+        recordBtn.style.display = 'flex';
+        recordBtn.classList.remove('active');
+        const recordText = document.querySelector('.record-text');
+        if (recordText) {
+            recordText.textContent = 'Rozpocznij nagrywanie';
+        }
+    }
+    
+    // Hide close session button (only for historical sessions)
+    const closeSessionBtn = document.getElementById('closeSessionBtn');
+    if (closeSessionBtn) {
+        closeSessionBtn.style.display = 'none';
+    }
+    
+    // Clear storage
+    chrome.storage.local.remove(['transcriptData', 'currentSessionId', 'recordingStartTime', 'sessionTotalDuration', 'currentSessionDuration', 'realtimeMode']);
+    
+    // Remove session highlighting
+    renderSessionHistory();
+    
+    // Reset filters for new session
+    resetFilters();
+    
+    // Hide meeting name and show status
+    hideMeetingName();
+    updateStatus('Gotowy do nagrywania', 'info');
+}
 
 function updateStatus(message, type = '') {
     const statusDiv = document.getElementById('recordingStatus');
