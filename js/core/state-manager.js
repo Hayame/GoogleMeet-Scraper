@@ -8,7 +8,8 @@ let transcriptData = null;
 let realtimeMode = false;
 let realtimeInterval = null;
 let currentSessionId = null;
-let sessionHistory = [];
+// CRITICAL FIX: Remove local sessionHistory - use window.sessionHistory directly
+// let sessionHistory = []; ← REMOVED - this was overwriting loaded data
 let durationTimer = null;
 let expandedEntries = new Set(); // Track which entries are expanded
 let currentSearchQuery = '';
@@ -210,6 +211,151 @@ function clearRealtimeInterval() {
 
 
 /**
+ * Save UI state to storage
+ * @param {Object} uiState - UI state object containing sidebar, search, filter states
+ */
+async function saveUIState(uiState) {
+    try {
+        const stateToSave = {
+            sidebarCollapsed: uiState.sidebarCollapsed || false,
+            searchPanelOpen: uiState.searchPanelOpen || false,
+            filterPanelOpen: uiState.filterPanelOpen || false,
+            theme: uiState.theme || 'light',
+            timestamp: Date.now()
+        };
+        
+        await window.StorageManager.setStorageData({
+            [window.AppConstants.STORAGE_KEYS.LAST_UI_STATE]: stateToSave,
+            [window.AppConstants.STORAGE_KEYS.SIDEBAR_COLLAPSED]: stateToSave.sidebarCollapsed,
+            [window.AppConstants.STORAGE_KEYS.SEARCH_PANEL_OPEN]: stateToSave.searchPanelOpen,
+            [window.AppConstants.STORAGE_KEYS.FILTER_PANEL_OPEN]: stateToSave.filterPanelOpen,
+            [window.AppConstants.STORAGE_KEYS.THEME]: stateToSave.theme
+        });
+        
+        console.log('💾 [UI STATE] Saved UI state:', stateToSave);
+    } catch (error) {
+        console.error('💾 [UI STATE ERROR] Failed to save UI state:', error);
+    }
+}
+
+/**
+ * Restore UI state from storage
+ * @returns {Object} Restored UI state
+ */
+async function restoreUIState() {
+    try {
+        const result = await window.StorageManager.getStorageData([
+            window.AppConstants.STORAGE_KEYS.LAST_UI_STATE,
+            window.AppConstants.STORAGE_KEYS.SIDEBAR_COLLAPSED,
+            window.AppConstants.STORAGE_KEYS.SEARCH_PANEL_OPEN,
+            window.AppConstants.STORAGE_KEYS.FILTER_PANEL_OPEN,
+            window.AppConstants.STORAGE_KEYS.THEME
+        ]);
+        
+        // Use lastUIState if available, otherwise fallback to individual keys
+        const uiState = result[window.AppConstants.STORAGE_KEYS.LAST_UI_STATE] || {
+            sidebarCollapsed: result[window.AppConstants.STORAGE_KEYS.SIDEBAR_COLLAPSED] || false,
+            searchPanelOpen: result[window.AppConstants.STORAGE_KEYS.SEARCH_PANEL_OPEN] || false,
+            filterPanelOpen: result[window.AppConstants.STORAGE_KEYS.FILTER_PANEL_OPEN] || false,
+            theme: result[window.AppConstants.STORAGE_KEYS.THEME] || 'light'
+        };
+        
+        console.log('🔄 [UI STATE] Restored UI state:', uiState);
+        return uiState;
+    } catch (error) {
+        console.error('🔄 [UI STATE ERROR] Failed to restore UI state:', error);
+        return {
+            sidebarCollapsed: false,
+            searchPanelOpen: false,
+            filterPanelOpen: false,
+            theme: 'light'
+        };
+    }
+}
+
+/**
+ * Initialize global variables without overwriting existing data
+ * PHASE 4: Prevent variable exposure from overwriting loaded data
+ */
+function initializeGlobalVariables() {
+    // Only set globals if they don't exist yet
+    if (window.transcriptData === undefined) window.transcriptData = transcriptData;
+    if (window.realtimeMode === undefined) window.realtimeMode = realtimeMode;
+    if (window.currentSessionId === undefined) window.currentSessionId = currentSessionId;
+    if (window.expandedEntries === undefined) window.expandedEntries = expandedEntries;
+    if (window.currentSearchQuery === undefined) window.currentSearchQuery = currentSearchQuery;
+    if (window.originalMessages === undefined) window.originalMessages = originalMessages;
+    if (window.activeParticipantFilters === undefined) window.activeParticipantFilters = activeParticipantFilters;
+    if (window.allParticipants === undefined) window.allParticipants = allParticipants;
+    
+    // CRITICAL: Never overwrite sessionHistory if it already exists
+    if (!window.sessionHistory) {
+        window.sessionHistory = [];
+        console.log('🔧 [STATE] Initialized empty sessionHistory');
+    } else {
+        console.log('🔧 [STATE] Preserving existing sessionHistory with', window.sessionHistory.length, 'sessions');
+    }
+    
+    console.log('🌐 [STATE] Global variables initialized (no overwrites)');
+}
+
+/**
+ * Expose state variables globally for backward compatibility
+ * CRITICAL FIX: Other modules expect window.transcriptData, window.realtimeMode, etc.
+ */
+function exposeGlobalVariables() {
+    // Store previous values for comparison
+    const previousValues = {
+        transcriptData: window.transcriptData,
+        realtimeMode: window.realtimeMode,
+        currentSessionId: window.currentSessionId,
+        sessionHistoryLength: window.sessionHistory?.length || 0
+    };
+    
+    // Set new values
+    window.transcriptData = transcriptData;
+    window.realtimeMode = realtimeMode;
+    window.currentSessionId = currentSessionId;
+    
+    // CRITICAL FIX: Only set window.sessionHistory if it doesn't exist or is empty
+    // This prevents overwriting data loaded by SessionHistoryManager
+    if (!window.sessionHistory || window.sessionHistory.length === 0) {
+        window.sessionHistory = window.sessionHistory || [];
+        console.log('🔧 [STATE] Initialized empty sessionHistory');
+    } else {
+        console.log('🔧 [STATE] Preserving existing sessionHistory with', window.sessionHistory.length, 'sessions');
+    }
+    
+    window.expandedEntries = expandedEntries;
+    window.currentSearchQuery = currentSearchQuery;
+    window.originalMessages = originalMessages;
+    window.activeParticipantFilters = activeParticipantFilters;
+    window.allParticipants = allParticipants;
+    
+    // Detailed logging for debugging
+    const currentValues = {
+        hasTranscriptData: !!window.transcriptData,
+        transcriptDataEntries: window.transcriptData?.messages?.length || 0,
+        realtimeMode: window.realtimeMode,
+        currentSessionId: window.currentSessionId,
+        sessionHistoryLength: window.sessionHistory?.length || 0
+    };
+    
+    console.log('🌐 [STATE] Global variables exposed:', currentValues);
+    
+    // Log changes for debugging
+    if (previousValues.realtimeMode !== currentValues.realtimeMode) {
+        console.log('🔄 [STATE] RealtimeMode changed:', previousValues.realtimeMode, '->', currentValues.realtimeMode);
+    }
+    if (previousValues.currentSessionId !== currentValues.currentSessionId) {
+        console.log('🔄 [STATE] CurrentSessionId changed:', previousValues.currentSessionId, '->', currentValues.currentSessionId);
+    }
+    if (previousValues.sessionHistoryLength !== currentValues.sessionHistoryLength) {
+        console.log('🔄 [STATE] SessionHistory length changed:', previousValues.sessionHistoryLength, '->', currentValues.sessionHistoryLength);
+    }
+}
+
+/**
  * Restore state from storage - Main state restoration function
  * This was originally the restoreStateFromStorage function from popup.js (lines ~104-220)
  */
@@ -240,6 +386,13 @@ async function restoreStateFromStorage() {
             console.log('🔄 [RESTORE] Restoring recording state');
             realtimeMode = true;
             
+            // CRITICAL FIX: Restore transcript data for active recording
+            // This was missing and caused empty chat during recording restoration
+            if (result[window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA]) {
+                transcriptData = result[window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA];
+                console.log('🔄 [RESTORE] Restored transcript data for recording:', transcriptData?.messages?.length || 0, 'messages');
+            }
+            
             // Restore recording start time and timer
             if (result[window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME]) {
                 sessionState.recordingStartTime = new Date(result[window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME]);
@@ -269,6 +422,9 @@ async function restoreStateFromStorage() {
             sessionState.isRecordingStopped = false;
             sessionState.isRecordingPaused = false;
             
+            // CRITICAL FIX: Expose global variables after state restoration
+            exposeGlobalVariables();
+            
             return {
                 restored: true,
                 realtimeMode: true,
@@ -281,11 +437,23 @@ async function restoreStateFromStorage() {
         // Restore transcript data only for active recording or historical sessions
         if (result[window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA] && result[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID]) {
             const isActiveRecording = result[window.AppConstants.STORAGE_KEYS.REALTIME_MODE];
-            const isHistoricalSession = sessionHistory.find(s => s.id === result[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID]);
+            
+            // CRITICAL FIX: Use window.sessionHistory instead of local sessionHistory
+            const isHistoricalSession = window.sessionHistory?.find(s => s.id === result[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID]);
+            
+            console.log('🔍 [RESTORE DEBUG] Session lookup:', {
+                sessionId: result[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID],
+                sessionHistoryLength: window.sessionHistory?.length || 0,
+                isActiveRecording,
+                foundHistoricalSession: !!isHistoricalSession
+            });
             
             if (isActiveRecording || isHistoricalSession) {
                 transcriptData = result[window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA];
                 currentSessionId = result[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID];
+                
+                // CRITICAL FIX: Expose global variables after state restoration
+                exposeGlobalVariables();
                 
                 return {
                     restored: true,
@@ -334,8 +502,16 @@ window.StateManager = {
     // State management functions
     initialize() {
         console.log('🗂️ [STATE] StateManager initialized');
-        // StateManager doesn't need special initialization
+        
+        // CRITICAL FIX: Only initialize empty globals, don't overwrite existing data
+        // This prevents overwriting sessionHistory loaded by SessionHistoryManager
+        initializeGlobalVariables();
+        
         // State is managed through getters/setters and restored via restoreStateFromStorage()
     },
-    restoreStateFromStorage
+    restoreStateFromStorage,
+    saveUIState,
+    restoreUIState,
+    exposeGlobalVariables,
+    initializeGlobalVariables
 };

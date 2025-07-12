@@ -141,6 +141,12 @@ window.RecordingManager = {
             window.updateButtonVisibility('NEW');
         }
         
+        // CRITICAL FIX: Clear all recording state from storage
+        // This prevents conflicts and ensures clean state after recording stops
+        if (window.StorageManager) {
+            window.StorageManager.clearRecordingState();
+        }
+        
         // Add current session duration to total using TimerManager
         if (window.TimerManager) {
             window.TimerManager.accumulateSessionDuration();

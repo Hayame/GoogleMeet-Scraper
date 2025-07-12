@@ -231,11 +231,178 @@ window.BackgroundScanner = {
 
 
     /**
+     * Reactivate background scanner after state restoration
+     * Called when popup reopens and finds active recording state
+     */
+    async reactivateAfterRestore() {
+        try {
+            console.log('🔄 [REACTIVATE] Reactivating background scanner after state restoration');
+            
+            // Get stored meeting tab ID
+            const result = await window.StorageManager.getStorageData([window.AppConstants.STORAGE_KEYS.MEET_TAB_ID]);
+            const meetTabId = result[window.AppConstants.STORAGE_KEYS.MEET_TAB_ID];
+            
+            if (!meetTabId) {
+                console.warn('⚠️ [REACTIVATE] No meeting tab ID found - cannot restart background scanning');
+                return;
+            }
+            
+            // Verify tab still exists and is a Meet tab
+            chrome.tabs.get(meetTabId, (tab) => {
+                if (chrome.runtime.lastError) {
+                    console.warn('⚠️ [REACTIVATE] Meeting tab no longer exists:', chrome.runtime.lastError.message);
+                    return;
+                }
+                
+                if (!tab.url || !tab.url.includes('meet.google.com')) {
+                    console.warn('⚠️ [REACTIVATE] Tab is no longer a Google Meet session');
+                    return;
+                }
+                
+                // Restart background scanning for this tab
+                this.startBackgroundScanning(meetTabId)
+                    .then(() => {
+                        console.log('✅ [REACTIVATE] Background scanning restarted successfully');
+                    })
+                    .catch((error) => {
+                        console.error('❌ [REACTIVATE] Failed to restart background scanning:', error);
+                    });
+            });
+            
+        } catch (error) {
+            console.error('❌ [REACTIVATE] Error during background scanner reactivation:', error);
+        }
+    },
+
+    /**
+     * Detect changes between old and new transcript messages
+     * Source: popup-old.js lines 2239-2348
+     * @param {Array} oldMessages - Previous transcript messages
+     * @param {Array} newMessages - New transcript messages
+     * @returns {Object} Object with added, updated, and removed arrays
+     */
+    detectChanges(oldMessages, newMessages) {
+        const changes = {
+            added: [],
+            updated: [],
+            removed: []
+        };
+        
+        // Debug: log input parameters
+        console.log('🔍 [DEBUG] detectChanges input:', {
+            oldCount: oldMessages ? oldMessages.length : 0,
+            newCount: newMessages ? newMessages.length : 0
+        });
+        
+        // Handle null/empty cases
+        if (!oldMessages || oldMessages.length === 0) {
+            // All new messages are added
+            if (newMessages && newMessages.length > 0) {
+                changes.added = [...newMessages];
+                console.log('🔍 [DEBUG] No old messages, all new messages added:', changes.added.length);
+            }
+            return changes;
+        }
+        
+        if (!newMessages || newMessages.length === 0) {
+            // All old messages are removed
+            changes.removed = [...oldMessages];
+            console.log('🔍 [DEBUG] No new messages, all old messages removed:', changes.removed.length);
+            return changes;
+        }
+        
+        // Create hash maps for efficient lookups
+        const oldHashes = new Map();
+        const newHashes = new Map();
+        
+        // Map old messages by hash for quick lookup
+        oldMessages.forEach((msg, index) => {
+            oldHashes.set(msg.hash, { ...msg, originalIndex: index });
+        });
+        
+        // Map new messages by hash  
+        newMessages.forEach((msg, index) => {
+            newHashes.set(msg.hash, { ...msg, originalIndex: index });
+        });
+        
+        console.log('🔍 [DEBUG] Hash comparison:', {
+            oldHashes: oldHashes.size,
+            newHashes: newHashes.size,
+            oldHashSample: Array.from(oldHashes.keys()).slice(0, 3),
+            newHashSample: Array.from(newHashes.keys()).slice(0, 3)
+        });
+        
+        // First pass: Position-based comparison for updates (same position, same speaker, different text)
+        const minLength = Math.min(oldMessages.length, newMessages.length);
+        for (let i = 0; i < minLength; i++) {
+            const oldMsg = oldMessages[i];
+            const newMsg = newMessages[i];
+            
+            if (oldMsg.speaker === newMsg.speaker && oldMsg.hash !== newMsg.hash) {
+                // Same speaker at same position but different hash = update
+                changes.updated.push({
+                    ...newMsg,
+                    index: i,  // Preserve position index
+                    previousText: oldMsg.text
+                });
+                console.log(`🔍 [DEBUG] Updated message at position ${i}:`, newMsg.speaker, `"${oldMsg.text.substring(0, 20)}" -> "${newMsg.text.substring(0, 20)}"`);
+                
+                // Remove from hash maps to avoid double-processing
+                oldHashes.delete(oldMsg.hash);
+                newHashes.delete(newMsg.hash);
+            } else if (oldMsg.hash === newMsg.hash) {
+                // Identical messages - remove from hash maps
+                oldHashes.delete(oldMsg.hash);
+                newHashes.delete(newMsg.hash);
+            }
+        }
+        
+        // Second pass: Hash-based comparison for additions/removals
+        // Find new messages (in new but not in old)
+        newHashes.forEach((newMsg, hash) => {
+            if (!oldHashes.has(hash)) {
+                changes.added.push(newMsg);
+                console.log(`🔍 [DEBUG] Added new message:`, newMsg.speaker, newMsg.text.substring(0, 30));
+            }
+        });
+        
+        // Find removed messages (in old but not in new)
+        oldHashes.forEach((oldMsg, hash) => {
+            if (!newHashes.has(hash)) {
+                changes.removed.push(oldMsg);
+                console.log(`🔍 [DEBUG] Removed message:`, oldMsg.speaker, oldMsg.text.substring(0, 30));
+            }
+        });
+        
+        console.log('🔍 [DEBUG] detectChanges final result:', {
+            added: changes.added.length,
+            updated: changes.updated.length,
+            removed: changes.removed.length
+        });
+        
+        // Log samples for debugging
+        if (changes.updated.length > 0) {
+            console.log('🔍 [DEBUG] Updated message sample:', {
+                speaker: changes.updated[0].speaker,
+                oldText: changes.updated[0].previousText?.substring(0, 30),
+                newText: changes.updated[0].text.substring(0, 30)
+            });
+        }
+        
+        return changes;
+    },
+
+    /**
      * Initialize all background scanner functionality
      */
     initialize() {
         this.initializeMessageListener();
         this.initializeAutoSaveInterval();
+        
+        // CRITICAL FIX: Expose detectChanges globally for backward compatibility
+        window.detectChanges = this.detectChanges.bind(this);
+        console.log('🔗 [BACKGROUND] detectChanges exposed globally');
+        
         console.log('🔄 Background Scanner initialized');
     }
 };

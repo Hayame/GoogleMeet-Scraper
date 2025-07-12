@@ -122,6 +122,22 @@ async function clearCurrentSessionDuration() {
     await removeStorageData([window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_DURATION]);
 }
 
+/**
+ * Clear all recording-related storage keys when recording stops
+ * CRITICAL FIX: Clean up storage to prevent conflicts
+ */
+async function clearRecordingState() {
+    await removeStorageData([
+        window.AppConstants.STORAGE_KEYS.REALTIME_MODE,
+        window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME,
+        window.AppConstants.STORAGE_KEYS.SESSION_START_TIME,
+        window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION,
+        window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_DURATION,
+        window.AppConstants.STORAGE_KEYS.MEET_TAB_ID
+    ]);
+    console.log('🧹 [STORAGE] Cleared all recording state keys');
+}
+
 // Export all storage functions
 window.StorageManager = {
     getStorageData,
@@ -132,6 +148,7 @@ window.StorageManager = {
     saveSessionHistory,
     saveExpandedEntries,
     clearCurrentSessionDuration,
+    clearRecordingState,
 
     /**
      * Initialize StorageManager module

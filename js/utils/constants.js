@@ -23,7 +23,10 @@ const STORAGE_KEYS = {
     SESSION_HISTORY: 'sessionHistory',
     EXPANDED_ENTRIES: 'expandedEntries',
     THEME: 'theme',
-    SIDEBAR_COLLAPSED: 'sidebarCollapsed'
+    SIDEBAR_COLLAPSED: 'sidebarCollapsed',
+    SEARCH_PANEL_OPEN: 'searchPanelOpen',
+    FILTER_PANEL_OPEN: 'filterPanelOpen',
+    LAST_UI_STATE: 'lastUIState'
 };
 
 // Application states

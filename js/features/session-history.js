@@ -18,6 +18,17 @@ window.SessionHistoryManager = {
                     window.sessionHistory = result.sessionHistory || [];
                     console.log('📁 [HISTORY] Loaded session history:', window.sessionHistory.length, 'sessions');
                     
+                    // CRITICAL DEBUG: Log session details for debugging ID format issues
+                    if (window.sessionHistory.length > 0) {
+                        console.log('📁 [HISTORY DEBUG] Session IDs and types:', 
+                            window.sessionHistory.slice(0, 5).map(s => ({
+                                id: s.id,
+                                idType: typeof s.id,
+                                title: s.title
+                            }))
+                        );
+                    }
+                    
                     // Render the session history UI
                     if (window.SessionUIManager && window.SessionUIManager.renderSessionHistory) {
                         window.SessionUIManager.renderSessionHistory();
@@ -126,12 +137,39 @@ window.SessionHistoryManager = {
      * Source: popup.js lines 1961-1983
      */
     loadSessionFromHistory(sessionId) {
-        const session = window.sessionHistory.find(s => s.id === sessionId);
+        // CRITICAL DEBUG: Log session lookup details
+        console.log('🔍 [SESSION DEBUG] Looking for session:', {
+            sessionId,
+            sessionIdType: typeof sessionId,
+            sessionHistoryExists: !!window.sessionHistory,
+            sessionHistoryLength: window.sessionHistory?.length || 0,
+            availableSessionIds: window.sessionHistory?.map(s => ({ id: s.id, idType: typeof s.id })) || []
+        });
+        
+        // Try multiple session ID formats for compatibility
+        let session = window.sessionHistory?.find(s => s.id === sessionId);
+        
+        // If not found as string, try as number (timestamp compatibility)
+        if (!session && typeof sessionId === 'string') {
+            const numericSessionId = parseInt(sessionId);
+            session = window.sessionHistory?.find(s => s.id === numericSessionId);
+            console.log('🔍 [SESSION DEBUG] Trying numeric lookup:', numericSessionId, 'found:', !!session);
+        }
+        
+        // If not found as number, try as string (session_ prefix compatibility) 
+        if (!session && typeof sessionId === 'number') {
+            const stringSessionId = sessionId.toString();
+            session = window.sessionHistory?.find(s => s.id === stringSessionId);
+            console.log('🔍 [SESSION DEBUG] Trying string lookup:', stringSessionId, 'found:', !!session);
+        }
+        
         if (!session) {
-            console.error('Session not found:', sessionId);
+            console.error('❌ [SESSION] Session not found after all attempts:', sessionId);
             window.updateStatus('Nie znaleziono sesji', 'error');
             return;
         }
+        
+        console.log('✅ [SESSION] Session found:', session.id, session.title);
         
         // If recording is active and user clicked on the same session that's being recorded, do nothing
         if (window.realtimeMode && sessionId === window.currentSessionId) {
@@ -469,12 +507,145 @@ window.SessionHistoryManager = {
     /**
      * Initialize SessionHistoryManager module
      */
-    initialize() {
-        console.log('📚 [SESSION] SessionHistoryManager initialized');
-        this.initializeSessionHistory();
+    async initialize() {
+        console.log('📚 [SESSION] SessionHistoryManager initializing...');
+        
+        // CRITICAL FIX: Await session history loading before proceeding
+        await this.initializeSessionHistory();
+        console.log('📚 [SESSION] Session history loaded successfully');
         
         // Set up global aliases for backward compatibility
         this.setupGlobalAliases();
+        
+        console.log('📚 [SESSION] SessionHistoryManager initialization complete');
+    },
+
+    /**
+     * Generate unique session ID
+     * Source: popup-old.js line 1703
+     */
+    generateSessionId() {
+        return Date.now().toString();
+    },
+
+    /**
+     * Generate session title based on time
+     * Source: popup-old.js line 1707
+     */
+    generateSessionTitle(startTime = null) {
+        // Use provided startTime, sessionStartTime, recordingStartTime, or current time as fallback
+        const timeToUse = startTime || 
+                         window.StateManager?.getSessionStartTime() || 
+                         window.StateManager?.getRecordingStartTime() || 
+                         new Date();
+        const time = timeToUse.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+        return `Spotkanie o ${time}`;
+    },
+
+    /**
+     * Clear current transcript data
+     * Source: popup-old.js lines 595-629
+     */
+    clearCurrentTranscript() {
+        console.log('🧹 [CLEAR] Clearing current transcript');
+        
+        // Stop recording if active
+        if (window.realtimeMode && window.deactivateRealtimeMode) {
+            window.deactivateRealtimeMode();
+        }
+        
+        // Stop any active timer
+        if (window.TimerManager && window.TimerManager.stopDurationTimer) {
+            window.TimerManager.stopDurationTimer();
+        }
+        
+        // Reset ALL transcript-related variables using StateManager
+        window.transcriptData = null;
+        window.currentSessionId = null;
+        window.StateManager?.setRecordingStartTime(null);
+        window.StateManager?.setSessionStartTime(null);
+        window.StateManager?.setSessionTotalDuration(0);
+        window.StateManager?.setRecordingStopped(false);
+        window.StateManager?.setRecordingPaused(false);
+        
+        // Update UI
+        if (window.displayTranscript) window.displayTranscript({ messages: [] });
+        if (window.updateStats) window.updateStats({ messages: [] });
+        if (window.TimerManager && window.TimerManager.updateDurationDisplay) {
+            window.TimerManager.updateDurationDisplay();
+        }
+        
+        // Disable export button
+        const exportTxtBtn = document.getElementById('exportTxtBtn');
+        if (exportTxtBtn) exportTxtBtn.disabled = true;
+        
+        // Update status
+        if (window.UIManager && window.UIManager.updateStatus) {
+            window.UIManager.updateStatus('Transkrypcja wyczyszczona', 'info');
+        }
+        
+        // Show record button for new session
+        const recordBtn = document.getElementById('recordBtn');
+        if (recordBtn) {
+            recordBtn.style.display = 'flex';
+        }
+        
+        // Update button visibility for new session
+        if (window.UIManager) {
+            window.UIManager.updateButtonVisibility('NEW');
+        }
+        
+        // Clear from storage
+        chrome.storage.local.remove(['transcriptData', 'currentSessionId', 'recordingStartTime', 'sessionStartTime', 'meetTabId']);
+    },
+
+    /**
+     * Show empty session state
+     * Source: popup-old.js line 934
+     */
+    showEmptySession() {
+        console.log('🆕 [EMPTY SESSION] Showing empty session');
+        
+        // Clear session data using StateManager
+        window.transcriptData = null;
+        window.currentSessionId = null;
+        window.StateManager?.setRecordingStartTime(null);
+        window.StateManager?.setSessionStartTime(null);
+        window.StateManager?.setSessionTotalDuration(0);
+        window.StateManager?.setRecordingStopped(false);
+        window.StateManager?.setRecordingPaused(false);
+        
+        // Reset search and filters using SearchFilterManager
+        if (window.SearchFilterManager) {
+            window.SearchFilterManager.resetSearch();
+            window.SearchFilterManager.resetParticipantFilters();
+        }
+        
+        // Hide meeting name using UIManager
+        if (window.UIManager) {
+            window.UIManager.hideMeetingName();
+        }
+        
+        // Stop any existing timer
+        if (window.TimerManager) {
+            window.TimerManager.stopDurationTimer();
+        }
+        
+        // Update UI to empty state using TranscriptManager
+        if (window.displayTranscript && window.updateStats) {
+            window.displayTranscript({ messages: [] });
+            window.updateStats({ messages: [] });
+        }
+        
+        // Reset duration display using TimerManager
+        if (window.TimerManager) {
+            window.TimerManager.updateDurationDisplay();
+        }
+        
+        // Update button visibility for new session using UIManager
+        if (window.UIManager) {
+            window.UIManager.updateButtonVisibility('NEW');
+        }
     },
 
     /**
@@ -484,6 +655,11 @@ window.SessionHistoryManager = {
     setupGlobalAliases() {
         // Critical fix: Expose session functions globally as expected by other modules
         window.createNewSession = this.createNewSession.bind(this);
+        window.generateSessionId = this.generateSessionId.bind(this);
+        window.generateSessionTitle = this.generateSessionTitle.bind(this);
+        window.showEmptySession = this.showEmptySession.bind(this);
+        window.performNewSessionCreation = this.performNewSessionCreation.bind(this);
+        window.clearCurrentTranscript = this.clearCurrentTranscript.bind(this);
         
         console.log('🔗 [SESSION] Global session function aliases created for backward compatibility');
     }

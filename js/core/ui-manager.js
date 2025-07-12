@@ -25,6 +25,12 @@ window.UIManager = {
                 recordBtn.style.display = 'flex';
                 recordBtn.classList.add('active');
                 closeSessionBtn.style.display = 'none';
+                
+                // CRITICAL FIX: Set proper button text for recording mode
+                const recordTextRecording = document.querySelector('.record-text');
+                if (recordTextRecording) {
+                    recordTextRecording.textContent = 'Zatrzymaj nagrywanie';
+                }
                 break;
                 
             case 'HISTORICAL':
@@ -77,17 +83,26 @@ window.UIManager = {
             return;
         }
         
-        // Create meeting name display
-        statusDiv.innerHTML = `
-            <div class="meeting-name-display">
-                <span class="meeting-title" data-session-id="${sessionId}">${meetingTitle}</span>
-                <button class="edit-meeting-name" title="Edytuj nazwę sesji">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                    </svg>
-                </button>
-            </div>
-        `;
+        // Hide status elements and show meeting name using existing HTML structure
+        const statusDot = statusDiv.querySelector('.status-dot');
+        const statusText = statusDiv.querySelector('.status-text');
+        const meetingNameContainer = statusDiv.querySelector('.meeting-name-container');
+        const meetingNameText = statusDiv.querySelector('.meeting-name-text');
+        
+        if (statusDot) statusDot.style.display = 'none';
+        if (statusText) statusText.style.display = 'none';
+        
+        if (meetingNameContainer && meetingNameText) {
+            // Set the meeting title and session ID
+            meetingNameText.textContent = meetingTitle;
+            meetingNameText.setAttribute('data-session-id', sessionId);
+            
+            // Show meeting name container
+            meetingNameContainer.style.display = 'block';
+            
+            // Setup click handler for editing
+            meetingNameText.onclick = () => this.startMeetingNameEdit();
+        }
         
         // Show the status div
         statusDiv.style.display = 'flex';
@@ -106,18 +121,14 @@ window.UIManager = {
             return;
         }
         
+        // Hide meeting name container and restore status elements visibility
+        const meetingNameContainer = statusDiv.querySelector('.meeting-name-container');
+        if (meetingNameContainer) {
+            meetingNameContainer.style.display = 'none';
+        }
+        
         // Hide the entire status div for empty sessions
         statusDiv.style.display = 'none';
-        statusDiv.innerHTML = `
-            <div class="status-dot"></div>
-            <span class="status-text"></span>
-        `;
-        
-        // Reset default status structure
-        const statusText = statusDiv.querySelector('.status-text');
-        const statusDot = statusDiv.querySelector('.status-dot');
-        if (statusText) statusText.style.display = 'none';
-        if (statusDot) statusDot.style.display = 'none';
     },
 
     /**
@@ -139,32 +150,32 @@ window.UIManager = {
      * Extracted from popup.js lines 852-875
      */
     startMeetingNameEdit() {
-        const meetingTitle = document.querySelector('.meeting-title');
-        if (!meetingTitle) return;
+        const meetingNameDisplay = document.querySelector('.meeting-name-display');
+        const meetingNameEdit = document.querySelector('.meeting-name-edit');
+        const meetingNameText = document.querySelector('.meeting-name-text');
+        const meetingNameInput = document.querySelector('.meeting-name-input');
         
-        const currentText = meetingTitle.textContent;
-        const sessionId = meetingTitle.getAttribute('data-session-id');
+        if (!meetingNameDisplay || !meetingNameEdit || !meetingNameText || !meetingNameInput) return;
         
-        meetingTitle.innerHTML = `
-            <input type="text" class="meeting-name-input" value="${currentText}" maxlength="100">
-            <div class="meeting-name-controls">
-                <button class="save-meeting-name" title="Zapisz">✓</button>
-                <button class="cancel-meeting-name" title="Anuluj">✕</button>
-            </div>
-        `;
+        const currentText = meetingNameText.textContent;
         
-        const input = meetingTitle.querySelector('.meeting-name-input');
-        input.focus();
-        input.select();
+        // Switch to edit mode using existing HTML structure
+        meetingNameDisplay.style.display = 'none';
+        meetingNameEdit.style.display = 'flex';
         
-        // Setup event listeners
-        const saveBtn = meetingTitle.querySelector('.save-meeting-name');
-        const cancelBtn = meetingTitle.querySelector('.cancel-meeting-name');
+        // Set input value and focus
+        meetingNameInput.value = currentText;
+        meetingNameInput.focus();
+        meetingNameInput.select();
         
-        saveBtn.addEventListener('click', () => this.saveMeetingNameEdit());
-        cancelBtn.addEventListener('click', () => this.cancelMeetingNameEdit());
+        // Setup event listeners for save/cancel buttons (already exist in HTML)
+        const saveBtn = document.querySelector('.meeting-name-save');
+        const cancelBtn = document.querySelector('.meeting-name-cancel');
         
-        input.addEventListener('keydown', (e) => {
+        if (saveBtn) saveBtn.onclick = () => this.saveMeetingNameEdit();
+        if (cancelBtn) cancelBtn.onclick = () => this.cancelMeetingNameEdit();
+        
+        meetingNameInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 this.saveMeetingNameEdit();
             } else if (e.key === 'Escape') {
@@ -178,19 +189,14 @@ window.UIManager = {
      * Extracted from popup.js lines 876-888
      */
     cancelMeetingNameEdit() {
-        const meetingTitle = document.querySelector('.meeting-title');
-        if (!meetingTitle) return;
+        const meetingNameDisplay = document.querySelector('.meeting-name-display');
+        const meetingNameEdit = document.querySelector('.meeting-name-edit');
         
-        const sessionId = meetingTitle.getAttribute('data-session-id');
+        if (!meetingNameDisplay || !meetingNameEdit) return;
         
-        // Restore original title
-        chrome.storage.local.get(['sessionHistory'], (result) => {
-            const sessionHistory = result.sessionHistory || [];
-            const session = sessionHistory.find(s => s.id === sessionId);
-            if (session) {
-                this.showMeetingName(session.title, sessionId);
-            }
-        });
+        // Switch back to display mode without reloading
+        meetingNameEdit.style.display = 'none';
+        meetingNameDisplay.style.display = 'block';
     },
 
     /**
@@ -198,7 +204,7 @@ window.UIManager = {
      * Extracted from popup.js lines 889-933
      */
     saveMeetingNameEdit() {
-        const meetingTitle = document.querySelector('.meeting-title');
+        const meetingTitle = document.querySelector('.meeting-name-text');
         const input = document.querySelector('.meeting-name-input');
         
         if (!meetingTitle || !input) return;
@@ -244,11 +250,23 @@ window.UIManager = {
             });
         }
         
+        // Update display text and switch back to display mode
+        const meetingNameText = document.querySelector('.meeting-name-text');
+        const meetingNameDisplay = document.querySelector('.meeting-name-display');
+        const meetingNameEdit = document.querySelector('.meeting-name-edit');
+        
+        if (meetingNameText) {
+            meetingNameText.textContent = newName;
+        }
+        
+        // Switch back to display mode
+        if (meetingNameDisplay && meetingNameEdit) {
+            meetingNameEdit.style.display = 'none';
+            meetingNameDisplay.style.display = 'block';
+        }
+        
         // Show success message briefly
         this.updateStatus(`Zmieniono nazwę na: ${newName}`, 'success');
-        setTimeout(() => {
-            this.showMeetingName(newName, sessionId);
-        }, 2000);
     },
 
     /**
@@ -346,5 +364,78 @@ window.UIManager = {
         window.formatDuration = this.formatDuration.bind(this);
         
         console.log('🔗 [UI] Global function aliases created for backward compatibility');
+    },
+
+    /**
+     * Toggle sidebar collapsed state and save to storage
+     */
+    async toggleSidebar() {
+        const sidebar = document.querySelector('.sidebar');
+        if (!sidebar) return;
+        
+        const wasCollapsed = sidebar.classList.contains('collapsed');
+        sidebar.classList.toggle('collapsed');
+        const isNowCollapsed = sidebar.classList.contains('collapsed');
+        
+        // Save state to storage
+        await window.StateManager.saveUIState({
+            sidebarCollapsed: isNowCollapsed
+        });
+        
+        console.log('📐 [UI] Sidebar toggled, collapsed:', isNowCollapsed);
+    },
+
+    /**
+     * Save current UI state to storage
+     */
+    async saveCurrentUIState() {
+        const sidebar = document.querySelector('.sidebar');
+        const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+        
+        const uiState = {
+            sidebarCollapsed: sidebar?.classList.contains('collapsed') || false,
+            theme: currentTheme,
+            searchPanelOpen: false, // TODO: implement when search panel state tracking is added
+            filterPanelOpen: false  // TODO: implement when filter panel state tracking is added
+        };
+        
+        await window.StateManager.saveUIState(uiState);
+        console.log('💾 [UI] Current UI state saved:', uiState);
+    },
+
+    /**
+     * Restore UI state from provided state object
+     * Centralized UI state restoration to ensure consistency
+     */
+    restoreUIState(uiState) {
+        console.log('🎨 [UI] Restoring UI state through UIManager:', uiState);
+        
+        // CRITICAL FIX: Restore sidebar collapsed state properly
+        // Previous code only ADDED collapsed class, never REMOVED it
+        const sidebar = document.querySelector('.sidebar');
+        if (sidebar) {
+            if (uiState.sidebarCollapsed) {
+                sidebar.classList.add('collapsed');
+                console.log('📐 [UI] Sidebar restored to collapsed state');
+            } else {
+                sidebar.classList.remove('collapsed');
+                console.log('📐 [UI] Sidebar restored to expanded state');
+            }
+        }
+        
+        // Restore theme (ensure consistency with theme system)
+        if (uiState.theme && uiState.theme !== 'light') {
+            document.documentElement.setAttribute('data-theme', uiState.theme);
+            console.log('🎨 [UI] Theme restored:', uiState.theme);
+        }
+        
+        // TODO: Restore search and filter panel states when implemented
+        // if (uiState.searchPanelOpen) { ... }
+        // if (uiState.filterPanelOpen) { ... }
+        
+        // CRITICAL FIX: Save the restored UI state back to storage
+        // This ensures the restored state persists for next popup open
+        this.saveCurrentUIState();
+        console.log('💾 [UI] Restored UI state saved to storage');
     }
 };
