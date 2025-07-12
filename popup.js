@@ -2119,12 +2119,12 @@ setInterval(() => {
         // Auto-save current session
         const existingIndex = sessionHistory.findIndex(s => s.id === currentSessionId);
         if (existingIndex >= 0) {
-            // Update existing session silently
+            // Update existing session silently (preserve original date)
             const uniqueParticipants = new Set(transcriptData.messages.map(e => e.speaker)).size;
             sessionHistory[existingIndex].transcript = transcriptData;
             sessionHistory[existingIndex].participantCount = uniqueParticipants;
             sessionHistory[existingIndex].entryCount = transcriptData.messages.length;
-            sessionHistory[existingIndex].date = new Date().toISOString();
+            // Don't update date field - preserve the original session creation date
             
             chrome.storage.local.set({ sessionHistory: sessionHistory });
         }
