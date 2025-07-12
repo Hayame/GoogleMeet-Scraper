@@ -67,13 +67,10 @@ window.SessionHistoryManager = {
         const originalDate = existingIndex >= 0 ? window.sessionHistory[existingIndex].date : new Date().toISOString();
         const originalTitle = existingIndex >= 0 ? window.sessionHistory[existingIndex].title : window.generateSessionTitle();
         
-        // Calculate current total duration
-        let currentTotalDuration = window.sessionTotalDuration;
-        if (window.recordingStartTime) {
-            const now = new Date();
-            const currentSessionDuration = Math.floor((now - window.recordingStartTime) / 1000);
-            currentTotalDuration += currentSessionDuration;
-        }
+        // Calculate current total duration using TimerManager
+        const currentTotalDuration = window.TimerManager ? 
+            window.TimerManager.getTotalDuration() : 
+            (window.StateManager?.getSessionTotalDuration() || 0);
         
         const filteredTranscriptData = {
             messages: validMessages,
@@ -160,9 +157,9 @@ window.SessionHistoryManager = {
         // Load the session
         window.transcriptData = session.transcript;
         window.currentSessionId = session.id;
-        window.recordingStartTime = null; // Historic sessions don't have active recording
-        window.sessionStartTime = null; // Historic sessions don't need session start time
-        window.sessionTotalDuration = session.totalDuration || 0; // Load total duration
+        window.StateManager?.setRecordingStartTime(null); // Historic sessions don't have active recording
+        window.StateManager?.setSessionStartTime(null); // Historic sessions don't need session start time
+        window.StateManager?.setSessionTotalDuration(session.totalDuration || 0); // Load total duration
         
         // Reset search and filters
         window.resetSearch();
@@ -291,9 +288,9 @@ window.SessionHistoryManager = {
             }
             
             // Reset timer and duration
-            window.recordingStartTime = null;
-            window.sessionStartTime = null;
-            window.sessionTotalDuration = 0;
+            window.StateManager?.setRecordingStartTime(null);
+            window.StateManager?.setSessionStartTime(null);
+            window.StateManager?.setSessionTotalDuration(0);
             window.stopDurationTimer();
             
             // Update duration display to show 0:00

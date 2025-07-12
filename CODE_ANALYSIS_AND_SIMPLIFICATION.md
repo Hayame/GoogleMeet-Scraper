@@ -216,7 +216,7 @@ statusDiv.querySelector('.status-text')  // Może nie istnieć po showMeetingNam
 
 ### FAZA 2: UPROSZCZENIE ARCHITEKTURY
 - [✅] **Zadanie 2.1**: Konsolidacja operacji storage (CZĘŚCIOWO - fundament gotowy)
-- [🟡] **Zadanie 2.2**: Uproszczenie stanu sesji (W TRAKCIE)
+- [✅] **Zadanie 2.2**: Uproszczenie stanu sesji (UKOŃCZONE)
 - [ ] **Zadanie 2.3**: Centralizacja obliczania czasu trwania
 - [ ] **Zadanie 2.4**: Usunięcie martwego kodu
 

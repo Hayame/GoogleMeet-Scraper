@@ -22,9 +22,9 @@ window.RecordingManager = {
         }
         
         // Reset recording stopped and paused flags
-        window.recordingStopped = false;
-        window.recordingPaused = false;
-        console.log('🟢 [ACTIVATION DEBUG] recordingStopped reset to:', window.recordingStopped);
+        window.StateManager?.setRecordingStopped(false);
+        window.StateManager?.setRecordingPaused(false);
+        console.log('🟢 [ACTIVATION DEBUG] recordingStopped reset to:', window.StateManager?.getRecordingStopped());
         
         window.realtimeMode = true;
         realtimeBtn.classList.add('active');
@@ -43,15 +43,17 @@ window.RecordingManager = {
         
         // Set recording start time only for new recordings (not continuations)
         if (!isContinuation) {
-            window.recordingStartTime = new Date();
-            window.sessionStartTime = window.recordingStartTime; // Also set session start time for new sessions
-            console.log('🟢 [ACTIVATION DEBUG] New session - setting recordingStartTime:', window.recordingStartTime);
+            const startTime = new Date();
+            window.StateManager?.setRecordingStartTime(startTime);
+            window.StateManager?.setSessionStartTime(startTime); // Also set session start time for new sessions
+            console.log('🟢 [ACTIVATION DEBUG] New session - setting recordingStartTime:', startTime);
         } else {
             // For continuation, set new recordingStartTime to track current recording segment
-            window.recordingStartTime = new Date();
+            const startTime = new Date();
+            window.StateManager?.setRecordingStartTime(startTime);
             // Keep existing sessionStartTime for consistent session naming
-            console.log('🟢 [ACTIVATION DEBUG] Continuation - setting new recordingStartTime:', window.recordingStartTime);
-            console.log('🟢 [ACTIVATION DEBUG] Continuation - keeping existing sessionStartTime:', window.sessionStartTime);
+            console.log('🟢 [ACTIVATION DEBUG] Continuation - setting new recordingStartTime:', startTime);
+            console.log('🟢 [ACTIVATION DEBUG] Continuation - keeping existing sessionStartTime:', window.StateManager?.getSessionStartTime());
         }
         
         // Start duration timer
@@ -66,8 +68,8 @@ window.RecordingManager = {
         
         // Save recording start time and session start time to storage
         chrome.storage.local.set({ 
-            recordingStartTime: window.recordingStartTime ? window.recordingStartTime.toISOString() : null,
-            sessionStartTime: window.sessionStartTime ? window.sessionStartTime.toISOString() : null
+            recordingStartTime: window.StateManager?.getRecordingStartTime() ? window.StateManager?.getRecordingStartTime().toISOString() : null,
+            sessionStartTime: window.StateManager?.getSessionStartTime() ? window.StateManager?.getSessionStartTime().toISOString() : null
         });
         
         // Create new session ID if none exists (session will be added to history when first entry appears)
@@ -85,8 +87,8 @@ window.RecordingManager = {
                 // Zapisz stan wraz z ID karty Meet
                 chrome.storage.local.set({ 
                     realtimeMode: true, 
-                    recordingStartTime: window.recordingStartTime ? window.recordingStartTime.toISOString() : null,
-                    sessionStartTime: window.sessionStartTime ? window.sessionStartTime.toISOString() : null,
+                    recordingStartTime: window.StateManager?.getRecordingStartTime() ? window.StateManager?.getRecordingStartTime().toISOString() : null,
+                    sessionStartTime: window.StateManager?.getSessionStartTime() ? window.StateManager?.getSessionStartTime().toISOString() : null,
                     meetTabId: tab.id  // Save the Meet tab ID
                 });
                 
@@ -139,11 +141,9 @@ window.RecordingManager = {
             window.updateButtonVisibility('NEW');
         }
         
-        // Add current session duration to total
-        if (window.recordingStartTime) {
-            const now = new Date();
-            const currentSessionDuration = Math.floor((now - window.recordingStartTime) / 1000);
-            window.sessionTotalDuration += currentSessionDuration;
+        // Add current session duration to total using TimerManager
+        if (window.TimerManager) {
+            window.TimerManager.accumulateSessionDuration();
         }
         
         // Stop duration timer
@@ -157,8 +157,8 @@ window.RecordingManager = {
         }
         
         // Set flags to ignore background updates and mark as paused
-        window.recordingStopped = true;
-        window.recordingPaused = true;
+        window.StateManager?.setRecordingStopped(true);
+        window.StateManager?.setRecordingPaused(true);
         
         // Zatrzymaj skanowanie w tle PRZED zapisem sesji
         chrome.runtime.sendMessage({
@@ -187,7 +187,7 @@ window.RecordingManager = {
             realtimeMode: window.realtimeMode,
             currentSessionId: window.currentSessionId,
             transcriptData: window.transcriptData ? window.transcriptData.messages.length : 0,
-            sessionTotalDuration: window.sessionTotalDuration
+            sessionTotalDuration: window.StateManager?.getSessionTotalDuration()
         });
         // Don't reset sessionTotalDuration or create new session
         await this.activateRealtimeMode(true); // true = isContinuation
@@ -202,11 +202,11 @@ window.RecordingManager = {
             this.deactivateRealtimeMode();
         } else {
             // Check if recording was paused in current session
-            if (window.recordingPaused && window.transcriptData && window.transcriptData.messages.length > 0) {
+            if (window.StateManager?.getRecordingPaused() && window.transcriptData && window.transcriptData.messages.length > 0) {
                 // Resume paused recording directly
                 console.log('🔄 Resuming paused recording in same session');
-                window.recordingPaused = false;
-                window.recordingStopped = false;
+                window.StateManager?.setRecordingPaused(false);
+                window.StateManager?.setRecordingStopped(false);
                 this.continueCurrentSession();
             } else if (window.transcriptData && window.transcriptData.messages.length > 0) {
                 // Different session - show resume options
@@ -241,13 +241,10 @@ window.RecordingManager = {
         const originalDate = existingIndex >= 0 ? window.sessionHistory[existingIndex].date : new Date().toISOString();
         const originalTitle = existingIndex >= 0 ? window.sessionHistory[existingIndex].title : (window.generateSessionTitle ? window.generateSessionTitle() : 'Recording Session');
         
-        // Calculate current total duration
-        let currentTotalDuration = window.sessionTotalDuration || 0;
-        if (window.recordingStartTime) {
-            const now = new Date();
-            const currentSessionDuration = Math.floor((now - window.recordingStartTime) / 1000);
-            currentTotalDuration += currentSessionDuration;
-        }
+        // Calculate current total duration using TimerManager
+        const currentTotalDuration = window.TimerManager ? 
+            window.TimerManager.getTotalDuration() : 
+            (window.StateManager?.getSessionTotalDuration() || 0);
         
         const filteredTranscriptData = {
             messages: validMessages,
@@ -310,12 +307,12 @@ window.RecordingManager = {
         const isRecording = window.realtimeMode;
         return {
             isRecording: isRecording,
-            recordingStartTime: window.recordingStartTime,
-            sessionStartTime: window.sessionStartTime,
-            sessionTotalDuration: window.sessionTotalDuration || 0,
+            recordingStartTime: window.StateManager?.getRecordingStartTime(),
+            sessionStartTime: window.StateManager?.getSessionStartTime(),
+            sessionTotalDuration: window.StateManager?.getSessionTotalDuration() || 0,
             currentSessionId: window.currentSessionId,
-            recordingPaused: window.recordingPaused || false,
-            recordingStopped: window.recordingStopped || false
+            recordingPaused: window.StateManager?.getRecordingPaused() || false,
+            recordingStopped: window.StateManager?.getRecordingStopped() || false
         };
     }
 };

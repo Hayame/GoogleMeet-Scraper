@@ -20,7 +20,7 @@ window.BackgroundScanner = {
             return;
         }
         
-        if (window.recordingStopped) {
+        if (window.StateManager?.getRecordingStopped()) {
             console.log('🟡 [BACKGROUND DEBUG] Ignoring - recording stopped');
             return;
         }
@@ -37,8 +37,8 @@ window.BackgroundScanner = {
             hasTranscriptData: !!window.transcriptData,
             oldMessagesCount: window.transcriptData ? window.transcriptData.messages.length : 0,
             newMessagesCount: data.messages.length,
-            recordingPaused: window.recordingPaused,
-            recordingStopped: window.recordingStopped,
+            recordingPaused: window.StateManager?.getRecordingPaused(),
+            recordingStopped: window.StateManager?.getRecordingStopped(),
             oldHashesSample: window.transcriptData ? window.transcriptData.messages.slice(0,3).map(m => ({ speaker: m.speaker, hash: m.hash, text: m.text.substring(0,30) })) : [],
             newHashesSample: data.messages.slice(0,3).map(m => ({ speaker: m.speaker, hash: m.hash, text: m.text.substring(0,30) }))
         });
@@ -56,12 +56,12 @@ window.BackgroundScanner = {
         
         if (!window.transcriptData) {
             // Check if this is a session continuation (has sessionStartTime) or completely new session
-            const isContinuation = window.sessionStartTime !== null || window.recordingStartTime !== null;
+            const isContinuation = window.StateManager?.getSessionStartTime() !== null || window.StateManager?.getRecordingStartTime() !== null;
             
             if (isContinuation) {
                 console.log('🔄 [CONTINUATION] Initializing transcript data for continued session');
-                console.log('🔄 [CONTINUATION] SessionStartTime exists:', !!window.sessionStartTime);
-                console.log('🔄 [CONTINUATION] RecordingStartTime exists:', !!window.recordingStartTime);
+                console.log('🔄 [CONTINUATION] SessionStartTime exists:', !!window.StateManager?.getSessionStartTime());
+                console.log('🔄 [CONTINUATION] RecordingStartTime exists:', !!window.StateManager?.getRecordingStartTime());
             } else {
                 console.log('✅ [NEW] Initializing transcript data for completely new session');
             }
@@ -236,7 +236,7 @@ window.BackgroundScanner = {
      */
     getScanningStatus() {
         return {
-            isScanning: window.realtimeMode && !window.recordingStopped,
+            isScanning: window.realtimeMode && !window.StateManager?.getRecordingStopped(),
             hasTranscriptData: !!window.transcriptData,
             messageCount: window.transcriptData ? window.transcriptData.messages.length : 0,
             lastUpdate: window.transcriptData ? window.transcriptData.scrapedAt : null
