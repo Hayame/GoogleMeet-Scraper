@@ -177,6 +177,78 @@ statusDiv.querySelector('.status-text')  // Może nie istnieć po showMeetingNam
 - **Pliki**: Wszystkie moduły
 - **Rezultat**: Czystsza baza kodu
 
+## FAZA 2.5: KRYTYCZNE NAPRAWY BŁĘDÓW INTERFEJSU (Wykonane w Grudniu 2024)
+**Cel**: Naprawienie krytycznych błędów funkcjonalności rozszerzenia
+
+### ✅ WYKONANE NAPRAWY BŁĘDÓW:
+
+#### ✅ Zadanie 2.5.1: Naprawione Selektory DOM w Modal Manager
+- **Problem**: Nieprawidłowe selektory CSS dla przycisków modal (`.confirm-ok` vs `#confirmOk`)
+- **Rozwiązanie**: Zmieniono selektory na poprawne ID z popup.html
+- **Pliki**: `js/features/modal-manager.js` (linie 153, 154, 256, 271)
+- **Rezultat**: ✅ Naprawione błędy "Confirm cancel button not found"
+
+#### ✅ Zadanie 2.5.2: Dodana Brakująca Metoda showClearConfirmation
+- **Problem**: `window.ModalManager.showClearConfirmation is not a function`
+- **Rozwiązanie**: Dodano metodę `showClearConfirmation(onConfirm)` do ModalManager
+- **Pliki**: `js/features/modal-manager.js` (linie 96-136)
+- **Rezultat**: ✅ Naprawiony błąd wywoływania funkcji clear confirmation
+
+#### ✅ Zadanie 2.5.3: Naprawiony Kontekst performNewSessionCreation
+- **Problem**: `this.performNewSessionCreation is not a function`
+- **Rozwiązanie**: Dodano `window.performNewSessionCreation` do globalnych aliasów
+- **Pliki**: `js/features/session-history.js` (linia 561)
+- **Rezultat**: ✅ Naprawiony błąd kontekstu wywołania
+
+#### ✅ Zadanie 2.5.4: Dodane Globalne Aliasy Funkcji
+- **Problem**: `window.getSpeakerColorMap is not a function`
+- **Rozwiązanie**: Dodano alias w `TranscriptManager.setupGlobalAliases()`
+- **Pliki**: `js/features/transcript.js` (linia 590)
+- **Rezultat**: ✅ Naprawiony dostęp do funkcji getSpeakerColorMap
+
+#### ✅ Zadanie 2.5.5: Dodane Brakujące Kluczowe Funkcje
+- **Problem**: Brak `generateSessionId`, `generateSessionTitle`, `showEmptySession`
+- **Rozwiązanie**: Przeniesione z popup-old.js do SessionHistoryManager
+- **Pliki**: `js/features/session-history.js` (linie 484-549)
+- **Rezultat**: ✅ Przywrócona funkcjonalność tworzenia i zarządzania sesjami
+
+#### ✅ Zadanie 2.5.6: Dodana Funkcjonalność Czyszczenia Transkrypcji
+- **Problem**: Brak `clearCurrentTranscript` - przycisk Clear nie działał
+- **Rozwiązanie**: Dodano funkcję do SessionHistoryManager + naprawiono wywołanie w popup.js
+- **Pliki**: `js/features/session-history.js` (linie 506-557), `popup.js` (linia 174)
+- **Rezultat**: ✅ Naprawiony przycisk wyczyść transkrypcję
+
+#### ✅ Zadanie 2.5.7: Dodane Brakujące setupGlobalAliases
+- **Problem**: ModalManager nie eksportował funkcji globalnie
+- **Rozwiązanie**: Dodano `setupGlobalAliases()` z `showModal`, `hideModal`
+- **Pliki**: `js/features/modal-manager.js` (linie 534-540)
+- **Rezultat**: ✅ Poprawny dostęp do funkcji modal
+
+---
+
+### 🔍 ANALIZA POZOSTAŁYCH PROBLEMÓW DO NAPRAWIENIA:
+
+Po naprawach wykonanych powyżej, **większość krytycznych błędów została rozwiązana**. Pozostają następujące problemy do rozwiązania w przyszłości:
+
+#### ⚠️ Zadanie 2.6: Brakująca Funkcja updateClearButtonState 
+- **Problem**: Funkcja z popup-old.js nie została przeniesiona do modułów
+- **Wpływ**: 🟡 ŚREDNI - przycisk może nie aktualizować stanu poprawnie
+- **Sugerowane rozwiązanie**: Dodać do UIManager.js
+- **Status**: OPCJONALNE - funkcjonalność działa bez tej funkcji
+
+#### ⚠️ Zadanie 2.7: Brakująca Funkcja detectChanges
+- **Problem**: Funkcja z popup-old.js (linia 2239) nie została przeniesiona
+- **Wpływ**: 🟡 ŚREDNI - może wpływać na efektywność background scanner
+- **Sugerowane rozwiązanie**: Dodać do BackgroundScanner.js
+- **Status**: OPCJONALNE - background scanner ma własną logikę
+
+#### ⚠️ Zadanie 2.8: Brakujące setupGlobalAliases w Niektórych Modułach
+- **Problem**: BackgroundScanner, ExportManager, SessionUIManager nie mają setupGlobalAliases
+- **Wpływ**: 🟢 NISKI - moduły działają, ale mogą nie eksportować wszystkich funkcji
+- **Status**: OPCJONALNE - dodać dla kompletności
+
+---
+
 ### FAZA 3: DŁUGOTERMINOWE ULEPSZENIA (Niski Priorytet)
 **Cel**: Implementacja zaawansowanych wzorców i ulepszeń
 

@@ -26,7 +26,8 @@ const STORAGE_KEYS = {
     SIDEBAR_COLLAPSED: 'sidebarCollapsed',
     SEARCH_PANEL_OPEN: 'searchPanelOpen',
     FILTER_PANEL_OPEN: 'filterPanelOpen',
-    LAST_UI_STATE: 'lastUIState'
+    LAST_UI_STATE: 'lastUIState',
+    SESSION_STATE: 'sessionState'
 };
 
 // Application states
@@ -34,6 +35,14 @@ const APP_STATES = {
     RECORDING: 'recording',
     STOPPED: 'stopped',
     PAUSED: 'paused'
+};
+
+// Session states for popup restoration
+const SESSION_STATES = {
+    ACTIVE_RECORDING: 'active_recording',
+    PAUSED_SESSION: 'paused_session', 
+    HISTORICAL_SESSION: 'historical_session',
+    NEW_SESSION: 'new_session'
 };
 
 // Export format types
@@ -62,6 +71,7 @@ window.AppConstants = {
     TIMING,
     STORAGE_KEYS,
     APP_STATES,
+    SESSION_STATES,
     EXPORT_FORMATS,
     THEMES,
     LOG_LEVELS

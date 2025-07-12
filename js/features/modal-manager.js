@@ -20,6 +20,20 @@ window.ModalManager = {
             }
         });
         
+        // Universal modal close button handler
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal-close') && e.target.dataset.modal) {
+                this.hideModal(e.target.dataset.modal);
+            }
+        });
+        
+        // Click outside modal to close handler
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal')) {
+                this.hideModal(e.target.id);
+            }
+        });
+        
         // Initialize specific modals
         this.initializeConfirmModal();
         this.initializeExportModal();
@@ -106,9 +120,9 @@ window.ModalManager = {
         
         // Update modal content for delete confirmation
         const confirmTitle = confirmModal.querySelector('.modal-title');
-        const confirmMessage = confirmModal.querySelector('.modal-message');
-        const confirmOk = confirmModal.querySelector('.confirm-ok');
-        const confirmCancel = confirmModal.querySelector('.confirm-cancel');
+        const confirmMessage = document.getElementById('confirmMessage');
+        const confirmOk = document.getElementById('confirmOk');
+        const confirmCancel = document.getElementById('confirmCancel');
         
         if (confirmTitle) confirmTitle.textContent = 'Potwierdź usunięcie';
         if (confirmMessage) confirmMessage.textContent = 'Czy na pewno chcesz usunąć tę sesję? Ta operacja jest nieodwracalna.';
@@ -121,7 +135,9 @@ window.ModalManager = {
         
         // Set up event handlers
         newConfirmOk.addEventListener('click', () => {
-            this.performDeleteSession(sessionId);
+            if (window.SessionHistoryManager && window.SessionHistoryManager.performDeleteSession) {
+                window.SessionHistoryManager.performDeleteSession(sessionId);
+            }
             this.hideModal('confirmModal');
         });
         
@@ -134,50 +150,6 @@ window.ModalManager = {
         newConfirmOk.textContent = 'Usuń';
         
         this.showModal('confirmModal', { title: 'Usuń sesję' });
-    },
-
-    /**
-     * Perform session deletion
-     * Extracted from popup.js lines 3007-3058
-     * @param {string} sessionId - ID of session to delete
-     */
-    performDeleteSession(sessionId) {    
-        chrome.storage.local.get(['sessionHistory', 'currentSessionId'], (result) => {
-            let sessionHistory = result.sessionHistory || [];
-            const currentSessionId = result.currentSessionId;
-            
-            // Remove session from history
-            sessionHistory = sessionHistory.filter(session => session.id !== sessionId);
-            
-            // Update storage
-            chrome.storage.local.set({ sessionHistory }, () => {
-                // Re-render session history
-                if (window.renderSessionHistory) {
-                    window.renderSessionHistory();
-                }
-                
-                // Update UI status
-                if (window.UIManager && window.UIManager.updateStatus) {
-                    window.UIManager.updateStatus('Sesja została usunięta', 'success');
-                }
-            });
-            
-            // If the deleted session was the current session, reset UI
-            if (currentSessionId === sessionId) {
-                // Reset transcript display
-                if (window.showEmptySession) {
-                    window.showEmptySession();
-                }
-                
-                // Update UI for new session state
-                if (window.UIManager) {
-                    window.UIManager.updateButtonVisibility('NEW');
-                    window.UIManager.hideMeetingName();
-                }
-                
-                chrome.storage.local.remove(['transcriptData', 'currentSessionId', 'recordingStartTime', 'sessionStartTime', 'sessionTotalDuration', 'currentSessionDuration', 'meetTabId']);
-            }
-        });
     },
 
     /**
@@ -210,8 +182,8 @@ window.ModalManager = {
      * Extracted from popup.js lines 3077-3100
      */
     initializeStopRecordingModalEventListeners() {
-        const stopOk = document.querySelector('#stopRecordingModal .confirm-ok');
-        const stopCancel = document.querySelector('#stopRecordingModal .confirm-cancel');
+        const stopOk = document.getElementById('stopRecordingConfirm');
+        const stopCancel = document.getElementById('stopRecordingCancel');
         
         if (stopOk) {
             // Remove existing listeners by cloning
@@ -341,7 +313,7 @@ window.ModalManager = {
      * Extracted from popup.js lines 3209-3220
      */
     initializeConfirmModal() {    
-        const confirmCancel = document.querySelector('#confirmModal .confirm-cancel');
+        const confirmCancel = document.getElementById('confirmCancel');
         
         if (confirmCancel) {
             confirmCancel.addEventListener('click', () => {
@@ -365,7 +337,7 @@ window.ModalManager = {
      * Extracted from popup.js lines 3227-3270
      */
     setupExportButtonHandlers() {    
-        const exportTxtBtn = document.getElementById('exportModalTxtBtn');
+        const exportTxtBtn = document.getElementById('exportTxtBtn');
         
         if (exportTxtBtn) {
             exportTxtBtn.addEventListener('click', () => {
@@ -389,7 +361,7 @@ window.ModalManager = {
             console.error('Export TXT button not found');
         }
         
-        const exportJsonBtn = document.getElementById('exportModalJsonBtn');
+        const exportJsonBtn = document.getElementById('exportJsonBtn');
         
         if (exportJsonBtn) {
             exportJsonBtn.addEventListener('click', () => {
@@ -482,5 +454,17 @@ window.ModalManager = {
     initialize() {
         console.log('🪟 [MODAL] ModalManager initialized');
         this.initializeModalSystem();
+        this.setupGlobalAliases();
+    },
+
+    /**
+     * Set up global function aliases for backward compatibility
+     */
+    setupGlobalAliases() {
+        // Critical fix: Expose modal functions globally as expected by other modules
+        window.showModal = this.showModal.bind(this);
+        window.hideModal = this.hideModal.bind(this);
+        
+        console.log('🔗 [MODAL] Global modal function aliases created for backward compatibility');
     }
 };

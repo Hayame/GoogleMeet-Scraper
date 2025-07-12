@@ -329,6 +329,37 @@ async function applySessionStateRestoration(sessionState) {
             window.TimerManager.startDurationTimer();
         }
         
+    } else if (sessionState.sessionState === window.AppConstants.SESSION_STATES.PAUSED_SESSION) {
+        // CRITICAL FIX: Restore paused session - show transcript + "Rozpocznij nagrywanie" button
+        console.log('⏸️ [POPUP] Restoring paused session');
+        
+        // Display transcript data for paused session
+        if (sessionState.transcriptData && window.displayTranscript) {
+            window.displayTranscript(sessionState.transcriptData);
+            console.log('⏸️ [POPUP] Restored transcript data for paused session:', sessionState.transcriptData.messages?.length || 0, 'messages');
+        }
+        
+        // Update stats for paused session
+        if (sessionState.transcriptData && window.updateStats) {
+            window.updateStats(sessionState.transcriptData);
+        }
+        
+        // CRITICAL: Update UI for paused session (show "Rozpocznij nagrywanie" button)
+        if (window.UIManager) {
+            window.UIManager.updateButtonVisibility('NEW');
+        }
+        
+        // Restore session duration display if available
+        if (sessionState.sessionTotalDuration && window.TimerManager) {
+            // Set the accumulated duration
+            window.StateManager?.setSessionTotalDuration(sessionState.sessionTotalDuration);
+            if (window.TimerManager.updateDurationDisplay) {
+                window.TimerManager.updateDurationDisplay(sessionState.sessionTotalDuration);
+            }
+        }
+        
+        console.log('⏸️ [POPUP] Paused session restored with "Rozpocznij nagrywanie" button');
+        
     } else if (sessionState.transcriptData && sessionState.currentSessionId) {
         // Restore historical session
         console.log('📜 [POPUP] Restoring historical session');

@@ -141,10 +141,10 @@ window.RecordingManager = {
             window.updateButtonVisibility('NEW');
         }
         
-        // CRITICAL FIX: Clear all recording state from storage
-        // This prevents conflicts and ensures clean state after recording stops
+        // CRITICAL FIX: Set session to paused state instead of clearing everything
+        // This preserves session data and duration while stopping active recording
         if (window.StorageManager) {
-            window.StorageManager.clearRecordingState();
+            window.StorageManager.setPausedSessionState();
         }
         
         // Add current session duration to total using TimerManager

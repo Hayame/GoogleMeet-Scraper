@@ -123,8 +123,29 @@ async function clearCurrentSessionDuration() {
 }
 
 /**
- * Clear all recording-related storage keys when recording stops
- * CRITICAL FIX: Clean up storage to prevent conflicts
+ * Set session to paused state when recording stops
+ * CRITICAL FIX: Preserve session data but mark as paused for proper restoration
+ */
+async function setPausedSessionState() {
+    // Remove only active recording keys, preserve session data
+    await removeStorageData([
+        window.AppConstants.STORAGE_KEYS.REALTIME_MODE,
+        window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME,
+        window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_DURATION,
+        window.AppConstants.STORAGE_KEYS.MEET_TAB_ID
+    ]);
+    
+    // Set session state to paused
+    await setStorageData({
+        [window.AppConstants.STORAGE_KEYS.SESSION_STATE]: window.AppConstants.SESSION_STATES.PAUSED_SESSION
+    });
+    
+    console.log('⏸️ [STORAGE] Set session to paused state - preserved transcript data and total duration');
+}
+
+/**
+ * Clear all recording-related storage keys when recording stops (legacy function)
+ * DEPRECATED: Use setPausedSessionState() instead
  */
 async function clearRecordingState() {
     await removeStorageData([
@@ -149,6 +170,7 @@ window.StorageManager = {
     saveExpandedEntries,
     clearCurrentSessionDuration,
     clearRecordingState,
+    setPausedSessionState,
 
     /**
      * Initialize StorageManager module

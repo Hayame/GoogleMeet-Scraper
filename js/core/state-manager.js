@@ -371,7 +371,8 @@ async function restoreStateFromStorage() {
             window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID,
             window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION,
             window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_DURATION,
-            window.AppConstants.STORAGE_KEYS.MEET_TAB_ID
+            window.AppConstants.STORAGE_KEYS.MEET_TAB_ID,
+            window.AppConstants.STORAGE_KEYS.SESSION_STATE
         ]);
         
         console.log('🔄 [RESTORE DEBUG] Storage contents:', {
@@ -432,6 +433,37 @@ async function restoreStateFromStorage() {
                 transcriptData: result[window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA],
                 currentSessionId: result[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID]
             };
+        }
+        
+        // CRITICAL FIX: Check for paused session state
+        const sessionState = result[window.AppConstants.STORAGE_KEYS.SESSION_STATE];
+        if (sessionState === window.AppConstants.SESSION_STATES.PAUSED_SESSION) {
+            console.log('⏸️ [RESTORE] Restoring paused session state');
+            
+            if (result[window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA] && result[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID]) {
+                transcriptData = result[window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA];
+                currentSessionId = result[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID];
+                
+                // Restore session start time and total duration for paused session
+                if (result[window.AppConstants.STORAGE_KEYS.SESSION_START_TIME]) {
+                    sessionState.sessionStartTime = new Date(result[window.AppConstants.STORAGE_KEYS.SESSION_START_TIME]);
+                }
+                if (result[window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION]) {
+                    sessionState.totalDuration = result[window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION];
+                }
+                
+                exposeGlobalVariables();
+                
+                return {
+                    restored: true,
+                    realtimeMode: false,
+                    sessionState: window.AppConstants.SESSION_STATES.PAUSED_SESSION,
+                    transcriptData: transcriptData,
+                    currentSessionId: currentSessionId,
+                    sessionStartTime: result[window.AppConstants.STORAGE_KEYS.SESSION_START_TIME],
+                    sessionTotalDuration: result[window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION]
+                };
+            }
         }
         
         // Restore transcript data only for active recording or historical sessions

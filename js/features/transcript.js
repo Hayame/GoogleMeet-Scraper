@@ -587,6 +587,7 @@ window.TranscriptManager = {
         // Critical fix: Expose transcript functions globally as expected by other modules
         window.displayTranscript = this.displayTranscript.bind(this);
         window.updateStats = this.updateStats.bind(this);
+        window.getSpeakerColorMap = this.getSpeakerColorMap.bind(this);
         
         console.log('🔗 [TRANSCRIPT] Global transcript function aliases created for backward compatibility');
     }
