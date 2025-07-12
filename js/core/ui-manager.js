@@ -211,21 +211,38 @@ window.UIManager = {
             return;
         }
         
-        // Update session in storage
-        chrome.storage.local.get(['sessionHistory'], (result) => {
-            const sessionHistory = result.sessionHistory || [];
-            const sessionIndex = sessionHistory.findIndex(s => s.id === sessionId);
-            
-            if (sessionIndex !== -1) {
-                sessionHistory[sessionIndex].title = newName;
-                chrome.storage.local.set({ sessionHistory }, () => {
-                    // Re-render session history to update the sidebar
-                    if (window.renderSessionHistory) {
-                        window.renderSessionHistory();
-                    }
-                });
-            }
-        });
+        // Update session in storage using StorageManager
+        if (window.StorageManager) {
+            window.StorageManager.getStorageData(['sessionHistory']).then((result) => {
+                const sessionHistory = result.sessionHistory || [];
+                const sessionIndex = sessionHistory.findIndex(s => s.id === sessionId);
+                
+                if (sessionIndex !== -1) {
+                    sessionHistory[sessionIndex].title = newName;
+                    window.StorageManager.saveSessionHistory(sessionHistory).then(() => {
+                        // Re-render session history to update the sidebar
+                        if (window.renderSessionHistory) {
+                            window.renderSessionHistory();
+                        }
+                    });
+                }
+            });
+        } else {
+            // Fallback to direct storage
+            chrome.storage.local.get(['sessionHistory'], (result) => {
+                const sessionHistory = result.sessionHistory || [];
+                const sessionIndex = sessionHistory.findIndex(s => s.id === sessionId);
+                
+                if (sessionIndex !== -1) {
+                    sessionHistory[sessionIndex].title = newName;
+                    chrome.storage.local.set({ sessionHistory }, () => {
+                        if (window.renderSessionHistory) {
+                            window.renderSessionHistory();
+                        }
+                    });
+                }
+            });
+        }
         
         // Show success message briefly
         this.updateStatus(`Zmieniono nazwę na: ${newName}`, 'success');

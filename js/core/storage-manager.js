@@ -169,5 +169,41 @@ window.StorageManager = {
     saveTheme,
     saveSidebarState,
     clearSessionData,
-    clearCurrentSessionDuration
+    clearCurrentSessionDuration,
+
+    /**
+     * Initialize StorageManager module
+     */
+    initialize() {
+        console.log('💾 [STORAGE] StorageManager initialized');
+        
+        // Set up global aliases for easier migration from direct chrome.storage calls
+        this.setupGlobalAliases();
+    },
+
+    /**
+     * Set up global storage function aliases for easier migration
+     */
+    setupGlobalAliases() {
+        // Simple wrapper functions for common operations
+        window.storageGet = (keys) => {
+            return new Promise((resolve) => {
+                chrome.storage.local.get(keys, resolve);
+            });
+        };
+        
+        window.storageSet = (data) => {
+            return new Promise((resolve) => {
+                chrome.storage.local.set(data, resolve);
+            });
+        };
+        
+        window.storageRemove = (keys) => {
+            return new Promise((resolve) => {
+                chrome.storage.local.remove(keys, resolve);
+            });
+        };
+        
+        console.log('🔗 [STORAGE] Global storage wrapper functions created');
+    }
 };

@@ -44,74 +44,80 @@ function validateEssentialElements() {
  * Initialize all application modules in the correct order
  */
 function initializeApplication() {
-    // 1. Initialize core state management
+    // 1. Initialize storage management first
+    if (window.StorageManager) {
+        window.StorageManager.initialize();
+        console.log('✅ Storage Manager initialized');
+    }
+    
+    // 2. Initialize core state management
     if (window.StateManager) {
         window.StateManager.initialize();
         console.log('✅ State Manager initialized');
     }
     
-    // 2. Initialize UI management
+    // 3. Initialize UI management
     if (window.UIManager) {
         window.UIManager.initialize();
         console.log('✅ UI Manager initialized');
     }
     
-    // 3. Initialize timer management
+    // 4. Initialize timer management
     if (window.TimerManager) {
         window.TimerManager.initialize();
         console.log('✅ Timer Manager initialized');
     }
     
-    // 4. Initialize modal system
+    // 5. Initialize modal system
     if (window.ModalManager) {
         window.ModalManager.initialize();
         console.log('✅ Modal Manager initialized');
     }
     
-    // 5. Initialize background scanner
+    // 6. Initialize background scanner
     if (window.BackgroundScanner) {
         window.BackgroundScanner.initialize();
         console.log('✅ Background Scanner initialized');
     }
     
-    // 6. Initialize recording management
+    // 7. Initialize recording management
     if (window.RecordingManager) {
         window.RecordingManager.initialize();
         console.log('✅ Recording Manager initialized');
     }
     
-    // 7. Initialize session history
+    // 8. Initialize session history
     if (window.SessionHistoryManager && window.SessionUIManager) {
         window.SessionHistoryManager.initialize();
         window.SessionUIManager.initialize();
         console.log('✅ Session History initialized');
     }
     
-    // 8. Initialize transcript features
+    // 9. Initialize transcript features
     if (window.TranscriptManager) {
         window.TranscriptManager.initialize();
         console.log('✅ Transcript Manager initialized');
     }
     
-    // 9. Initialize search and filter
+    // 10. Initialize search and filter
     if (window.SearchFilterManager) {
         window.SearchFilterManager.initialize();
         console.log('✅ Search Filter Manager initialized');
     }
     
-    // 10. Initialize export functionality
+    // 11. Initialize export functionality
     if (window.ExportManager) {
         window.ExportManager.initialize();
         console.log('✅ Export Manager initialized');
     }
     
-    // 11. Setup main event listeners
+    // 12. Setup main event listeners
     setupMainEventListeners();
     
-    // 12. Initialize theme system
+    // 13. Initialize theme system
     initializeTheme();
     
-    // 13. Restore application state
+    // 14. Restore application state
     if (window.StateManager) {
         window.StateManager.restoreState();
         console.log('✅ Application state restored');
