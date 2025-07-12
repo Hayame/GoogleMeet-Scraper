@@ -128,6 +128,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (result.recordingStartTime) {
                     recordingStartTime = new Date(result.recordingStartTime);
                     console.log('🔄 [RESTORE] Restored recording start time:', recordingStartTime);
+                    // Ensure immediate timer update with restored time
+                    updateDurationDisplay();
                     startDurationTimer();
                 }
                 
@@ -347,13 +349,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         if (result.recordingStartTime) {
             recordingStartTime = new Date(result.recordingStartTime);
+            console.log('🔄 [SECONDARY] Recordtime restored (secondary restoration):', recordingStartTime);
         }
         if (result.realtimeMode) {
-            // If resuming realtime mode, start the timer first
-            if (recordingStartTime) {
+            // Timer already started in restoreStateFromStorage(), just activate UI mode
+            activateRealtimeMode();
+            
+            // Ensure timer is running - if popup was reopened while recording was active
+            if (recordingStartTime && !durationTimer) {
+                console.log('🔄 [SECONDARY] Starting timer for active recording (popup reopened)');
                 startDurationTimer();
             }
-            activateRealtimeMode();
         }
         if (result.transcriptData) {
             transcriptData = result.transcriptData;
@@ -1359,35 +1365,30 @@ function updateParticipantCountClickability(participantCount) {
     }
 }
 
-function startDurationTimer() {    
-    // Clear any existing timer
-    if (durationTimer) {
-        clearInterval(durationTimer);
-    }
-    
-    // Update duration display immediately
-    updateDurationDisplay();
-    
-    // Set up timer to update every second
-    durationTimer = setInterval(updateDurationDisplay, 1000);
-}
-
-function stopDurationTimer() {    
-    if (durationTimer) {
-        clearInterval(durationTimer);
-        durationTimer = null;
-    }
-}
 
 function updateDurationDisplay() {
     const durationSpan = document.getElementById('duration');
     if (!durationSpan) return;
     
     if (recordingStartTime) {
+        // Always calculate duration in real-time from the actual start time
         const now = new Date();
         const currentSessionDuration = Math.floor((now - recordingStartTime) / 1000);
         const totalDuration = sessionTotalDuration + currentSessionDuration;
+        
+        // Update display with current calculated time
         durationSpan.textContent = formatDuration(totalDuration);
+        
+        // Debug log every 30 seconds to help with troubleshooting
+        if (currentSessionDuration % 30 === 0) {
+            console.log('🕐 Timer update:', {
+                recordingStartTime: recordingStartTime.toISOString(),
+                currentSessionDuration,
+                sessionTotalDuration,
+                totalDuration,
+                displayText: formatDuration(totalDuration)
+            });
+        }
         
         // Save current total duration to storage periodically (every 10 seconds)
         if (totalDuration % 10 === 0) {
@@ -1397,6 +1398,7 @@ function updateDurationDisplay() {
             });
         }
     } else {
+        // No active recording - show total accumulated duration
         durationSpan.textContent = formatDuration(sessionTotalDuration);
     }
 }
@@ -2378,14 +2380,20 @@ function startDurationTimer() {
         return;
     }
     
-    // Start UI update interval only when popup is open
-    if (!durationTimer) {
-        durationTimer = setInterval(updateDurationDisplay, 1000);
-        console.log('🕐 Duration timer UI started');
+    console.log('🕐 Starting duration timer with recordingStartTime:', recordingStartTime);
+    
+    // Clear any existing timer first
+    if (durationTimer) {
+        clearInterval(durationTimer);
+        durationTimer = null;
     }
     
-    // Initial display update
+    // Immediate display update to show current time
     updateDurationDisplay();
+    
+    // Start UI update interval only when popup is open
+    durationTimer = setInterval(updateDurationDisplay, 1000);
+    console.log('🕐 Duration timer UI started');
 }
 
 function stopDurationTimer() {
