@@ -245,29 +245,21 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             // Show/hide buttons based on session type
-            const recordBtn = document.getElementById('recordBtn');
-            const closeSessionBtn = document.getElementById('closeSessionBtn');
-            
-            if (recordBtn && closeSessionBtn) {
-                if (result.realtimeMode) {
-                    // Active recording session - show record button, hide close button
-                    recordBtn.style.display = 'flex';
-                    closeSessionBtn.style.display = 'none';
-                } else if (result.currentSessionId && sessionHistory.find(s => s.id === result.currentSessionId)) {
-                    // Session exists in history - it's historical, show meeting name and restore duration
-                    const session = sessionHistory.find(s => s.id === result.currentSessionId);
-                    if (session) {
-                        showMeetingName(session.title, session.id);
-                        sessionTotalDuration = session.totalDuration || 0; // Restore duration
-                        updateDurationDisplay(); // Update duration display
-                    }
-                    recordBtn.style.display = 'none';
-                    closeSessionBtn.style.display = 'block';
-                } else {
-                    // New/empty session - show record button, hide close button
-                    recordBtn.style.display = 'flex';
-                    closeSessionBtn.style.display = 'none';
+            if (result.realtimeMode) {
+                // Active recording session
+                updateButtonVisibility('RECORDING');
+            } else if (result.currentSessionId && sessionHistory.find(s => s.id === result.currentSessionId)) {
+                // Session exists in history - it's historical, show meeting name and restore duration
+                const session = sessionHistory.find(s => s.id === result.currentSessionId);
+                if (session) {
+                    showMeetingName(session.title, session.id);
+                    sessionTotalDuration = session.totalDuration || 0; // Restore duration
+                    updateDurationDisplay(); // Update duration display
                 }
+                updateButtonVisibility('HISTORICAL');
+            } else {
+                // New/empty session
+                updateButtonVisibility('NEW');
             }
             
             console.log('🔄 [RESTORE] State restoration completed');
@@ -512,6 +504,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Hide meeting name and show status for recording
         hideMeetingName();
         updateStatus('Nagrywanie aktywne - skanowanie w tle', 'info');
+        // Update button visibility for recording state
+        updateButtonVisibility('RECORDING');
         
         // Set recording start time only for new recordings (not continuations)
         if (!isContinuation) {
@@ -693,6 +687,41 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Initialize status visibility on popup load
+// Centralized UI state management
+function updateButtonVisibility(sessionState) {
+    const recordBtn = document.getElementById('recordBtn');
+    const closeSessionBtn = document.getElementById('closeSessionBtn');
+    
+    if (!recordBtn || !closeSessionBtn) return;
+    
+    switch (sessionState) {
+        case 'RECORDING':
+            // Active recording - show record button (active), hide X button
+            recordBtn.style.display = 'flex';
+            recordBtn.classList.add('active');
+            closeSessionBtn.style.display = 'none';
+            break;
+            
+        case 'HISTORICAL':
+            // Historical session - hide record button, show X button
+            recordBtn.style.display = 'none';
+            closeSessionBtn.style.display = 'block';
+            break;
+            
+        case 'NEW':
+        default:
+            // New/empty session - show record button (inactive), hide X button
+            recordBtn.style.display = 'flex';
+            recordBtn.classList.remove('active');
+            closeSessionBtn.style.display = 'none';
+            const recordText = document.querySelector('.record-text');
+            if (recordText) {
+                recordText.textContent = 'Rozpocznij nagrywanie';
+            }
+            break;
+    }
+}
+
 function initializeStatusVisibility() {
     const statusDiv = document.getElementById('recordingStatus');
     if (!statusDiv) {
@@ -941,22 +970,8 @@ function showEmptySession() {
         exportTxtBtn.disabled = true;
     }
     
-    // Show record button for new session
-    const recordBtn = document.getElementById('recordBtn');
-    if (recordBtn) {
-        recordBtn.style.display = 'flex';
-        recordBtn.classList.remove('active');
-        const recordText = document.querySelector('.record-text');
-        if (recordText) {
-            recordText.textContent = 'Rozpocznij nagrywanie';
-        }
-    }
-    
-    // Hide close session button (only for historical sessions)
-    const closeSessionBtn = document.getElementById('closeSessionBtn');
-    if (closeSessionBtn) {
-        closeSessionBtn.style.display = 'none';
-    }
+    // Update button visibility for new session
+    updateButtonVisibility('NEW');
     
     // Clear storage
     chrome.storage.local.remove(['transcriptData', 'currentSessionId', 'recordingStartTime', 'sessionStartTime', 'sessionTotalDuration', 'currentSessionDuration', 'realtimeMode', 'meetTabId']);
@@ -1525,6 +1540,8 @@ function deactivateRealtimeMode() {
     realtimeBtn.classList.remove('active');
     document.querySelector('.record-text').textContent = 'Rozpocznij nagrywanie';
     updateStatus('Nagrywanie zatrzymane', 'success');
+    // Update button visibility - for now keep as recording state since session is still active
+    updateButtonVisibility('NEW');
     
     // Add current session duration to total
     if (recordingStartTime) {
@@ -2000,17 +2017,8 @@ function performLoadSession(session) {
     // Show meeting name instead of status for historical sessions
     showMeetingName(session.title, session.id);
     
-    // Hide record button for historical sessions (they are read-only)
-    const recordBtn = document.getElementById('recordBtn');
-    if (recordBtn) {
-        recordBtn.style.display = 'none';
-    }
-    
-    // Show close session button for historical sessions
-    const closeSessionBtn = document.getElementById('closeSessionBtn');
-    if (closeSessionBtn) {
-        closeSessionBtn.style.display = 'block';
-    }
+    // Update button visibility for historical session
+    updateButtonVisibility('HISTORICAL');
     
     // Update clear button state
     if (window.updateClearButtonState) {
