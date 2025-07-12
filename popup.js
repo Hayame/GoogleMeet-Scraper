@@ -509,7 +509,10 @@ document.addEventListener('DOMContentLoaded', function() {
             sessionStartTime = recordingStartTime; // Also set session start time for new sessions
             console.log('🟢 [ACTIVATION DEBUG] New session - setting recordingStartTime:', recordingStartTime);
         } else {
-            console.log('🟢 [ACTIVATION DEBUG] Continuation - keeping existing recordingStartTime:', recordingStartTime);
+            // For continuation, set new recordingStartTime to track current recording segment
+            recordingStartTime = new Date();
+            // Keep existing sessionStartTime for consistent session naming
+            console.log('🟢 [ACTIVATION DEBUG] Continuation - setting new recordingStartTime:', recordingStartTime);
             console.log('🟢 [ACTIVATION DEBUG] Continuation - keeping existing sessionStartTime:', sessionStartTime);
         }
         
