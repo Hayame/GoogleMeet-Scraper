@@ -1610,7 +1610,7 @@ function performNewSessionCreation() {
     updateDurationDisplay(); // Reset duration display to 00:00
     
     // Reset filters and hide meeting name for clean new session
-    resetFilters();
+    resetParticipantFilters();
     hideMeetingName();
     
     console.log('🆕 [NEW SESSION] After displayTranscript, transcriptData:', transcriptData);
@@ -3528,6 +3528,9 @@ function updateFilterBadge() {
             filterBtn.classList.add('filter-active');
         }
         // If activeParticipantFilters.size === allParticipants.length, no badge (all selected)
+    } else {
+        // Empty session - remove active state for neutral appearance
+        filterBtn.classList.remove('active', 'filter-active');
     }
 }
 
