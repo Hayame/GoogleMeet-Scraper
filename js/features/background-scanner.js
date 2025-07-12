@@ -204,49 +204,8 @@ window.BackgroundScanner = {
         });
     },
 
-    /**
-     * Secondary state restoration for recording continuation
-     * Source: popup.js lines 416-445
-     */
-    initializeSecondaryStateRestoration() {
-        chrome.storage.local.get(['realtimeMode', 'transcriptData', 'currentSessionId', 'recordingStartTime', 'sessionStartTime', 'meetTabId'], (result) => {
-            if (result.currentSessionId) {
-                window.currentSessionId = result.currentSessionId;
-            }
-            if (result.recordingStartTime) {
-                window.recordingStartTime = new Date(result.recordingStartTime);
-                console.log('🔄 [SECONDARY] Recordtime restored (secondary restoration):', window.recordingStartTime);
-            }
-            if (result.sessionStartTime) {
-                window.sessionStartTime = new Date(result.sessionStartTime);
-                console.log('🔄 [SECONDARY] SessionStartTime restored:', window.sessionStartTime);
-            }
-            if (result.realtimeMode) {
-                // Don't call activateRealtimeMode here - it would try to restart background scanning
-                // The state restoration is already handled in restoreStateFromStorage()
-                console.log('🔄 [SECONDARY] Recording mode already restored in restoreStateFromStorage');
-                
-                // Ensure timer is running - if popup was reopened while recording was active
-                if (window.recordingStartTime && !window.durationTimer) {
-                    console.log('🔄 [SECONDARY] Starting timer for active recording (popup reopened)');
-                    if (window.startDurationTimer) {
-                        window.startDurationTimer();
-                    }
-                }
-            }
-            if (result.transcriptData) {
-                window.transcriptData = result.transcriptData;
-                if (window.displayTranscript) {
-                    window.displayTranscript(window.transcriptData);
-                }
-                if (window.updateStats) {
-                    window.updateStats(window.transcriptData);
-                }
-                const exportTxtBtn = document.getElementById('exportTxtBtn');
-                if (exportTxtBtn) exportTxtBtn.disabled = false;
-            }
-        });
-    },
+    // REMOVED: initializeSecondaryStateRestoration() - Causes race conditions
+    // State restoration is now centralized in StateManager.restoreStateFromStorage()
 
     /**
      * Auto-save interval functionality (periodic background save)
@@ -289,7 +248,7 @@ window.BackgroundScanner = {
      */
     initialize() {
         this.initializeMessageListener();
-        this.initializeSecondaryStateRestoration();
+        // REMOVED: this.initializeSecondaryStateRestoration(); - Causes race conditions
         this.initializeAutoSaveInterval();
         console.log('🔄 Background Scanner initialized');
     }
