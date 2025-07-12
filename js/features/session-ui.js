@@ -192,26 +192,12 @@ window.SessionUIManager = {
 
     /**
      * Setup auto-save functionality for sessions
-     * Source: popup.js lines 2117-2133
+     * REMOVED: Duplicate functionality moved to BackgroundScanner.initializeAutoSaveInterval()
+     * The BackgroundScanner already handles auto-save every 30 seconds
      */
     setupAutoSave() {
-        // Auto-save functionality
-        setInterval(() => {
-            if (window.transcriptData && window.transcriptData.messages.length > 0 && window.currentSessionId) {
-                // Auto-save current session
-                const existingIndex = window.sessionHistory.findIndex(s => s.id === window.currentSessionId);
-                if (existingIndex >= 0) {
-                    // Update existing session silently (preserve original date)
-                    const uniqueParticipants = new Set(window.transcriptData.messages.map(e => e.speaker)).size;
-                    window.sessionHistory[existingIndex].transcript = window.transcriptData;
-                    window.sessionHistory[existingIndex].participantCount = uniqueParticipants;
-                    window.sessionHistory[existingIndex].entryCount = window.transcriptData.messages.length;
-                    // Don't update date field - preserve the original session creation date
-                    
-                    chrome.storage.local.set({ sessionHistory: window.sessionHistory });
-                }
-            }
-        }, 30000); // Auto-save every 30 seconds
+        console.log('🔄 Auto-save handled by BackgroundScanner - no duplicate needed');
+        // Auto-save is now centralized in BackgroundScanner module
     },
 
     /**

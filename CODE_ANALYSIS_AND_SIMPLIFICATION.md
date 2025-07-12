@@ -210,8 +210,8 @@ statusDiv.querySelector('.status-text')  // Może nie istnieć po showMeetingNam
 
 ### FAZA 1: KRYTYCZNE NAPRAWY BŁĘDÓW
 - [✅] **Zadanie 1.1**: Naprawienie ekspozycji funkcji UI (UKOŃCZONE)
-- [🟡] **Zadanie 1.2**: Usunięcie duplikatu auto-save (W TRAKCIE)
-- [ ] **Zadanie 1.3**: Konsolidacja przywracania stanu
+- [✅] **Zadanie 1.2**: Usunięcie duplikatu auto-save (UKOŃCZONE)
+- [🟡] **Zadanie 1.3**: Konsolidacja przywracania stanu (W TRAKCIE)
 - [ ] **Zadanie 1.4**: Naprawienie konfliktów timerów
 
 ### FAZA 2: UPROSZCZENIE ARCHITEKTURY
