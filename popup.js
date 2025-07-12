@@ -806,6 +806,7 @@ function showEmptySession() {
     // Reset search and filters
     resetSearch();
     resetParticipantFilters();
+    hideMeetingName();
     
     // Stop any existing timer
     stopDurationTimer();
@@ -1607,6 +1608,11 @@ function performNewSessionCreation() {
     displayTranscript({ messages: [] });
     updateStats({ messages: [] });
     updateDurationDisplay(); // Reset duration display to 00:00
+    
+    // Reset filters and hide meeting name for clean new session
+    resetFilters();
+    hideMeetingName();
+    
     console.log('🆕 [NEW SESSION] After displayTranscript, transcriptData:', transcriptData);
     
     const exportTxtBtn = document.getElementById('exportTxtBtn');
