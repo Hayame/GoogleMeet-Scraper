@@ -332,5 +332,10 @@ window.StateManager = {
     clearRealtimeInterval,
     
     // State management functions
+    initialize() {
+        console.log('🗂️ [STATE] StateManager initialized');
+        // StateManager doesn't need special initialization
+        // State is managed through getters/setters and restored via restoreStateFromStorage()
+    },
     restoreStateFromStorage
 };
