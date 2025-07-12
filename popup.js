@@ -3345,7 +3345,10 @@ function toggleFilterDropdown() {
         updateParticipantFiltersList();
         filterDropdown.style.display = 'block';
         filterDropdown.style.animation = 'filterDropdownSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards';
-        filterBtn.classList.add('active');
+        // Only add active class if there are participants to filter
+        if (allParticipants.length > 0) {
+            filterBtn.classList.add('active');
+        }
     }
 }
 
@@ -3383,6 +3386,7 @@ function updateParticipantFiltersList() {
     
     if (allParticipants.length === 0) {
         filterParticipantsList.innerHTML = '<div class="no-participants">Brak uczestników</div>';
+        updateFilterBadge(); // Ensure filter button visual state is updated for empty sessions
         return;
     }
     
