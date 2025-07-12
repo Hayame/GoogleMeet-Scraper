@@ -146,46 +146,6 @@ window.ExportManager = {
         }
     },
 
-    /**
-     * Check if transcript data is available for export
-     */
-    hasExportableData() {
-        return window.transcriptData && 
-               window.transcriptData.messages && 
-               window.transcriptData.messages.length > 0;
-    },
-
-    /**
-     * Get export statistics
-     */
-    getExportStats() {
-        if (!this.hasExportableData()) {
-            return {
-                totalEntries: 0,
-                uniqueParticipants: 0,
-                hasTimestamps: false
-            };
-        }
-
-        const messages = window.transcriptData.messages;
-        return {
-            totalEntries: messages.length,
-            uniqueParticipants: new Set(messages.map(m => m.speaker)).size,
-            hasTimestamps: messages.some(m => m.timestamp)
-        };
-    },
-
-    /**
-     * Enable or disable export buttons based on data availability
-     */
-    updateExportButtonsState() {
-        const exportTxtBtn = document.getElementById('exportTxtBtn');
-        const hasData = this.hasExportableData();
-        
-        if (exportTxtBtn) {
-            exportTxtBtn.disabled = !hasData;
-        }
-    },
 
     /**
      * Helper function to update status (delegates to global function if available)

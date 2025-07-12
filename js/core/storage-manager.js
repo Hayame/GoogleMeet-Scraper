@@ -114,41 +114,6 @@ async function saveExpandedEntries(expandedEntries) {
     });
 }
 
-/**
- * Save theme preference
- * @param {string} theme - Theme name
- */
-async function saveTheme(theme) {
-    await setStorageData({ 
-        [window.AppConstants.STORAGE_KEYS.THEME]: theme 
-    });
-}
-
-/**
- * Save sidebar collapsed state
- * @param {boolean} collapsed - Whether sidebar is collapsed
- */
-async function saveSidebarState(collapsed) {
-    await setStorageData({ 
-        [window.AppConstants.STORAGE_KEYS.SIDEBAR_COLLAPSED]: collapsed 
-    });
-}
-
-/**
- * Clear all session-related storage data
- */
-async function clearSessionData() {
-    await removeStorageData([
-        window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA,
-        window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID,
-        window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME,
-        window.AppConstants.STORAGE_KEYS.SESSION_START_TIME,
-        window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION,
-        window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_DURATION,
-        window.AppConstants.STORAGE_KEYS.REALTIME_MODE,
-        window.AppConstants.STORAGE_KEYS.MEET_TAB_ID
-    ]);
-}
 
 /**
  * Clear current session duration (used to prevent accumulation)
@@ -166,9 +131,6 @@ window.StorageManager = {
     saveSessionState,
     saveSessionHistory,
     saveExpandedEntries,
-    saveTheme,
-    saveSidebarState,
-    clearSessionData,
     clearCurrentSessionDuration,
 
     /**

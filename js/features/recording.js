@@ -296,8 +296,6 @@ window.RecordingManager = {
         });
     },
 
-    // REMOVED: restoreStateFromStorage() - Dead code, never called
-    // State restoration is handled by StateManager.restoreStateFromStorage()
 
     /**
      * Get current recording status

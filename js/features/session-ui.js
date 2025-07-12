@@ -190,22 +190,11 @@ window.SessionUIManager = {
         window.showModal('participantsModal');
     },
 
-    /**
-     * Setup auto-save functionality for sessions
-     * REMOVED: Duplicate functionality moved to BackgroundScanner.initializeAutoSaveInterval()
-     * The BackgroundScanner already handles auto-save every 30 seconds
-     */
-    setupAutoSave() {
-        console.log('🔄 Auto-save handled by BackgroundScanner - no duplicate needed');
-        // Auto-save is now centralized in BackgroundScanner module
-    },
 
     /**
      * Initialize session UI components
      */
     initialize() {
-        this.setupAutoSave();
-        
         // Setup event listeners for session-related UI elements
         this.setupEventListeners();
     },
@@ -229,102 +218,4 @@ window.SessionUIManager = {
         }
     },
 
-    /**
-     * Update session title in the UI
-     */
-    updateSessionTitle(sessionId, newTitle) {
-        const sessionElements = document.querySelectorAll('.session-item');
-        sessionElements.forEach(element => {
-            const titleElement = element.querySelector('.session-title');
-            if (titleElement && element.dataset.sessionId === sessionId) {
-                titleElement.textContent = newTitle;
-            }
-        });
-    },
-
-    /**
-     * Highlight active session in the list
-     */
-    highlightActiveSession(sessionId) {
-        const sessionElements = document.querySelectorAll('.session-item');
-        sessionElements.forEach(element => {
-            element.classList.remove('active');
-            if (element.dataset.sessionId === sessionId) {
-                element.classList.add('active');
-            }
-        });
-    },
-
-    /**
-     * Filter sessions by search term
-     */
-    filterSessions(searchTerm) {
-        if (!searchTerm) {
-            this.renderSessionHistory();
-            return;
-        }
-        
-        const filteredSessions = window.sessionHistory.filter(session => 
-            session.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            new Date(session.date).toLocaleDateString('pl-PL').includes(searchTerm)
-        );
-        
-        this.renderFilteredSessions(filteredSessions);
-    },
-
-    /**
-     * Render filtered sessions
-     */
-    renderFilteredSessions(sessions) {
-        const historyContainer = document.getElementById('sessionList');
-        if (!historyContainer) {
-            console.error('Session list container not found');
-            return;
-        }
-        
-        historyContainer.innerHTML = '';
-        
-        if (sessions.length === 0) {
-            historyContainer.innerHTML = '<div class="empty-sessions"><p>Brak sesji spełniających kryteria</p></div>';
-            return;
-        }
-        
-        // Use the same rendering logic as renderSessionHistory but with filtered sessions
-        const originalSessionHistory = window.sessionHistory;
-        window.sessionHistory = sessions;
-        this.renderSessionHistory();
-        window.sessionHistory = originalSessionHistory;
-    },
-
-    /**
-     * Sort sessions by different criteria
-     */
-    sortSessions(criteria = 'date', order = 'desc') {
-        const sortedSessions = [...window.sessionHistory];
-        
-        sortedSessions.sort((a, b) => {
-            let comparison = 0;
-            
-            switch (criteria) {
-                case 'date':
-                    comparison = new Date(a.date) - new Date(b.date);
-                    break;
-                case 'title':
-                    comparison = a.title.localeCompare(b.title);
-                    break;
-                case 'participants':
-                    comparison = a.participantCount - b.participantCount;
-                    break;
-                case 'entries':
-                    comparison = a.entryCount - b.entryCount;
-                    break;
-                default:
-                    comparison = new Date(a.date) - new Date(b.date);
-            }
-            
-            return order === 'desc' ? -comparison : comparison;
-        });
-        
-        this.renderFilteredSessions(sortedSessions);
-    }
 };

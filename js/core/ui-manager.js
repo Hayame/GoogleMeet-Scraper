@@ -302,7 +302,6 @@ window.UIManager = {
         }
     },
 
-    // REMOVED: updateDurationDisplay() - Moved to TimerManager (more comprehensive implementation)
 
     /**
      * Format duration in seconds to HH:MM:SS or MM:SS format

@@ -26,27 +26,6 @@ let sessionState = {
     isRecordingPaused: false     // Flag to track if recording is paused (vs completely stopped)
 };
 
-/**
- * Get current application state
- * @returns {Object} Current state object
- */
-function getCurrentState() {
-    return {
-        transcriptData,
-        realtimeMode,
-        realtimeInterval,
-        currentSessionId,
-        sessionHistory,
-        durationTimer,
-        expandedEntries,
-        currentSearchQuery,
-        searchDebounceTimer,
-        originalMessages,
-        activeParticipantFilters,
-        allParticipants,
-        sessionState
-    };
-}
 
 /**
  * Set transcript data
@@ -128,45 +107,6 @@ function getSessionStartTime() {
     return sessionState.sessionStartTime;
 }
 
-/**
- * Set session history
- * @param {Array} history - Session history array
- */
-function setSessionHistory(history) {
-    sessionHistory = history;
-}
-
-/**
- * Get session history
- * @returns {Array} Session history array
- */
-function getSessionHistory() {
-    return sessionHistory;
-}
-
-/**
- * Add session to history
- * @param {Object} session - Session object to add
- */
-function addSessionToHistory(session) {
-    sessionHistory.push(session);
-}
-
-/**
- * Set expanded entries
- * @param {Set} entries - Set of expanded entry IDs
- */
-function setExpandedEntries(entries) {
-    expandedEntries = entries;
-}
-
-/**
- * Get expanded entries
- * @returns {Set} Set of expanded entry IDs
- */
-function getExpandedEntries() {
-    return expandedEntries;
-}
 
 /**
  * Set session total duration
@@ -268,34 +208,6 @@ function clearRealtimeInterval() {
     }
 }
 
-/**
- * Reset all state to initial values
- */
-function resetState() {
-    transcriptData = null;
-    realtimeMode = false;
-    clearRealtimeInterval();
-    currentSessionId = null;
-    clearDurationTimer();
-    expandedEntries = new Set();
-    currentSearchQuery = '';
-    if (searchDebounceTimer) {
-        clearTimeout(searchDebounceTimer);
-        searchDebounceTimer = null;
-    }
-    originalMessages = [];
-    activeParticipantFilters = new Set();
-    allParticipants = [];
-    
-    // Reset consolidated session state
-    sessionState = {
-        recordingStartTime: null,
-        sessionStartTime: null,
-        totalDuration: 0,
-        isRecordingStopped: false,
-        isRecordingPaused: false
-    };
-}
 
 /**
  * Restore state from storage - Main state restoration function
@@ -392,39 +304,10 @@ async function restoreStateFromStorage() {
     }
 }
 
-/**
- * Get the complete session state object
- * @returns {Object} Session state object
- */
-function getSessionState() {
-    return sessionState;
-}
-
-/**
- * Set the complete session state object
- * @param {Object} newState - New session state
- */
-function setSessionState(newState) {
-    sessionState = { ...sessionState, ...newState };
-}
-
-/**
- * Reset only the session state (not all application state)
- */
-function resetSessionState() {
-    sessionState = {
-        recordingStartTime: null,
-        sessionStartTime: null,
-        totalDuration: 0,
-        isRecordingStopped: false,
-        isRecordingPaused: false
-    };
-}
 
 // Export all state management functions
 window.StateManager = {
     // State getters and setters
-    getCurrentState,
     setTranscriptData,
     getTranscriptData,
     setRealtimeMode,
@@ -435,11 +318,6 @@ window.StateManager = {
     getRecordingStartTime,
     setSessionStartTime,
     getSessionStartTime,
-    setSessionHistory,
-    getSessionHistory,
-    addSessionToHistory,
-    setExpandedEntries,
-    getExpandedEntries,
     setSessionTotalDuration,
     getSessionTotalDuration,
     setRecordingStopped,
@@ -453,12 +331,6 @@ window.StateManager = {
     getRealtimeInterval,
     clearRealtimeInterval,
     
-    // Session state management
-    getSessionState,
-    setSessionState,
-    resetSessionState,
-    
     // State management functions
-    resetState,
     restoreStateFromStorage
 };

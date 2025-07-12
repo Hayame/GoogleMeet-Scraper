@@ -390,26 +390,4 @@ window.SessionHistoryManager = {
         window.showModal('confirmModal', { title: 'Zatrzymaj nagrywanie?' });
     },
 
-    /**
-     * Find session by ID
-     */
-    findSessionById(sessionId) {
-        return window.sessionHistory.find(s => s.id === sessionId);
-    },
-
-    /**
-     * Update session in history
-     */
-    updateSessionInHistory(sessionId, updates) {
-        const sessionIndex = window.sessionHistory.findIndex(s => s.id === sessionId);
-        if (sessionIndex >= 0) {
-            window.sessionHistory[sessionIndex] = { ...window.sessionHistory[sessionIndex], ...updates };
-            chrome.storage.local.set({ sessionHistory: window.sessionHistory });
-            
-            // Re-render session history to show updated data
-            if (window.SessionUIManager && window.SessionUIManager.renderSessionHistory) {
-                window.SessionUIManager.renderSessionHistory();
-            }
-        }
-    }
 };

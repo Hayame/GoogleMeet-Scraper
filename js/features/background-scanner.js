@@ -204,8 +204,6 @@ window.BackgroundScanner = {
         });
     },
 
-    // REMOVED: initializeSecondaryStateRestoration() - Causes race conditions
-    // State restoration is now centralized in StateManager.restoreStateFromStorage()
 
     /**
      * Auto-save interval functionality (periodic background save)
@@ -231,24 +229,12 @@ window.BackgroundScanner = {
         }, 30000); // Auto-save every 30 seconds
     },
 
-    /**
-     * Get current scanning status
-     */
-    getScanningStatus() {
-        return {
-            isScanning: window.realtimeMode && !window.StateManager?.getRecordingStopped(),
-            hasTranscriptData: !!window.transcriptData,
-            messageCount: window.transcriptData ? window.transcriptData.messages.length : 0,
-            lastUpdate: window.transcriptData ? window.transcriptData.scrapedAt : null
-        };
-    },
 
     /**
      * Initialize all background scanner functionality
      */
     initialize() {
         this.initializeMessageListener();
-        // REMOVED: this.initializeSecondaryStateRestoration(); - Causes race conditions
         this.initializeAutoSaveInterval();
         console.log('🔄 Background Scanner initialized');
     }
