@@ -62,7 +62,7 @@ function startBackgroundScanning(tabId) {
     
     let scanCount = 0;
     
-    // Skanuj co 2 sekundy
+    // Skanuj co 5 sekund
     scanInterval = setInterval(async () => {
         scanCount++;
         const scanTime = new Date().toISOString();
@@ -122,7 +122,7 @@ function startBackgroundScanning(tabId) {
                 stopBackgroundScanning();
             }
         }
-    }, 2000);
+    }, 5000);
     
     console.log('🔶 [BACKGROUND DEBUG] Background scanning started at:', startTime);
 }

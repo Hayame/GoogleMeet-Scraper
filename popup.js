@@ -283,8 +283,8 @@ document.addEventListener('DOMContentLoaded', function() {
             };
             console.log('✅ Initialized transcript data from background scan');
             
-            // Update display
-            displayTranscript(transcriptData);
+            // Update display with incremental changes
+            displayTranscript(transcriptData, changes);
             updateStats(transcriptData);
             
             if (exportTxtBtn) {
@@ -300,8 +300,8 @@ document.addEventListener('DOMContentLoaded', function() {
             transcriptData.messages = data.messages;
             transcriptData.scrapedAt = data.scrapedAt;
 
-            // Update display with all messages (simplified approach)
-            displayTranscript(transcriptData);
+            // Update display with incremental changes
+            displayTranscript(transcriptData, changes);
             updateStats(transcriptData);
             
             if (exportTxtBtn) {
@@ -915,14 +915,20 @@ function getSpeakerColorMap(messages) {
     return speakerColors;
 }
 
-function displayTranscript(data) {
+function displayTranscript(data, changes = null) {
     const previewDiv = document.getElementById('transcriptContent');
     if (!previewDiv) {
         console.error('Transcript content div not found');
         return;
     }
     
-    previewDiv.innerHTML = '';
+    // Determine if we should do incremental update
+    const hasChanges = changes && (changes.added.length > 0 || changes.updated.length > 0 || changes.removed.length > 0);
+    const shouldIncrementalUpdate = hasChanges && previewDiv.children.length > 0;
+    
+    if (!shouldIncrementalUpdate) {
+        previewDiv.innerHTML = '';
+    }
 
     const dataToDisplay = data.messages || [];
     
@@ -1004,12 +1010,25 @@ function displayTranscript(data) {
     // Use shared color mapping function
     const speakerColors = getSpeakerColorMap(messagesToDisplay);
 
-    // Pokaż wszystkie wpisy
+    // Handle incremental updates if we have changes
+    if (shouldIncrementalUpdate) {
+        handleIncrementalUpdate(changes, messagesToDisplay, speakerColors, previewDiv);
+        return;
+    }
+
+    // Full render - show all entries
     const entriesToShow = messagesToDisplay;
     entriesToShow.forEach((entry, index) => {
-
-        const entryDiv = document.createElement('div');
-        entryDiv.className = 'transcript-entry';
+        const entryDiv = createMessageElement(entry, speakerColors);
+        previewDiv.appendChild(entryDiv);
+        
+        // Animate entry appearance
+        setTimeout(() => {
+            entryDiv.style.transition = 'all 0.3s ease';
+            entryDiv.style.opacity = '1';
+            entryDiv.style.transform = 'translateY(0)';
+        }, index * 50); // Stagger animation
+    });
         
         // Avatar
         const avatarDiv = document.createElement('div');
@@ -1135,6 +1154,147 @@ function displayTranscript(data) {
     
     // Reinitialize enhanced interactions for new elements
     reinitializeEnhancedInteractions();
+}
+
+// Handle incremental updates for better performance with long conversations
+function handleIncrementalUpdate(changes, messagesToDisplay, speakerColors, previewDiv) {
+    console.log('🔄 Incremental update:', {
+        added: changes.added.length,
+        updated: changes.updated.length,
+        removed: changes.removed.length
+    });
+    
+    // Remove deleted messages
+    changes.removed.forEach(removedMessage => {
+        const existingElement = previewDiv.querySelector(`[data-message-hash="${removedMessage.hash}"]`);
+        if (existingElement) {
+            existingElement.remove();
+        }
+    });
+    
+    // Update existing messages
+    changes.updated.forEach(updatedMessage => {
+        const existingElement = previewDiv.querySelector(`[data-message-hash="${updatedMessage.old.hash}"]`);
+        if (existingElement) {
+            // Update the element with new content
+            updateMessageElement(existingElement, updatedMessage.new, speakerColors);
+            // Update hash for future lookups
+            existingElement.setAttribute('data-message-hash', updatedMessage.new.hash);
+        }
+    });
+    
+    // Add new messages
+    changes.added.forEach((newMessage, index) => {
+        // Apply filters to check if message should be displayed
+        let shouldShow = true;
+        
+        // Apply participant filter
+        if (realtimeMode && allParticipants.length === 0) {
+            // Active recording with no participants yet - show all messages
+        } else if (activeParticipantFilters.size === 0 && allParticipants.length > 0) {
+            shouldShow = false;
+        } else if (activeParticipantFilters.size < allParticipants.length) {
+            shouldShow = activeParticipantFilters.has(newMessage.speaker);
+        }
+        
+        // Apply search filter
+        if (shouldShow && currentSearchQuery) {
+            shouldShow = newMessage.text.toLowerCase().includes(currentSearchQuery.toLowerCase()) ||
+                        newMessage.speaker.toLowerCase().includes(currentSearchQuery.toLowerCase());
+        }
+        
+        if (shouldShow) {
+            const entryDiv = createMessageElement(newMessage, speakerColors);
+            previewDiv.appendChild(entryDiv);
+            
+            // Animate new entry
+            setTimeout(() => {
+                entryDiv.style.transition = 'all 0.3s ease';
+                entryDiv.style.opacity = '1';
+                entryDiv.style.transform = 'translateY(0)';
+            }, index * 50);
+        }
+    });
+    
+    // Scroll to bottom if new messages were added
+    if (changes.added.length > 0) {
+        previewDiv.scrollTop = previewDiv.scrollHeight;
+    }
+    
+    // Reinitialize enhanced interactions for new elements
+    reinitializeEnhancedInteractions();
+}
+
+// Create a message element (extracted from displayTranscript for reuse)
+function createMessageElement(entry, speakerColors) {
+    const entryDiv = document.createElement('div');
+    entryDiv.className = 'transcript-entry';
+    entryDiv.setAttribute('data-message-hash', entry.hash);
+    
+    // Avatar
+    const avatarDiv = document.createElement('div');
+    avatarDiv.className = `avatar color-${speakerColors.get(entry.speaker)}`;
+    avatarDiv.textContent = entry.speaker.charAt(0).toUpperCase();
+    
+    // Message content
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message';
+    
+    // Message header
+    const headerDiv = document.createElement('div');
+    headerDiv.className = 'message-header';
+    
+    const speakerSpan = document.createElement('span');
+    speakerSpan.className = 'speaker';
+    speakerSpan.textContent = entry.speaker;
+    
+    const timestampSpan = document.createElement('span');
+    timestampSpan.className = 'timestamp';
+    timestampSpan.textContent = entry.timestamp || '';
+    
+    headerDiv.appendChild(speakerSpan);
+    headerDiv.appendChild(timestampSpan);
+    
+    // Message text
+    const textDiv = document.createElement('div');
+    textDiv.className = 'text';
+    
+    // Handle search highlighting
+    if (currentSearchQuery) {
+        textDiv.innerHTML = highlightText(entry.text, currentSearchQuery);
+    } else {
+        textDiv.textContent = entry.text;
+    }
+    
+    messageDiv.appendChild(headerDiv);
+    messageDiv.appendChild(textDiv);
+    
+    entryDiv.appendChild(avatarDiv);
+    entryDiv.appendChild(messageDiv);
+    
+    // Add fade-in animation for new entries
+    entryDiv.style.opacity = '0';
+    entryDiv.style.transform = 'translateY(20px)';
+    
+    return entryDiv;
+}
+
+// Update existing message element
+function updateMessageElement(element, message, speakerColors) {
+    const textDiv = element.querySelector('.text');
+    const timestampSpan = element.querySelector('.timestamp');
+    
+    if (textDiv) {
+        if (currentSearchQuery) {
+            textDiv.innerHTML = highlightText(message.text, currentSearchQuery);
+        } else {
+            textDiv.textContent = message.text;
+        }
+    }
+    
+    if (timestampSpan) {
+        timestampSpan.textContent = message.timestamp || '';
+    }
 }
 
 // getFilteredEntries function removed - no longer needed in simplified version
@@ -1280,6 +1440,9 @@ function deactivateRealtimeMode() {
         } else {
             console.error('❌ Failed to stop background scanning');
         }
+        
+        // Perform one final transcript read to ensure no messages are lost
+        performFinalTranscriptRead();
     });
     
     // Always save session when stopping recording
@@ -1299,6 +1462,55 @@ function deactivateRealtimeMode() {
     });
     
     // No manual scraping interval to clear in simplified version
+}
+
+// Perform one final transcript read when stopping recording
+function performFinalTranscriptRead() {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const tab = tabs[0];
+        if (!tab || !tab.url.includes('meet.google.com')) {
+            console.log('🔄 Final read: Not on a Google Meet page');
+            return;
+        }
+        
+        console.log('🔄 Performing final transcript read...');
+        
+        // Send message to content script for final read
+        chrome.tabs.sendMessage(tab.id, { action: 'scrapeTranscript' }, (result) => {
+            if (chrome.runtime.lastError) {
+                console.log('🔄 Final read: Content script not available');
+                return;
+            }
+            
+            if (result && result.success && result.data && result.data.messages && result.data.messages.length > 0) {
+                console.log(`🔄 Final read found ${result.data.messages.length} messages`);
+                
+                // Process final data if we have existing transcript
+                if (transcriptData && transcriptData.messages) {
+                    const changes = detectChanges(transcriptData.messages, result.data.messages);
+                    
+                    if (changes.added.length > 0 || changes.updated.length > 0) {
+                        console.log(`🔄 Final read: ${changes.added.length} new, ${changes.updated.length} updated messages`);
+                        
+                        // Update transcript data
+                        transcriptData.messages = result.data.messages;
+                        transcriptData.scrapedAt = result.data.scrapedAt;
+                        
+                        // Update display if not recording stopped flag is set
+                        if (!recordingStopped) {
+                            displayTranscript(transcriptData, changes);
+                            updateStats(transcriptData);
+                        }
+                        
+                        // Auto-save the final session
+                        autoSaveCurrentSession();
+                    }
+                }
+            } else {
+                console.log('🔄 Final read: No new messages found');
+            }
+        });
+    });
 }
 
 function generateEntryId(entry) {
