@@ -426,6 +426,7 @@ body {
     justify-content: space-between;
     align-items: center;
     transition: var(--transition-theme);
+    min-height: 53px;
 }
 
 .record-button {
