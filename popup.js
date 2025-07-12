@@ -3009,6 +3009,12 @@ function performDeleteSession(sessionId) {
     
     // If deleting current session, clear it and show empty session
     if (currentSessionId === sessionId) {
+        // Stop recording if active
+        if (realtimeMode) {
+            console.log('🔴 [DELETE] Stopping active recording due to session deletion');
+            deactivateRealtimeMode();
+        }
+        
         transcriptData = null;
         currentSessionId = null;
         displayTranscript({ messages: [] });
@@ -3031,16 +3037,9 @@ function performDeleteSession(sessionId) {
             durationElement.textContent = '00:00';
         }
         
-        // Show record button for new session
-        const recordBtn = document.getElementById('recordBtn');
-        if (recordBtn) {
-            recordBtn.style.display = 'flex';
-            recordBtn.classList.remove('active');
-            const recordText = document.querySelector('.record-text');
-            if (recordText) {
-                recordText.textContent = 'Rozpocznij nagrywanie';
-            }
-        }
+        // Update UI for new session state
+        updateButtonVisibility('NEW');
+        hideMeetingName();
         
         chrome.storage.local.remove(['transcriptData', 'currentSessionId', 'recordingStartTime', 'sessionStartTime', 'sessionTotalDuration', 'currentSessionDuration', 'meetTabId']);
     }
