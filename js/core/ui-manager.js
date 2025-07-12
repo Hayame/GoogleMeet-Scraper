@@ -325,5 +325,32 @@ window.UIManager = {
         } else {
             return `${minutes}:${secs.toString().padStart(2, '0')}`;
         }
+    },
+
+    /**
+     * Initialize UI Manager module
+     */
+    initialize() {
+        console.log('🎨 [UI] UIManager initialized');
+        this.initializeStatusVisibility();
+        
+        // Set up global aliases for backward compatibility
+        this.setupGlobalAliases();
+    },
+
+    /**
+     * Set up global function aliases for backward compatibility
+     * This fixes the critical bug where other modules expect global functions
+     */
+    setupGlobalAliases() {
+        // Critical fix: Expose UI functions globally as expected by other modules
+        window.updateButtonVisibility = this.updateButtonVisibility.bind(this);
+        window.updateStatus = this.updateStatus.bind(this);
+        window.showMeetingName = this.showMeetingName.bind(this);
+        window.hideMeetingName = this.hideMeetingName.bind(this);
+        window.updateDurationDisplay = this.updateDurationDisplay.bind(this);
+        window.formatDuration = this.formatDuration.bind(this);
+        
+        console.log('🔗 [UI] Global function aliases created for backward compatibility');
     }
 };
