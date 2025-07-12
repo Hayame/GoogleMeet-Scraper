@@ -112,7 +112,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 'transcriptData',
                 'currentSessionId',
                 'sessionTotalDuration',
-                'currentSessionDuration'
+                'currentSessionDuration',
+                'meetTabId'  // Add Meet tab ID to restoration
             ]);
             
             console.log('🔄 [RESTORE DEBUG] Storage contents:', {
@@ -166,6 +167,37 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
                 updateStatus('Nagrywanie wznowione', 'success');
+                
+                // Restart background scanning if we have a saved Meet tab ID
+                if (result.meetTabId) {
+                    console.log('🔄 [RESTORE] Checking saved Meet tab:', result.meetTabId);
+                    try {
+                        const tab = await chrome.tabs.get(result.meetTabId);
+                        if (tab && tab.url && tab.url.includes('meet.google.com')) {
+                            console.log('🔄 [RESTORE] Meet tab still exists, restarting background scanning');
+                            chrome.runtime.sendMessage({
+                                action: 'startBackgroundScanning',
+                                tabId: result.meetTabId
+                            }, (response) => {
+                                if (response && response.success) {
+                                    console.log('🔄 [RESTORE] Background scanning restarted successfully');
+                                } else {
+                                    console.error('🔄 [RESTORE] Failed to restart background scanning');
+                                    updateStatus('Błąd: Nie można wznowić skanowania', 'error');
+                                }
+                            });
+                        } else {
+                            console.error('🔄 [RESTORE] Meet tab no longer exists or is not a Meet page');
+                            updateStatus('Błąd: Karta Meet została zamknięta', 'error');
+                            // Optionally deactivate recording mode
+                            deactivateRealtimeMode();
+                        }
+                    } catch (error) {
+                        console.error('🔄 [RESTORE] Error checking Meet tab:', error);
+                        updateStatus('Błąd: Karta Meet niedostępna', 'error');
+                        deactivateRealtimeMode();
+                    }
+                }
             }
             
             // Restore transcript data only for active recording or historical sessions
@@ -393,7 +425,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadExpandedState();
     
     // Przywróć stan trybu rzeczywistego
-    chrome.storage.local.get(['realtimeMode', 'transcriptData', 'currentSessionId', 'recordingStartTime', 'sessionStartTime'], (result) => {
+    chrome.storage.local.get(['realtimeMode', 'transcriptData', 'currentSessionId', 'recordingStartTime', 'sessionStartTime', 'meetTabId'], (result) => {
         if (result.currentSessionId) {
             currentSessionId = result.currentSessionId;
         }
@@ -406,8 +438,9 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('🔄 [SECONDARY] SessionStartTime restored:', sessionStartTime);
         }
         if (result.realtimeMode) {
-            // Timer already started in restoreStateFromStorage(), just activate UI mode
-            activateRealtimeMode();
+            // Don't call activateRealtimeMode here - it would try to restart background scanning
+            // The state restoration is already handled in restoreStateFromStorage()
+            console.log('🔄 [SECONDARY] Recording mode already restored in restoreStateFromStorage');
             
             // Ensure timer is running - if popup was reopened while recording was active
             if (recordingStartTime && !durationTimer) {
@@ -510,18 +543,19 @@ document.addEventListener('DOMContentLoaded', function() {
             chrome.storage.local.set({ currentSessionId: currentSessionId });
         }
         
-        // Zapisz stan
-        chrome.storage.local.set({ 
-            realtimeMode: true, 
-            recordingStartTime: recordingStartTime ? recordingStartTime.toISOString() : null,
-            sessionStartTime: sessionStartTime ? sessionStartTime.toISOString() : null
-        });
-        
         // Uruchom skanowanie w tle
         try {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             if (tab && tab.url.includes('meet.google.com')) {
                 console.log('🟢 [ACTIVATION DEBUG] Starting background scanning for tab:', tab.id);
+                
+                // Zapisz stan wraz z ID karty Meet
+                chrome.storage.local.set({ 
+                    realtimeMode: true, 
+                    recordingStartTime: recordingStartTime ? recordingStartTime.toISOString() : null,
+                    sessionStartTime: sessionStartTime ? sessionStartTime.toISOString() : null,
+                    meetTabId: tab.id  // Save the Meet tab ID
+                });
                 
                 // Rozpocznij skanowanie w tle
                 chrome.runtime.sendMessage({
@@ -597,7 +631,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     
                     // Clear from storage
-                    chrome.storage.local.remove(['transcriptData', 'currentSessionId', 'recordingStartTime', 'sessionStartTime']);
+                    chrome.storage.local.remove(['transcriptData', 'currentSessionId', 'recordingStartTime', 'sessionStartTime', 'meetTabId']);
                 }
             }
         });
@@ -925,7 +959,7 @@ function showEmptySession() {
     }
     
     // Clear storage
-    chrome.storage.local.remove(['transcriptData', 'currentSessionId', 'recordingStartTime', 'sessionStartTime', 'sessionTotalDuration', 'currentSessionDuration', 'realtimeMode']);
+    chrome.storage.local.remove(['transcriptData', 'currentSessionId', 'recordingStartTime', 'sessionStartTime', 'sessionTotalDuration', 'currentSessionDuration', 'realtimeMode', 'meetTabId']);
     
     // Remove session highlighting
     renderSessionHistory();
@@ -1520,7 +1554,8 @@ function deactivateRealtimeMode() {
         realtimeMode: false, 
         recordingStartTime: null,
         // transcriptData: null, // REMOVED - keep data for resume
-        sessionTotalDuration: sessionTotalDuration
+        sessionTotalDuration: sessionTotalDuration,
+        meetTabId: null  // Clear the saved Meet tab ID
     });
     
     // No manual scraping interval to clear in simplified version
@@ -1724,7 +1759,8 @@ function performNewSessionCreation() {
         'recordingStartTime',
         'realtimeMode',
         'sessionTotalDuration',
-        'currentSessionDuration'
+        'currentSessionDuration',
+        'meetTabId'
     ], () => {
         // Update clear button state AFTER storage is cleared to prevent race condition
         console.log('🆕 [NEW SESSION] Storage cleared, transcriptData:', transcriptData);
@@ -2982,7 +3018,7 @@ function performDeleteSession(sessionId) {
             }
         }
         
-        chrome.storage.local.remove(['transcriptData', 'currentSessionId', 'recordingStartTime', 'sessionStartTime', 'sessionTotalDuration', 'currentSessionDuration']);
+        chrome.storage.local.remove(['transcriptData', 'currentSessionId', 'recordingStartTime', 'sessionStartTime', 'sessionTotalDuration', 'currentSessionDuration', 'meetTabId']);
     }
     
     // Save updated history
