@@ -221,8 +221,90 @@ window.SettingsManager = {
         if (closeBtn) {
             closeBtn.addEventListener('click', () => this.hideSettingsModal());
         }
+        
+        // Manual Google name detection button
+        const detectBtn = document.getElementById('detectGoogleNameBtn');
+        if (detectBtn) {
+            detectBtn.addEventListener('click', () => this.handleManualDetection());
+        }
     },
     
+    /**
+     * Handle manual Google name detection
+     */
+    async handleManualDetection() {
+        const statusEl = document.getElementById('googleDetectionStatus');
+        const detectBtn = document.getElementById('detectGoogleNameBtn');
+        
+        // Show loading state
+        if (statusEl) {
+            statusEl.textContent = 'Wykrywanie...';
+            statusEl.className = 'detection-status info';
+        }
+        
+        if (detectBtn) {
+            detectBtn.disabled = true;
+        }
+        
+        try {
+            // Get current active tab (Google Meet)
+            const tabs = await chrome.tabs.query({ active: true, currentWindow: true, url: 'https://meet.google.com/*' });
+            
+            if (tabs.length === 0) {
+                if (statusEl) {
+                    statusEl.textContent = 'Brak aktywnej karty Google Meet';
+                    statusEl.className = 'detection-status error';
+                }
+                return;
+            }
+            
+            // Send manual detection request to content script
+            const response = await chrome.tabs.sendMessage(tabs[0].id, {
+                action: 'manualDetectGoogleName'
+            });
+            
+            if (response && response.success && response.userName) {
+                // Update local state
+                await this.updateGoogleUserName(response.userName);
+                
+                if (statusEl) {
+                    statusEl.textContent = `Wykryto: ${response.userName}`;
+                    statusEl.className = 'detection-status success';
+                }
+                
+                console.log('✅ [SETTINGS] Manual detection successful:', response.userName);
+            } else {
+                if (statusEl) {
+                    statusEl.textContent = 'Nie udało się wykryć nazwy';
+                    statusEl.className = 'detection-status error';
+                }
+                
+                console.log('❌ [SETTINGS] Manual detection failed:', response);
+            }
+            
+        } catch (error) {
+            console.error('❌ [SETTINGS] Manual detection error:', error);
+            
+            if (statusEl) {
+                statusEl.textContent = 'Błąd podczas wykrywania';
+                statusEl.className = 'detection-status error';
+            }
+        } finally {
+            // Re-enable button
+            if (detectBtn) {
+                detectBtn.disabled = false;
+            }
+            
+            // Clear status after 5 seconds
+            setTimeout(() => {
+                if (statusEl) {
+                    statusEl.textContent = '';
+                    statusEl.className = 'detection-status';
+                }
+            }, 5000);
+        }
+    },
+
     /**
      * Handle save settings button click
      */

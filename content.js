@@ -34,65 +34,27 @@ function loadUserSettings() {
     });
 }
 
-// Try to detect Google user name from page elements
+// Google user name detection is now handled by GoogleUserDetector module
+// This function is kept for backward compatibility but delegates to the new module
 function detectGoogleUserName() {
-    // Try different selectors to find user name in Google Meet
-    const selectors = [
-        '[aria-label*="Google Account"]',
-        '[aria-label*="Konto Google"]',
-        '.gb_db', // Google bar user name
-        '[data-name]', // Some Google Meet elements have data-name
-        '.VfPpkd-Bz112c-LgbsSe', // Material Design button with account info
-    ];
-    
-    for (const selector of selectors) {
-        const element = document.querySelector(selector);
-        if (element) {
-            let userName = null;
-            
-            // Try to extract name from aria-label
-            if (element.getAttribute('aria-label')) {
-                const ariaLabel = element.getAttribute('aria-label');
-                if (ariaLabel.includes('Google Account:')) {
-                    userName = ariaLabel.replace('Google Account:', '').trim();
-                } else if (ariaLabel.includes('Konto Google:')) {
-                    userName = ariaLabel.replace('Konto Google:', '').trim();
-                }
-            }
-            
-            // Try to extract from text content
-            if (!userName && element.textContent) {
-                const text = element.textContent.trim();
-                if (text.length > 0 && text.length < 50 && !text.includes('@')) {
-                    userName = text;
-                }
-            }
-            
-            if (userName) {
-                console.log('👤 [CONTENT] Detected Google user name:', userName);
-                userSettings.googleUserName = userName;
-                
-                // Send to popup
-                chrome.runtime.sendMessage({
-                    action: 'updateGoogleUserName',
-                    userName: userName
-                });
-                
-                return userName;
-            }
+    if (window.GoogleUserDetector) {
+        const userName = window.GoogleUserDetector.manualDetect();
+        if (userName) {
+            userSettings.googleUserName = userName;
+            console.log('👤 [CONTENT] Google user name detected via GoogleUserDetector:', userName);
         }
+        return userName;
+    } else {
+        console.warn('⚠️ [CONTENT] GoogleUserDetector module not available');
+        return null;
     }
-    
-    return null;
 }
 
 // Initialize user settings
 loadUserSettings();
 
-// Try to detect Google user name after page loads
-setTimeout(() => {
-    detectGoogleUserName();
-}, 2000);
+// Google user name detection is now automatically handled by GoogleUserDetector module
+// The module starts continuous detection when it initializes
 
 // Nasłuchuj wiadomości z popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -110,6 +72,33 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         console.log('⚙️ [CONTENT] Updated user display name:', userSettings.displayName);
         loadUserSettings(); // Reload settings to stay in sync
         sendResponse({ success: true });
+    } else if (request.action === 'manualDetectGoogleName') {
+        // Manual Google name detection triggered from settings
+        console.log('👤 [CONTENT] Manual Google name detection requested');
+        
+        try {
+            // Use the enhanced GoogleUserDetector for manual detection
+            let userName = null;
+            
+            if (window.GoogleUserDetector) {
+                userName = window.GoogleUserDetector.manualDetect();
+            } else {
+                // Fallback to local function if detector not available
+                userName = detectGoogleUserName();
+            }
+            
+            if (userName) {
+                userSettings.googleUserName = userName;
+                sendResponse({ success: true, userName: userName });
+                console.log('✅ [CONTENT] Manual detection successful:', userName);
+            } else {
+                sendResponse({ success: false, error: 'No Google name detected' });
+                console.log('❌ [CONTENT] Manual detection failed - no name found');
+            }
+        } catch (error) {
+            console.error('❌ [CONTENT] Manual detection error:', error);
+            sendResponse({ success: false, error: error.message });
+        }
     }
     return true; // Wskazuje, że odpowiedź będzie asynchroniczna
 });

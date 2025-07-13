@@ -326,6 +326,51 @@ body {
     padding: 0 4px;
 }
 
+.setting-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.btn-small {
+    padding: 6px 12px;
+    font-size: 12px;
+    height: auto;
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-small svg {
+    width: 14px;
+    height: 14px;
+}
+
+.detection-status {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: var(--transition-fast);
+}
+
+.detection-status.success {
+    color: var(--status-success-text);
+    background: var(--status-success-bg);
+}
+
+.detection-status.error {
+    color: var(--status-error-text);
+    background: var(--status-error-bg);
+}
+
+.detection-status.info {
+    color: var(--status-info-text);
+    background: var(--status-info-bg);
+}
+
 /* Enhanced theme transition for all elements */
 *, *::before, *::after {
     transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
