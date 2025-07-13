@@ -163,13 +163,50 @@
     display: none;
 }
 
-/* Tooltip for new session button when collapsed */
+/* Tooltip for new session button when collapsed - higher specificity */
 .sidebar.collapsed .new-session-btn:hover::after {
+    content: "➕ Nowa sesja" !important;
+    position: absolute !important;
+    left: 55px !important;
+    top: 50% !important;
+    bottom: auto !important;
+    transform: translateY(-50%) !important;
+    background: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+    padding: 12px 16px !important;
+    border-radius: 12px !important;
+    font-size: 13px !important;
+    font-weight: 400 !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    white-space: nowrap !important;
+    z-index: 9999 !important;
+    box-shadow: 
+        0 20px 25px -5px rgba(0, 0, 0, 0.1),
+        0 10px 10px -5px rgba(0, 0, 0, 0.04),
+        0 0 0 1px var(--border-primary) !important;
+    pointer-events: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    transition: opacity 0.2s ease !important;
+    backdrop-filter: blur(12px) !important;
+}
+
+/* Dark theme new session button tooltip */
+[data-theme="dark"] .sidebar.collapsed .new-session-btn:hover::after {
+    background: var(--bg-tertiary);
+    box-shadow: 
+        0 20px 25px -5px rgba(0, 0, 0, 0.25),
+        0 10px 10px -5px rgba(0, 0, 0, 0.1),
+        0 0 0 1px var(--border-primary);
+}
+
+/* Tooltip for new session button when sidebar is expanded */
+.new-session-btn:hover::after {
     content: "➕ Nowa sesja";
     position: absolute;
-    left: 55px;
-    top: 50%;
-    transform: translateY(-50%);
+    left: 50%;
+    bottom: -45px;
+    transform: translateX(-50%);
     background: var(--bg-secondary);
     color: var(--text-primary);
     padding: 12px 16px;
@@ -190,8 +227,8 @@
     backdrop-filter: blur(12px);
 }
 
-/* Dark theme new session button tooltip */
-[data-theme="dark"] .sidebar.collapsed .new-session-btn:hover::after {
+/* Dark theme for new session button tooltip */
+[data-theme="dark"] .new-session-btn:hover::after {
     background: var(--bg-tertiary);
     box-shadow: 
         0 20px 25px -5px rgba(0, 0, 0, 0.25),
