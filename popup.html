@@ -252,18 +252,26 @@
                 <button class="modal-close" data-modal="exportModal">&times;</button>
             </div>
             <div class="modal-body">
+                <div class="export-llm-option">
+                    <label class="switch-label">
+                        <input type="checkbox" id="exportAsLLMPrompt" checked>
+                        <span class="switch-slider"></span>
+                        <span class="switch-text">Eksportuj jako prompt dla LLM w celu wygenerowania podsumowania</span>
+                    </label>
+                    <p class="export-description">Gdy włączone, transkrypcja zostanie opakowana w szablon promptu do generowania podsumowania przez AI.</p>
+                </div>
                 <div class="export-options">
                     <button id="exportTxtBtn" class="export-option">
-                        <svg width="32" height="32" viewBox="0 0 24 24">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
                         </svg>
-                        <span>Eksportuj jako TXT</span>
+                        <span>Eksportuj do pliku</span>
                     </button>
-                    <button id="exportJsonBtn" class="export-option">
-                        <svg width="32" height="32" viewBox="0 0 24 24">
-                            <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+                    <button id="exportClipboardBtn" class="export-option">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
                         </svg>
-                        <span>Eksportuj jako JSON</span>
+                        <span>Kopiuj do schowka</span>
                     </button>
                 </div>
             </div>

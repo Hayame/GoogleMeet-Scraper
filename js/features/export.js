@@ -22,46 +22,52 @@ window.ExportManager = {
      */
     setupExportButtonHandlers() {    
         const exportTxtBtn = document.getElementById('exportTxtBtn');
-        const exportJsonBtn = document.getElementById('exportJsonBtn');
+        const exportClipboardBtn = document.getElementById('exportClipboardBtn');
+        const exportAsLLMPrompt = document.getElementById('exportAsLLMPrompt');
         
         if (exportTxtBtn) {
             // Remove existing event listeners to prevent duplication
             exportTxtBtn.replaceWith(exportTxtBtn.cloneNode(true));
             const newExportTxtBtn = document.getElementById('exportTxtBtn');
             
-            newExportTxtBtn.addEventListener('click', () => {
+            newExportTxtBtn.addEventListener('click', async () => {
                 if (!window.transcriptData) {
                     this._updateStatus('Brak danych do eksportu', 'error');
                     return;
                 }
                 
-                const txtContent = this.generateTxtContent();
-                this.downloadFile(txtContent, 'transkrypcja-google-meet.txt', 'text/plain');
-                this._updateStatus('Wyeksportowano do pliku TXT!', 'success');
+                const shouldWrapInPrompt = exportAsLLMPrompt?.checked ?? true;
+                const content = await this.prepareExportContent(shouldWrapInPrompt);
+                const filename = shouldWrapInPrompt ? 'transkrypcja-z-promptem.txt' : 'transkrypcja-google-meet.txt';
+                
+                this.downloadFile(content, filename, 'text/plain');
+                this._updateStatus('Wyeksportowano do pliku!', 'success');
                 this._hideModal('exportModal');
             });
         } else {
             console.error('Export TXT button not found');
         }
         
-        if (exportJsonBtn) {
+        if (exportClipboardBtn) {
             // Remove existing event listeners to prevent duplication
-            exportJsonBtn.replaceWith(exportJsonBtn.cloneNode(true));
-            const newExportJsonBtn = document.getElementById('exportJsonBtn');
+            exportClipboardBtn.replaceWith(exportClipboardBtn.cloneNode(true));
+            const newExportClipboardBtn = document.getElementById('exportClipboardBtn');
             
-            newExportJsonBtn.addEventListener('click', () => {
+            newExportClipboardBtn.addEventListener('click', async () => {
                 if (!window.transcriptData) {
                     this._updateStatus('Brak danych do eksportu', 'error');
                     return;
                 }
                 
-                const jsonContent = this.generateJsonContent();
-                this.downloadFile(jsonContent, 'transkrypcja-google-meet.json', 'application/json');
-                this._updateStatus('Wyeksportowano do pliku JSON!', 'success');
+                const shouldWrapInPrompt = exportAsLLMPrompt?.checked ?? true;
+                const content = await this.prepareExportContent(shouldWrapInPrompt);
+                
+                await this.copyToClipboard(content);
+                this._updateStatus('Skopiowano do schowka!', 'success');
                 this._hideModal('exportModal');
             });
         } else {
-            console.error('Export JSON button not found');
+            console.error('Export clipboard button not found');
         }
     },
 
@@ -92,28 +98,77 @@ window.ExportManager = {
     },
 
     /**
-     * Generate JSON content for export
-     * Source: popup.js lines 3294-3313
+     * Prepare export content based on user preferences
      */
-    generateJsonContent() {    
-        if (!window.transcriptData || !window.transcriptData.messages) {
-            console.error('No transcript data available');
-            return '{}';
-        }
+    async prepareExportContent(shouldWrapInPrompt) {
+        const transcriptContent = this.generateTxtContent();
         
-        const jsonData = {
-            exportDate: new Date().toISOString(),
-            meetingUrl: window.transcriptData.meetingUrl || 'Nieznany',
-            scrapedAt: window.transcriptData.scrapedAt,
-            messages: window.transcriptData.messages,
-            stats: {
-                totalEntries: window.transcriptData.messages.length,
-                uniqueParticipants: new Set(window.transcriptData.messages.map(e => e.speaker)).size
-            }
-        };
+        if (shouldWrapInPrompt) {
+            return await this.wrapWithLLMPrompt(transcriptContent);
+        } else {
+            return transcriptContent;
+        }
+    },
 
-        const jsonContent = JSON.stringify(jsonData, null, 2);
-        return jsonContent;
+    /**
+     * Wrap transcript content with LLM prompt template
+     */
+    async wrapWithLLMPrompt(transcriptContent) {
+        try {
+            // Read prompt.md content
+            const response = await fetch(chrome.runtime.getURL('prompt.md'));
+            const promptTemplate = await response.text();
+            
+            // Add transcript after "### 📎 Input" line
+            return promptTemplate + '\n' + transcriptContent;
+        } catch (error) {
+            console.error('Error reading prompt template:', error);
+            // Fallback: return transcript with basic prompt
+            return `## 🧠 Prompt: Stwórz szczegółowe podsumowanie konwersacji
+
+Na podstawie poniższej transkrypcji stwórz szczegółowe podsumowanie w formacie Markdown.
+
+### 📎 Input
+
+${transcriptContent}`;
+        }
+    },
+
+    /**
+     * Copy content to clipboard
+     */
+    async copyToClipboard(content) {
+        try {
+            await navigator.clipboard.writeText(content);
+            console.log('Content copied to clipboard successfully');
+        } catch (error) {
+            console.error('Failed to copy to clipboard:', error);
+            // Fallback for older browsers
+            this.fallbackCopyToClipboard(content);
+        }
+    },
+
+    /**
+     * Fallback copy method for older browsers
+     */
+    fallbackCopyToClipboard(content) {
+        const textArea = document.createElement('textarea');
+        textArea.value = content;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+            document.execCommand('copy');
+            console.log('Fallback copy successful');
+        } catch (error) {
+            console.error('Fallback copy failed:', error);
+        } finally {
+            document.body.removeChild(textArea);
+        }
     },
 
     /**
