@@ -448,9 +448,11 @@ window.UIManager = {
             console.log('🎨 [UI] Theme restored:', uiState.theme);
         }
         
-        // TODO: Restore search and filter panel states when implemented
-        // if (uiState.searchPanelOpen) { ... }
-        // if (uiState.filterPanelOpen) { ... }
+        // Restore search and filter states
+        if (window.SearchFilterManager && window.SearchFilterManager.restoreFilterState) {
+            window.SearchFilterManager.restoreFilterState(uiState);
+            console.log('🔍 [UI] Filter state restoration triggered');
+        }
         
         // CRITICAL FIX: Save the restored UI state back to storage
         // This ensures the restored state persists for next popup open

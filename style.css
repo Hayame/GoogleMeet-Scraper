@@ -2743,8 +2743,9 @@ body {
 }
 
 .icon-button.search-active {
-    background: var(--status-info-bg);
-    color: var(--status-info-text);
+    background: var(--btn-primary-bg);
+    color: white;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
 }
 
 .icon-button.search-active:hover {
@@ -2760,8 +2761,8 @@ body {
     right: 4px;
     width: 8px;
     height: 8px;
-    background: var(--status-info-bg);
-    color: var(--status-info-text);
+    background: var(--btn-primary-bg);
+    color: white;
     border-radius: 50%;
     font-size: 8px;
     line-height: 8px;

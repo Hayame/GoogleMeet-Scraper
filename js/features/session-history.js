@@ -213,6 +213,11 @@ window.SessionHistoryManager = {
         
         window.displayTranscript(window.transcriptData);
         window.updateStats(window.transcriptData);
+        
+        // Complete pending filter restoration now that transcript data is loaded
+        if (window.SearchFilterManager && window.SearchFilterManager.completePendingRestoration) {
+            window.SearchFilterManager.completePendingRestoration();
+        }
         window.updateDurationDisplay();
         
         const exportTxtBtn = document.getElementById('exportTxtBtn');

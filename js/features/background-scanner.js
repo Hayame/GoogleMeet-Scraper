@@ -95,6 +95,11 @@ window.BackgroundScanner = {
                 window.updateStats(window.transcriptData);
             }
             
+            // Complete pending filter restoration when new data arrives
+            if (window.SearchFilterManager && window.SearchFilterManager.completePendingRestoration) {
+                window.SearchFilterManager.completePendingRestoration();
+            }
+            
             if (exportTxtBtn) {
                 exportTxtBtn.disabled = false;
             }
@@ -118,6 +123,11 @@ window.BackgroundScanner = {
             }
             if (window.updateStats) {
                 window.updateStats(window.transcriptData);
+            }
+            
+            // Complete pending filter restoration when new data arrives
+            if (window.SearchFilterManager && window.SearchFilterManager.completePendingRestoration) {
+                window.SearchFilterManager.completePendingRestoration();
             }
             
             if (exportTxtBtn) {

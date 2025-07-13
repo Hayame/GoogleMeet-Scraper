@@ -13,6 +13,7 @@ window.SearchFilterManager = {
     _originalMessages: [],
     _activeParticipantFilters: new Set(),
     _allParticipants: [],
+    _pendingRestoreState: null,
 
     /**
      * Initialize search functionality
@@ -139,6 +140,9 @@ window.SearchFilterManager = {
                 this.updateSearchResults();
             }
         }
+        
+        // Save filter state
+        this.saveFilterState();
     },
 
     /**
@@ -180,6 +184,9 @@ window.SearchFilterManager = {
                 this.updateSearchResults();
             }
         }
+        
+        // Save filter state
+        this.saveFilterState();
     },
 
     /**
@@ -421,6 +428,9 @@ window.SearchFilterManager = {
         
         this.updateFilterBadge();
         this.applyParticipantFilters();
+        
+        // Save filter state
+        this.saveFilterState();
     },
 
     /**
@@ -447,6 +457,9 @@ window.SearchFilterManager = {
         
         this.updateFilterBadge();
         this.applyParticipantFilters();
+        
+        // Save filter state
+        this.saveFilterState();
     },
 
     /**
@@ -692,6 +705,99 @@ window.SearchFilterManager = {
             searchBtn.appendChild(badge);
         } else {
             searchBtn.classList.remove("search-active");
+        }
+    },
+
+    /**
+     * Save current filter state to storage
+     */
+    async saveFilterState() {
+        try {
+            if (this._saveTimeout) {
+                clearTimeout(this._saveTimeout);
+            }
+            
+            // Debounce saves to avoid too frequent storage writes
+            this._saveTimeout = setTimeout(async () => {
+                const filterState = {
+                    searchQuery: this._currentSearchQuery,
+                    activeParticipantFilters: Array.from(this._activeParticipantFilters)
+                };
+                
+                if (window.StateManager && window.StateManager.saveUIState) {
+                    await window.StateManager.saveUIState(filterState);
+                    console.log('💾 [SEARCH] Filter state saved:', filterState);
+                }
+            }, 500); // 500ms debounce
+        } catch (error) {
+            console.error('💾 [SEARCH ERROR] Failed to save filter state:', error);
+        }
+    },
+
+    /**
+     * Restore filter state from storage
+     */
+    async restoreFilterState(uiState) {
+        try {
+            if (!uiState) return;
+            
+            console.log('🔄 [SEARCH] Restoring filter state:', uiState);
+            
+            // Restore search query immediately
+            if (uiState.searchQuery) {
+                this._currentSearchQuery = uiState.searchQuery;
+                const searchInput = document.getElementById("searchInput");
+                if (searchInput) {
+                    searchInput.value = uiState.searchQuery;
+                }
+                this.updateSearchButtonState();
+                
+                // Only update search results if transcript data is available
+                if (window.transcriptData && window.transcriptData.messages) {
+                    this.updateSearchResults();
+                }
+            }
+            
+            // Restore participant filters
+            if (uiState.activeParticipantFilters && Array.isArray(uiState.activeParticipantFilters)) {
+                this._activeParticipantFilters = new Set(uiState.activeParticipantFilters);
+                
+                // Update participant list UI if transcript data is available
+                if (window.transcriptData && window.transcriptData.messages) {
+                    this.updateParticipantFiltersList();
+                    this.updateFilterBadge();
+                } else {
+                    // Store state for later restoration when transcript data becomes available
+                    this._pendingRestoreState = uiState;
+                    console.log('⏳ [SEARCH] Participant filters stored for later restoration - waiting for transcript data');
+                }
+            }
+            
+            console.log('✅ [SEARCH] Filter state restored successfully');
+        } catch (error) {
+            console.error('🔄 [SEARCH ERROR] Failed to restore filter state:', error);
+        }
+    },
+
+    /**
+     * Complete pending filter restoration when transcript data becomes available
+     */
+    completePendingRestoration() {
+        if (this._pendingRestoreState && window.transcriptData && window.transcriptData.messages) {
+            console.log('🔄 [SEARCH] Completing pending filter restoration with transcript data');
+            
+            // Update participant filters UI now that we have transcript data
+            this.updateParticipantFiltersList();
+            this.updateFilterBadge();
+            
+            // Apply filters to transcript display
+            if (window.TranscriptManager) {
+                window.TranscriptManager.displayTranscript(window.transcriptData);
+            }
+            
+            // Clear pending state
+            this._pendingRestoreState = null;
+            console.log('✅ [SEARCH] Pending filter restoration completed');
         }
     },
 

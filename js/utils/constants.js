@@ -26,6 +26,8 @@ const STORAGE_KEYS = {
     SIDEBAR_COLLAPSED: 'sidebarCollapsed',
     SEARCH_PANEL_OPEN: 'searchPanelOpen',
     FILTER_PANEL_OPEN: 'filterPanelOpen',
+    SEARCH_QUERY: 'searchQuery',
+    ACTIVE_PARTICIPANT_FILTERS: 'activeParticipantFilters',
     LAST_UI_STATE: 'lastUIState',
     SESSION_STATE: 'sessionState'
 };

@@ -220,6 +220,8 @@ async function saveUIState(uiState) {
             sidebarCollapsed: uiState.sidebarCollapsed || false,
             searchPanelOpen: uiState.searchPanelOpen || false,
             filterPanelOpen: uiState.filterPanelOpen || false,
+            searchQuery: uiState.searchQuery || '',
+            activeParticipantFilters: uiState.activeParticipantFilters || [],
             theme: uiState.theme || 'light',
             timestamp: Date.now()
         };
@@ -229,6 +231,8 @@ async function saveUIState(uiState) {
             [window.AppConstants.STORAGE_KEYS.SIDEBAR_COLLAPSED]: stateToSave.sidebarCollapsed,
             [window.AppConstants.STORAGE_KEYS.SEARCH_PANEL_OPEN]: stateToSave.searchPanelOpen,
             [window.AppConstants.STORAGE_KEYS.FILTER_PANEL_OPEN]: stateToSave.filterPanelOpen,
+            [window.AppConstants.STORAGE_KEYS.SEARCH_QUERY]: stateToSave.searchQuery,
+            [window.AppConstants.STORAGE_KEYS.ACTIVE_PARTICIPANT_FILTERS]: stateToSave.activeParticipantFilters,
             [window.AppConstants.STORAGE_KEYS.THEME]: stateToSave.theme
         });
         
@@ -249,6 +253,8 @@ async function restoreUIState() {
             window.AppConstants.STORAGE_KEYS.SIDEBAR_COLLAPSED,
             window.AppConstants.STORAGE_KEYS.SEARCH_PANEL_OPEN,
             window.AppConstants.STORAGE_KEYS.FILTER_PANEL_OPEN,
+            window.AppConstants.STORAGE_KEYS.SEARCH_QUERY,
+            window.AppConstants.STORAGE_KEYS.ACTIVE_PARTICIPANT_FILTERS,
             window.AppConstants.STORAGE_KEYS.THEME
         ]);
         
@@ -257,6 +263,8 @@ async function restoreUIState() {
             sidebarCollapsed: result[window.AppConstants.STORAGE_KEYS.SIDEBAR_COLLAPSED] || false,
             searchPanelOpen: result[window.AppConstants.STORAGE_KEYS.SEARCH_PANEL_OPEN] || false,
             filterPanelOpen: result[window.AppConstants.STORAGE_KEYS.FILTER_PANEL_OPEN] || false,
+            searchQuery: result[window.AppConstants.STORAGE_KEYS.SEARCH_QUERY] || '',
+            activeParticipantFilters: result[window.AppConstants.STORAGE_KEYS.ACTIVE_PARTICIPANT_FILTERS] || [],
             theme: result[window.AppConstants.STORAGE_KEYS.THEME] || 'light'
         };
         
