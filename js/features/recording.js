@@ -165,7 +165,7 @@ window.RecordingManager = {
             window.updateButtonVisibility('NEW');
         }
         
-        // CRITICAL FIX: Set session to paused state instead of clearing everything
+        // CRITICAL FIX: Set session to paused state when user manually stops recording
         // This preserves session data and duration while stopping active recording
         if (window.StorageManager) {
             window.StorageManager.setPausedSessionState();

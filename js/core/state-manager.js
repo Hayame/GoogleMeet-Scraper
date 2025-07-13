@@ -483,6 +483,27 @@ async function restoreStateFromStorage() {
             }
         }
         
+        // Check for historical session state
+        if (pausedSessionState === window.AppConstants.SESSION_STATES.HISTORICAL_SESSION) {
+            console.log('📜 [RESTORE] Restoring historical session state');
+            
+            if (result[window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA] && result[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID]) {
+                transcriptData = result[window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA];
+                currentSessionId = result[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID];
+                
+                exposeGlobalVariables();
+                
+                return {
+                    restored: true,
+                    realtimeMode: false,
+                    sessionState: window.AppConstants.SESSION_STATES.HISTORICAL_SESSION,
+                    transcriptData: transcriptData,
+                    currentSessionId: currentSessionId
+                };
+            }
+        }
+        
+        // DEPRECATED: Legacy restoration logic for old sessions without sessionState
         // Restore transcript data only for active recording or historical sessions
         if (result[window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA] && result[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID]) {
             const isActiveRecording = result[window.AppConstants.STORAGE_KEYS.REALTIME_MODE];
@@ -490,7 +511,7 @@ async function restoreStateFromStorage() {
             // CRITICAL FIX: Use window.sessionHistory instead of local sessionHistory
             const isHistoricalSession = window.sessionHistory?.find(s => s.id === result[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID]);
             
-            console.log('🔍 [RESTORE DEBUG] Session lookup:', {
+            console.log('🔍 [RESTORE DEBUG] Legacy session lookup:', {
                 sessionId: result[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID],
                 sessionHistoryLength: window.sessionHistory?.length || 0,
                 isActiveRecording,

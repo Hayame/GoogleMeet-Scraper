@@ -372,7 +372,44 @@ async function applySessionStateRestoration(sessionState) {
         
         console.log('⏸️ [POPUP] Paused session restored with "Rozpocznij nagrywanie" button');
         
+    } else if (sessionState.sessionState === window.AppConstants.SESSION_STATES.HISTORICAL_SESSION) {
+        // CRITICAL FIX: Restore historical session (should show meeting title, not record button)
+        console.log('📜 [POPUP] Restoring historical session');
+        
+        // Display transcript data
+        if (sessionState.transcriptData && window.displayTranscript) {
+            window.displayTranscript(sessionState.transcriptData);
+        }
+        
+        // Update stats
+        if (sessionState.transcriptData && window.updateStats) {
+            window.updateStats(sessionState.transcriptData);
+        }
+        
+        // CRITICAL FIX: Update participant count clickability after stats update
+        if (sessionState.transcriptData && window.TranscriptManager && window.TranscriptManager.updateParticipantCountClickability) {
+            const uniqueParticipants = new Set(sessionState.transcriptData.messages?.map(m => m.speaker) || []).size;
+            window.TranscriptManager.updateParticipantCountClickability(uniqueParticipants);
+        }
+        
+        // Update UI for historical session
+        if (window.UIManager) {
+            window.UIManager.updateButtonVisibility('HISTORICAL');
+            
+            // Show meeting name if session exists in history
+            const session = window.sessionHistory?.find(s => s.id === sessionState.currentSessionId);
+            if (session) {
+                window.UIManager.showMeetingName(session.title, sessionState.currentSessionId);
+            }
+        }
+        
+        // Highlight restored session in sidebar
+        if (window.SessionUIManager && window.SessionUIManager.highlightActiveSession) {
+            window.SessionUIManager.highlightActiveSession(sessionState.currentSessionId);
+        }
+        
     } else if (sessionState.transcriptData && sessionState.currentSessionId) {
+        // DEPRECATED: Legacy historical session restoration for backward compatibility
         // Restore historical session
         console.log('📜 [POPUP] Restoring historical session');
         

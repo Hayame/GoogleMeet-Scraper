@@ -225,7 +225,8 @@ window.SessionHistoryManager = {
             transcriptData: window.transcriptData,
             currentSessionId: window.currentSessionId,
             recordingStartTime: null,
-            realtimeMode: false
+            realtimeMode: false,
+            sessionState: window.AppConstants.SESSION_STATES.HISTORICAL_SESSION  // Mark as historical
         });
         
         // Show meeting name instead of status for historical sessions
