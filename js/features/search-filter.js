@@ -19,25 +19,58 @@ window.SearchFilterManager = {
      * Source: popup.js lines 3364-3385
      */
     initializeSearch() {
-        const searchToggle = document.getElementById("searchToggle");
+        const searchBtn = document.getElementById("searchBtn");
         const searchInput = document.getElementById("searchInput");
-        const clearSearchBtn = document.getElementById("clearSearchBtn");
+        const clearSearchBtn = document.getElementById("searchClearBtn");
         
-        if (searchToggle) {
-            searchToggle.addEventListener("click", () => this.toggleSearchPanel());
+        if (searchBtn) {
+            searchBtn.addEventListener("click", () => this.toggleSearchPanel());
         }
         
         if (searchInput) {
             searchInput.addEventListener("input", (e) => this.handleSearchInput(e));
             searchInput.addEventListener("keydown", (e) => {
                 if (e.key === "Escape") {
-                    this.clearSearch();
+                    this.hideSearchPanel();
                 }
             });
         }
         
         if (clearSearchBtn) {
             clearSearchBtn.addEventListener("click", () => this.clearSearch());
+        }
+        
+        // Close search panel when clicking outside
+        document.addEventListener('click', (e) => {
+            const searchPanel = document.getElementById("searchPanel");
+            const searchBtn = document.getElementById("searchBtn");
+            
+            if (searchPanel && searchBtn && 
+                !searchPanel.contains(e.target) && 
+                !searchBtn.contains(e.target) &&
+                searchPanel.classList.contains("show")) {
+                this.hideSearchPanel();
+            }
+        });
+    },
+
+    /**
+     * Hide search panel without clearing search query
+     */
+    hideSearchPanel() {
+        const searchPanel = document.getElementById("searchPanel");
+        const searchBtn = document.getElementById("searchBtn");
+        
+        if (searchPanel) {
+            searchPanel.classList.remove("show");
+            setTimeout(() => {
+                searchPanel.style.display = "none";
+            }, 300); // Match animation duration
+        }
+        
+        // Remove active state from search button
+        if (searchBtn) {
+            searchBtn.classList.remove("active");
         }
     },
 
@@ -48,17 +81,28 @@ window.SearchFilterManager = {
     toggleSearchPanel() {
         const searchPanel = document.getElementById("searchPanel");
         const searchInput = document.getElementById("searchInput");
+        const searchBtn = document.getElementById("searchBtn");
         
         if (searchPanel) {
-            const isVisible = searchPanel.style.display === "block";
-            searchPanel.style.display = isVisible ? "none" : "block";
-            
-            if (!isVisible && searchInput) {
-                searchInput.focus();
-            }
+            const isVisible = searchPanel.classList.contains("show");
             
             if (isVisible) {
-                this.clearSearch();
+                this.hideSearchPanel();
+            } else {
+                // Show panel
+                searchPanel.style.display = "block";
+                // Force reflow to ensure animation plays
+                searchPanel.offsetHeight;
+                searchPanel.classList.add("show");
+                
+                // Update button state
+                if (searchBtn) {
+                    searchBtn.classList.add("active");
+                }
+                
+                if (searchInput) {
+                    searchInput.focus();
+                }
             }
         }
     },
@@ -86,9 +130,13 @@ window.SearchFilterManager = {
     performSearch(query) {
         this._currentSearchQuery = query;
         
+        // Update search button state
+        this.updateSearchButtonState();
+        
         if (window.transcriptData && window.transcriptData.messages) {
             if (window.TranscriptManager) {
                 window.TranscriptManager.displayTranscript(window.transcriptData);
+                this.updateSearchResults();
             }
         }
     },
@@ -100,13 +148,20 @@ window.SearchFilterManager = {
     clearSearch() {
         const searchInput = document.getElementById("searchInput");
         const searchPanel = document.getElementById("searchPanel");
+        const searchBtn = document.getElementById("searchBtn");
         
         if (searchInput) {
             searchInput.value = "";
         }
         
         if (searchPanel) {
+            searchPanel.classList.remove("show");
             searchPanel.style.display = "none";
+        }
+        
+        // Remove active state from search button
+        if (searchBtn) {
+            searchBtn.classList.remove("active");
         }
         
         if (this._searchDebounceTimer) {
@@ -116,9 +171,13 @@ window.SearchFilterManager = {
         
         this._currentSearchQuery = "";
         
+        // Update search button state
+        this.updateSearchButtonState();
+        
         if (window.transcriptData && window.transcriptData.messages) {
             if (window.TranscriptManager) {
                 window.TranscriptManager.displayTranscript(window.transcriptData);
+                this.updateSearchResults();
             }
         }
     },
@@ -130,13 +189,20 @@ window.SearchFilterManager = {
     resetSearch() {
         const searchInput = document.getElementById("searchInput");
         const searchPanel = document.getElementById("searchPanel");
+        const searchBtn = document.getElementById("searchBtn");
         
         if (searchInput) {
             searchInput.value = "";
         }
         
         if (searchPanel) {
+            searchPanel.classList.remove("show");
             searchPanel.style.display = "none";
+        }
+        
+        // Remove active state from search button
+        if (searchBtn) {
+            searchBtn.classList.remove("active");
         }
         
         if (this._searchDebounceTimer) {
@@ -146,6 +212,9 @@ window.SearchFilterManager = {
         
         this._currentSearchQuery = "";
         this._originalMessages = [];
+        
+        // Update search button state
+        this.updateSearchButtonState();
     },
 
     /**
@@ -565,6 +634,65 @@ window.SearchFilterManager = {
         });
         
         return speakerColors;
+    },
+
+    /**
+     * Update search results counter and display
+     */
+    updateSearchResults() {
+        const searchResultsInfo = document.getElementById("searchResultsInfo");
+        const searchResultsCount = document.getElementById("searchResultsCount");
+        
+        if (!searchResultsInfo || !searchResultsCount) return;
+        
+        if (this._currentSearchQuery) {
+            // Count filtered messages
+            const filteredMessages = this.applyFilters(window.transcriptData.messages || []);
+            const resultCount = filteredMessages.length;
+            
+            searchResultsCount.textContent = resultCount;
+            searchResultsInfo.style.display = "block";
+            
+            // Show clear button if there's a search query
+            const clearButton = document.getElementById("searchClearBtn");
+            if (clearButton) {
+                clearButton.classList.add("show");
+            }
+        } else {
+            searchResultsInfo.style.display = "none";
+            
+            // Hide clear button when no search
+            const clearButton = document.getElementById("searchClearBtn");
+            if (clearButton) {
+                clearButton.classList.remove("show");
+            }
+        }
+    },
+
+    /**
+     * Update search button visual state
+     */
+    updateSearchButtonState() {
+        const searchBtn = document.getElementById("searchBtn");
+        if (!searchBtn) return;
+        
+        // Remove existing badge
+        const existingBadge = searchBtn.querySelector('.search-badge');
+        if (existingBadge) {
+            existingBadge.remove();
+        }
+        
+        if (this._currentSearchQuery) {
+            searchBtn.classList.add("search-active");
+            
+            // Add badge to indicate active search
+            const badge = document.createElement('span');
+            badge.className = 'search-badge';
+            badge.textContent = '•';
+            searchBtn.appendChild(badge);
+        } else {
+            searchBtn.classList.remove("search-active");
+        }
     },
 
     /**

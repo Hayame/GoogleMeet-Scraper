@@ -480,7 +480,10 @@ window.SessionHistoryManager = {
             window.stopDurationTimer();
         }
         
-        // Reset filters and hide meeting name for clean new session
+        // Reset search and filters for clean new session
+        if (window.resetSearch) {
+            window.resetSearch();
+        }
         if (window.resetParticipantFilters) {
             window.resetParticipantFilters();
         }

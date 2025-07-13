@@ -504,7 +504,7 @@ window.TranscriptManager = {
         if (!query) return text;
         
         const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
-        return text.replace(regex, "<mark class=\"highlight-search\">$1</mark>");
+        return text.replace(regex, "<mark class=\"search-highlight\">$1</mark>");
     },
 
     /**

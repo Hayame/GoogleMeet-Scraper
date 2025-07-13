@@ -1897,8 +1897,9 @@ body {
 .search-panel {
     position: absolute;
     top: 100%;
-    left: 0;
-    right: 0;
+    left: -120px;
+    min-width: 280px;
+    max-width: 400px;
     background: var(--bg-secondary);
     border: 1px solid var(--border-primary);
     border-radius: 8px;
@@ -1907,6 +1908,13 @@ body {
     z-index: 1000;
     margin-top: 8px;
     transition: var(--transition-theme);
+    opacity: 0;
+    transform: translateY(-4px);
+}
+
+.search-panel.show {
+    opacity: 1;
+    transform: translateY(0);
 }
 
 .search-input-container {
@@ -1992,6 +2000,7 @@ body {
     left: -120px;
     min-width: 280px;
     max-width: 320px;
+    max-height: 280px;
     background: var(--bg-secondary);
     border: 1px solid var(--border-primary);
     border-radius: 8px;
@@ -2003,6 +2012,7 @@ body {
     opacity: 0;
     transform: translateY(-4px);
     animation: filterDropdownSlideIn 0.2s ease forwards;
+    overflow-y: auto;
 }
 
 @keyframes filterDropdownSlideIn {
@@ -2044,6 +2054,7 @@ body {
     display: flex;
     flex-direction: column;
     padding: 12px;
+    max-height: 230px;
 }
 
 /* Filter Items - Matching Participants Modal Style */
@@ -2172,8 +2183,6 @@ body {
     display: flex;
     flex-direction: column;
     gap: 0;
-    max-height: 280px;
-    overflow-y: auto;
     padding-right: 4px;
 }
 
@@ -2390,6 +2399,7 @@ body {
         margin-top: 0;
         border-radius: 12px;
         box-shadow: var(--shadow-xl);
+        opacity: 1;
     }
     
     .search-panel {
@@ -2582,34 +2592,6 @@ body {
     margin-top: 2px;
 }
 
-/* Search Panel */
-.search-panel {
-    position: relative;
-    display: none;
-    padding: 16px;
-    background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border-primary);
-    animation: searchPanelSlideDown 0.3s ease-out;
-}
-
-.search-panel.show {
-    display: block;
-}
-
-@keyframes searchPanelSlideDown {
-    from {
-        opacity: 0;
-        transform: translateY(-16px);
-        max-height: 0;
-        padding: 0 16px;
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-        max-height: 200px;
-        padding: 16px;
-    }
-}
 
 .search-input-container {
     position: relative;
@@ -2769,6 +2751,23 @@ body {
     background: var(--btn-primary-bg);
     color: white;
     transform: scale(1.05);
+}
+
+/* Search Badge */
+.search-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 8px;
+    height: 8px;
+    background: var(--status-info-bg);
+    color: var(--status-info-text);
+    border-radius: 50%;
+    font-size: 8px;
+    line-height: 8px;
+    text-align: center;
+    font-weight: bold;
+    z-index: 1;
 }
 
 /* Filter badge */

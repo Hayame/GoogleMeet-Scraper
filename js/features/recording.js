@@ -26,6 +26,11 @@ window.RecordingManager = {
         window.StateManager?.setRecordingPaused(false);
         console.log('🟢 [ACTIVATION DEBUG] recordingStopped reset to:', window.StateManager?.getRecordingStopped());
         
+        // Reset search when starting new recording (not continuation)
+        if (!isContinuation && window.SearchFilterManager) {
+            window.SearchFilterManager.resetSearch();
+        }
+        
         window.realtimeMode = true;
         realtimeBtn.classList.add('active');
         document.querySelector('.record-text').textContent = 'Zatrzymaj nagrywanie';
