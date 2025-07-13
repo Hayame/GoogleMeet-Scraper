@@ -1177,8 +1177,9 @@ body {
 .modal-content {
     background: var(--bg-secondary);
     border-radius: 12px;
-    min-width: 380px;
-    max-width: 560px;
+    min-width: 420px;
+    max-width: 500px;
+    width: 460px;
     max-height: 90vh;
     overflow: hidden;
     box-shadow: var(--shadow-xl);
@@ -1349,6 +1350,36 @@ body {
     color: var(--btn-danger-bg);
     font-weight: 500;
     margin-top: 16px;
+}
+
+/* Session Preview Modal Styles (for stop recording confirmation) */
+.session-preview {
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    padding: 16px;
+    margin: 16px 0;
+    border-left: 4px solid var(--btn-primary-bg);
+}
+
+.session-title {
+    font-weight: 600;
+    color: var(--text-heading);
+    margin-bottom: 8px;
+    transition: var(--transition-theme);
+    font-size: 16px;
+}
+
+.session-meta {
+    font-size: 14px;
+    color: var(--text-muted);
+    transition: var(--transition-theme);
+}
+
+.warning {
+    color: var(--btn-primary-bg);
+    font-weight: 500;
+    margin-top: 16px;
+    font-size: 14px;
 }
 
 /* Current Session Info Modal Styles */
