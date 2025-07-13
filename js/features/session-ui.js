@@ -44,18 +44,29 @@ window.SessionUIManager = {
             const dateStr = date.toLocaleDateString('pl-PL');
             const timeStr = date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
             
-            // Create clickable participants section
+            // Create participants section - clickable only if count > 0
             const participantsSpan = document.createElement('span');
-            participantsSpan.className = 'participants-clickable';
             participantsSpan.textContent = `${session.participantCount} uczestników`;
-            participantsSpan.title = 'Kliknij aby zobaczyć listę uczestników';
-            participantsSpan.style.cursor = 'pointer';
-            participantsSpan.style.textDecoration = 'underline';
-            participantsSpan.style.color = 'var(--btn-primary-bg)';
-            participantsSpan.onclick = (e) => {
-                e.stopPropagation(); // Prevent session loading
-                this.showParticipantsList(session);
-            };
+            
+            // CRITICAL FIX: Only make clickable when there are participants
+            if (session.participantCount > 0) {
+                participantsSpan.className = 'participants-clickable';
+                participantsSpan.title = 'Kliknij aby zobaczyć listę uczestników';
+                participantsSpan.style.cursor = 'pointer';
+                participantsSpan.style.textDecoration = 'underline';
+                participantsSpan.style.color = 'var(--btn-primary-bg)';
+                participantsSpan.onclick = (e) => {
+                    e.stopPropagation(); // Prevent session loading
+                    this.showParticipantsList(session);
+                };
+            } else {
+                // Non-clickable style for 0 participants
+                participantsSpan.className = 'participants-non-clickable';
+                participantsSpan.title = 'Brak uczestników';
+                participantsSpan.style.cursor = 'default';
+                participantsSpan.style.textDecoration = 'none';
+                participantsSpan.style.color = 'var(--text-muted)';
+            }
             
             metaDiv.innerHTML = `${dateStr} ${timeStr} • `;
             metaDiv.appendChild(participantsSpan);

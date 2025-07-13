@@ -314,6 +314,12 @@ async function applySessionStateRestoration(sessionState) {
             window.updateStats(sessionState.transcriptData);
         }
         
+        // CRITICAL FIX: Update participant count clickability after stats update
+        if (sessionState.transcriptData && window.TranscriptManager && window.TranscriptManager.updateParticipantCountClickability) {
+            const uniqueParticipants = new Set(sessionState.transcriptData.messages?.map(m => m.speaker) || []).size;
+            window.TranscriptManager.updateParticipantCountClickability(uniqueParticipants);
+        }
+        
         // Update UI for recording state
         if (window.UIManager) {
             window.UIManager.updateButtonVisibility('RECORDING');
@@ -344,6 +350,12 @@ async function applySessionStateRestoration(sessionState) {
             window.updateStats(sessionState.transcriptData);
         }
         
+        // CRITICAL FIX: Update participant count clickability after stats update
+        if (sessionState.transcriptData && window.TranscriptManager && window.TranscriptManager.updateParticipantCountClickability) {
+            const uniqueParticipants = new Set(sessionState.transcriptData.messages?.map(m => m.speaker) || []).size;
+            window.TranscriptManager.updateParticipantCountClickability(uniqueParticipants);
+        }
+        
         // CRITICAL: Update UI for paused session (show "Rozpocznij nagrywanie" button)
         if (window.UIManager) {
             window.UIManager.updateButtonVisibility('NEW');
@@ -372,6 +384,12 @@ async function applySessionStateRestoration(sessionState) {
         // Update stats
         if (window.updateStats) {
             window.updateStats(sessionState.transcriptData);
+        }
+        
+        // CRITICAL FIX: Update participant count clickability after stats update
+        if (sessionState.transcriptData && window.TranscriptManager && window.TranscriptManager.updateParticipantCountClickability) {
+            const uniqueParticipants = new Set(sessionState.transcriptData.messages?.map(m => m.speaker) || []).size;
+            window.TranscriptManager.updateParticipantCountClickability(uniqueParticipants);
         }
         
         // Update UI for historical session

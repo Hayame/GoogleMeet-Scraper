@@ -77,6 +77,9 @@ window.UIManager = {
      * @param {string} sessionId - The session ID
      */
     showMeetingName(meetingTitle, sessionId) {
+        // CRITICAL FIX: Cancel any ongoing title editing before showing new meeting name
+        this.cancelMeetingNameEdit();
+        
         const statusDiv = document.getElementById('recordingStatus');
         if (!statusDiv) {
             console.error('Status div not found');

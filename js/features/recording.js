@@ -85,11 +85,25 @@ window.RecordingManager = {
                 console.log('🟢 [ACTIVATION DEBUG] Starting background scanning for tab:', tab.id);
                 
                 // Zapisz stan wraz z ID karty Meet
-                chrome.storage.local.set({ 
+                const recordingStateToSave = { 
                     realtimeMode: true, 
                     recordingStartTime: window.StateManager?.getRecordingStartTime() ? window.StateManager?.getRecordingStartTime().toISOString() : null,
                     sessionStartTime: window.StateManager?.getSessionStartTime() ? window.StateManager?.getSessionStartTime().toISOString() : null,
                     meetTabId: tab.id  // Save the Meet tab ID
+                };
+                
+                console.log('🔴 [RECORDING DEBUG] Saving recording state to storage:', recordingStateToSave);
+                chrome.storage.local.set(recordingStateToSave, () => {
+                    if (chrome.runtime.lastError) {
+                        console.error('🔴 [RECORDING ERROR] Failed to save recording state:', chrome.runtime.lastError);
+                    } else {
+                        console.log('🔴 [RECORDING DEBUG] Recording state saved successfully');
+                        
+                        // Verify storage was saved correctly
+                        chrome.storage.local.get(['realtimeMode', 'meetTabId'], (verifyResult) => {
+                            console.log('🔴 [RECORDING DEBUG] Verification - storage now contains:', verifyResult);
+                        });
+                    }
                 });
                 
                 // Rozpocznij skanowanie w tle
@@ -123,7 +137,17 @@ window.RecordingManager = {
      * Deactivate realtime recording mode
      * Source: popup.js lines 1532-1579
      */
-    deactivateRealtimeMode() {        
+    deactivateRealtimeMode() {
+        // CRITICAL DEBUG: Log who is calling deactivateRealtimeMode
+        console.log('🔴 [RECORDING DEBUG] deactivateRealtimeMode() called');
+        console.log('🔴 [RECORDING DEBUG] Call stack:', new Error().stack);
+        console.log('🔴 [RECORDING DEBUG] Current recording state:', {
+            realtimeMode: window.realtimeMode,
+            currentSessionId: window.currentSessionId,
+            hasTranscriptData: !!window.transcriptData,
+            messageCount: window.transcriptData?.messages?.length || 0
+        });
+        
         const realtimeBtn = document.getElementById('recordBtn');
         if (!realtimeBtn) {
             console.error('Record button not found!');

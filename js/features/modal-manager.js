@@ -170,11 +170,98 @@ window.ModalManager = {
         // Store the session ID to load after confirmation
         window.pendingSessionToLoad = sessionId;
         
+        // Populate modal with current session information
+        this.populateStopRecordingModalContent();
+        
         // Show the confirmation modal
         this.showModal('stopRecordingModal');
         
         // Initialize event listeners for this confirmation
         this.initializeStopRecordingModalEventListeners();
+    },
+
+    /**
+     * Populate stop recording modal with current session information
+     * CRITICAL FIX: Add formatted session info to modal for better UX
+     */
+    populateStopRecordingModalContent() {
+        const modal = document.getElementById('stopRecordingModal');
+        if (!modal) return;
+        
+        const modalBody = modal.querySelector('.modal-body');
+        if (!modalBody) return;
+        
+        // Get current session data
+        const currentSessionTitle = this.getCurrentSessionTitle();
+        const recordingDuration = this.getCurrentRecordingDuration();
+        const participantCount = this.getCurrentParticipantCount();
+        const entryCount = window.transcriptData?.messages?.length || 0;
+        
+        // Check if session info already exists and update it, or create new one
+        let sessionInfoDiv = modalBody.querySelector('.current-session-info');
+        if (!sessionInfoDiv) {
+            sessionInfoDiv = document.createElement('div');
+            sessionInfoDiv.className = 'current-session-info';
+            
+            // Insert after the first paragraph (main question)
+            const firstParagraph = modalBody.querySelector('p');
+            if (firstParagraph && firstParagraph.nextSibling) {
+                modalBody.insertBefore(sessionInfoDiv, firstParagraph.nextSibling);
+            } else {
+                modalBody.appendChild(sessionInfoDiv);
+            }
+        }
+        
+        // Create formatted session info content
+        sessionInfoDiv.innerHTML = `
+            <h4 class="current-session-title">${currentSessionTitle}</h4>
+            <div class="current-session-details">
+                ${new Date().toLocaleDateString('pl-PL')} • ${participantCount} uczestników • ${entryCount} wpisów
+            </div>
+            <div class="current-session-note">
+                Aktualne nagrywanie zostanie zatrzymane i zapisane.
+            </div>
+        `;
+    },
+
+    /**
+     * Get current session title for display
+     */
+    getCurrentSessionTitle() {
+        // Try to get title from meeting name display
+        const meetingNameText = document.querySelector('.meeting-name-text');
+        if (meetingNameText && meetingNameText.textContent) {
+            return meetingNameText.textContent;
+        }
+        
+        // Fallback to generating title based on current time
+        const now = new Date();
+        const time = now.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+        return `Spotkanie o ${time}`;
+    },
+
+    /**
+     * Get current recording duration for display
+     */
+    getCurrentRecordingDuration() {
+        const durationElement = document.getElementById('duration');
+        if (durationElement) {
+            return durationElement.textContent || '0:00';
+        }
+        return '0:00';
+    },
+
+    /**
+     * Get current participant count for display
+     */
+    getCurrentParticipantCount() {
+        if (window.transcriptData && window.transcriptData.messages) {
+            const uniqueParticipants = new Set(
+                window.transcriptData.messages.map(msg => msg.speaker)
+            ).size;
+            return uniqueParticipants;
+        }
+        return 0;
     },
 
     /**

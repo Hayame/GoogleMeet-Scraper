@@ -379,8 +379,25 @@ async function restoreStateFromStorage() {
             realtimeMode: result[window.AppConstants.STORAGE_KEYS.REALTIME_MODE],
             currentSessionId: result[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID],
             hasTranscriptData: !!result[window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA],
-            sessionHistoryLength: sessionHistory.length
+            sessionHistoryLength: sessionHistory.length,
+            sessionState: result[window.AppConstants.STORAGE_KEYS.SESSION_STATE],
+            meetTabId: result[window.AppConstants.STORAGE_KEYS.MEET_TAB_ID],
+            allStorageKeys: Object.keys(result)
         });
+        
+        // CRITICAL DEBUG: Log detailed recording state analysis
+        if (result[window.AppConstants.STORAGE_KEYS.REALTIME_MODE]) {
+            console.log('🔴 [RESTORE DEBUG] Active recording detected in storage!');
+            console.log('🔴 [RESTORE DEBUG] Recording details:', {
+                recordingStartTime: result[window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME],
+                sessionStartTime: result[window.AppConstants.STORAGE_KEYS.SESSION_START_TIME],
+                sessionTotalDuration: result[window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION],
+                currentSessionDuration: result[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_DURATION]
+            });
+        } else {
+            console.log('🔍 [RESTORE DEBUG] No active recording in storage');
+            console.log('🔍 [RESTORE DEBUG] Checking for paused session:', result[window.AppConstants.STORAGE_KEYS.SESSION_STATE]);
+        }
         
         // Restore recording state
         if (result[window.AppConstants.STORAGE_KEYS.REALTIME_MODE]) {

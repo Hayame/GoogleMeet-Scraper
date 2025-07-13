@@ -137,6 +137,11 @@ window.SessionHistoryManager = {
      * Source: popup.js lines 1961-1983
      */
     loadSessionFromHistory(sessionId) {
+        // CRITICAL FIX: Cancel any ongoing title editing before loading new session
+        if (window.UIManager && window.UIManager.cancelMeetingNameEdit) {
+            window.UIManager.cancelMeetingNameEdit();
+        }
+        
         // CRITICAL DEBUG: Log session lookup details
         console.log('🔍 [SESSION DEBUG] Looking for session:', {
             sessionId,
@@ -606,6 +611,11 @@ window.SessionHistoryManager = {
     showEmptySession() {
         console.log('🆕 [EMPTY SESSION] Showing empty session');
         
+        // CRITICAL FIX: Cancel any ongoing title editing before showing empty session
+        if (window.UIManager && window.UIManager.cancelMeetingNameEdit) {
+            window.UIManager.cancelMeetingNameEdit();
+        }
+        
         // Clear session data using StateManager
         window.transcriptData = null;
         window.currentSessionId = null;
@@ -635,6 +645,11 @@ window.SessionHistoryManager = {
         if (window.displayTranscript && window.updateStats) {
             window.displayTranscript({ messages: [] });
             window.updateStats({ messages: [] });
+        }
+        
+        // CRITICAL FIX: Update participant count clickability for empty session (0 participants = non-clickable)
+        if (window.TranscriptManager && window.TranscriptManager.updateParticipantCountClickability) {
+            window.TranscriptManager.updateParticipantCountClickability(0);
         }
         
         // Reset duration display using TimerManager
