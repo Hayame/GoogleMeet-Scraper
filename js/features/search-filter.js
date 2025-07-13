@@ -701,7 +701,6 @@ window.SearchFilterManager = {
             // Add badge to indicate active search
             const badge = document.createElement('span');
             badge.className = 'search-badge';
-            badge.textContent = '•';
             searchBtn.appendChild(badge);
         } else {
             searchBtn.classList.remove("search-active");

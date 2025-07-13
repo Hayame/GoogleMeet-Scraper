@@ -2759,39 +2759,36 @@ body {
     position: absolute;
     top: 4px;
     right: 4px;
-    width: 8px;
-    height: 8px;
-    background: var(--btn-primary-bg);
-    color: white;
+    width: 6px;
+    height: 6px;
+    background: white;
     border-radius: 50%;
-    font-size: 8px;
-    line-height: 8px;
-    text-align: center;
-    font-weight: bold;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
     z-index: 1;
 }
 
 /* Filter badge */
 .filter-badge {
     position: absolute !important;
-    top: -8px !important;
-    right: -8px !important;
+    top: -6px !important;
+    right: -6px !important;
     background: var(--btn-primary-bg) !important;
     color: white !important;
-    font-size: 12px !important;
+    font-size: 10px !important;
     font-weight: 700 !important;
-    padding: 4px 8px !important;
-    border-radius: 14px !important;
-    min-width: 24px !important;
-    height: 24px !important;
+    padding: 2px 6px !important;
+    border-radius: 12px !important;
+    min-width: 20px !important;
+    height: 20px !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    box-shadow: 0 3px 8px rgba(59, 130, 246, 0.5) !important;
-    border: 2px solid var(--bg-secondary) !important;
+    text-align: center !important;
+    line-height: 1 !important;
+    box-shadow: 0 1px 4px rgba(59, 130, 246, 0.3) !important;
+    border: 1px solid white !important;
     animation: badgeAppear 0.3s ease !important;
     z-index: 1000 !important;
-    line-height: 1 !important;
 }
 
 @keyframes badgeAppear {

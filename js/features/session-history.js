@@ -189,14 +189,15 @@ window.SessionHistoryManager = {
         }
         
         // Load the session directly if no recording is active
-        this.performLoadSession(session);
+        // Reset filters when user explicitly loads a different session
+        this.performLoadSession(session, true);
     },
 
     /**
      * Perform the actual session loading
      * Source: popup.js lines 1985-2030
      */
-    performLoadSession(session) {
+    performLoadSession(session, shouldResetFilters = false) {
         // Load the session
         window.transcriptData = session.transcript;
         window.currentSessionId = session.id;
@@ -204,9 +205,11 @@ window.SessionHistoryManager = {
         window.StateManager?.setSessionStartTime(null); // Historic sessions don't need session start time
         window.StateManager?.setSessionTotalDuration(session.totalDuration || 0); // Load total duration
         
-        // Reset search and filters
-        window.resetSearch();
-        window.resetParticipantFilters();
+        // Reset search and filters only when explicitly requested (new session)
+        if (shouldResetFilters) {
+            window.resetSearch();
+            window.resetParticipantFilters();
+        }
         
         // Stop any existing timer and ensure recording is stopped
         window.stopDurationTimer();
@@ -420,7 +423,8 @@ window.SessionHistoryManager = {
             // Load the session that was clicked
             const sessionToLoad = window.sessionHistory.find(s => s.id === window.pendingSessionToLoad);
             if (sessionToLoad) {
-                this.performLoadSession(sessionToLoad);
+                // Reset filters when loading different session after stopping recording
+                this.performLoadSession(sessionToLoad, true);
             }
             
             window.pendingSessionToLoad = null;
