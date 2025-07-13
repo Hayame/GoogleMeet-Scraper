@@ -8,7 +8,7 @@ Rozszerzenie do Chrome/Edge umożliwiające nagrywanie, pobieranie i eksportowan
 - 📚 **Historia sesji** - przechowywanie do 50 sesji z możliwością przeglądania
 - 🔍 **Wyszukiwanie w transkrypcji** - szybkie znajdowanie fraz z podświetlaniem wyników
 - 👥 **Filtrowanie według uczestników** - wyświetlanie wiadomości wybranych osób
-- 💾 **Eksport do formatów TXT i JSON** - pobieranie transkrypcji w różnych formatach
+- 💾 **Eksport do pliku TXT i kopiowanie do schowka** - pobieranie transkrypcji oraz szybkie kopiowanie z opcją opakowania w prompt LLM
 - 🌓 **Tryb jasny/ciemny** - dostosowanie interfejsu do preferencji
 - ⏱️ **Śledzenie czasu** - pomiar czasu trwania spotkania i nagrywania
 - 🎨 **Kolorowe oznaczenia** - wizualne rozróżnienie uczestników
@@ -69,9 +69,12 @@ Możesz użyć dowolnego generatora ikon online lub utworzyć proste ikony z emo
 
 ### Eksport transkrypcji
 1. **Kliknij przycisk eksportu** (ikona pobierania)
-2. **Wybierz format**:
-   - TXT - prosty format tekstowy
-   - JSON - format strukturalny z metadanymi
+2. **Opcjonalnie włącz "Eksportuj jako prompt dla LLM"** (domyślnie włączone):
+   - Gdy włączone: transkrypcja zostanie opakowana w szablon promptu do generowania podsumowania przez AI
+   - Gdy wyłączone: eksportowana będzie surowa transkrypcja
+3. **Wybierz sposób eksportu**:
+   - Eksportuj do pliku - pobieranie pliku TXT na dysk
+   - Kopiuj do schowka - szybkie kopiowanie z powiadomieniem toast
 
 ### Historia sesji
 - **Panel boczny** pokazuje wszystkie zapisane sesje
@@ -116,24 +119,25 @@ Anna Nowak [15:26]:
 Cześć! Dziękuję za zaproszenie.
 ```
 
-### Format JSON
-```json
-{
-  "entries": [
-    {
-      "speaker": "Jan Kowalski",
-      "text": "Dzień dobry wszystkim, witam na spotkaniu.",
-      "timestamp": "15:25"
-    },
-    {
-      "speaker": "Anna Nowak", 
-      "text": "Cześć! Dziękuję za zaproszenie.",
-      "timestamp": "15:26"
-    }
-  ],
-  "scrapedAt": "2024-01-20T15:30:00.000Z",
-  "meetingUrl": "https://meet.google.com/xxx-xxxx-xxx"
-}
+### Format z promptem LLM
+Gdy opcja "Eksportuj jako prompt dla LLM" jest włączona, transkrypcja zostanie opakowana w szablon promptu:
+```
+## 🧠 Prompt: Stwórz szczegółowe podsumowanie konwersacji
+
+Na podstawie poniższej transkrypcji stwórz szczegółowe podsumowanie w formacie Markdown.
+
+### 📎 Input
+
+Transkrypcja Google Meet
+Data eksportu: 2024-01-20 15:30:00
+URL spotkania: https://meet.google.com/xxx-xxxx-xxx
+=====================================
+
+Jan Kowalski [15:25]:
+Dzień dobry wszystkim, witam na spotkaniu.
+
+Anna Nowak [15:26]:
+Cześć! Dziękuję za zaproszenie.
 ```
 
 ## Architektura
@@ -152,7 +156,7 @@ Rozszerzenie wykorzystuje modułową architekturę JavaScript z następującymi 
 - **SessionHistoryManager** - zarządzanie historią sesji
 - **TranscriptManager** - wyświetlanie transkrypcji
 - **SearchFilterManager** - wyszukiwanie i filtrowanie
-- **ExportManager** - eksport do TXT/JSON
+- **ExportManager** - eksport do pliku TXT i kopiowanie do schowka z opcją promptu LLM
 - **ThemeManager** - obsługa motywów jasny/ciemny
 
 ## Ograniczenia
