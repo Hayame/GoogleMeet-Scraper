@@ -453,8 +453,8 @@ async function restoreStateFromStorage() {
         }
         
         // CRITICAL FIX: Check for paused session state
-        const sessionState = result[window.AppConstants.STORAGE_KEYS.SESSION_STATE];
-        if (sessionState === window.AppConstants.SESSION_STATES.PAUSED_SESSION) {
+        const pausedSessionState = result[window.AppConstants.STORAGE_KEYS.SESSION_STATE];
+        if (pausedSessionState === window.AppConstants.SESSION_STATES.PAUSED_SESSION) {
             console.log('⏸️ [RESTORE] Restoring paused session state');
             
             if (result[window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA] && result[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID]) {
