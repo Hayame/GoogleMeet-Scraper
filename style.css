@@ -369,7 +369,7 @@ body {
     align-items: center;
     justify-content: center;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
     box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
     white-space: nowrap;
 }

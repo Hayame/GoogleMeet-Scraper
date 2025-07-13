@@ -214,6 +214,7 @@ window.SessionUIManager = {
         console.log('🔍 [TOOLTIPS] session items found:', sessionItems.length);
         
         if (sidebar && sidebar.classList.contains('collapsed')) {
+            // Handle session items
             sessionItems.forEach((item, index) => {
                 const sessionInfo = item.querySelector('.session-info');
                 if (sessionInfo) {
@@ -245,10 +246,25 @@ window.SessionUIManager = {
                     console.log('🔍 [TOOLTIPS] Set tooltip for item', index, ':', tooltip);
                 }
             });
+            
+            // UNIFIED TOOLTIP SYSTEM: Handle new session button
+            const newSessionBtn = document.querySelector('.new-session-btn');
+            if (newSessionBtn) {
+                newSessionBtn.setAttribute('data-tooltip', '➕ Nowa sesja');
+                console.log('🔍 [TOOLTIPS] Set tooltip for new session button');
+            }
         } else {
+            // Remove tooltips when sidebar is expanded
             sessionItems.forEach(item => {
                 item.removeAttribute('data-tooltip');
             });
+            
+            // Remove new session button tooltip when sidebar is expanded
+            const newSessionBtn = document.querySelector('.new-session-btn');
+            if (newSessionBtn) {
+                newSessionBtn.removeAttribute('data-tooltip');
+            }
+            
             console.log('🔍 [TOOLTIPS] Removed all tooltips');
         }
     },
