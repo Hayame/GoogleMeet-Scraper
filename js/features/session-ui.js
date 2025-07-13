@@ -220,18 +220,24 @@ window.SessionUIManager = {
                     const title = sessionInfo.querySelector('.session-title')?.textContent || 'Sesja';
                     const meta = sessionInfo.querySelector('.session-meta')?.textContent || '';
                     
-                    // Create multi-line tooltip with each info on separate line
-                    let tooltip = title;
+                    // Create beautifully formatted tooltip with icons and better layout
+                    let tooltip = `📝 ${title}`;
                     if (meta) {
                         // Extract date and participants from meta (format: "14.01.2024 15:30 • 3 uczestników • 5 wpisów")
                         const parts = meta.split(' • ');
-                        if (parts.length >= 2) {
+                        if (parts.length >= 3) {
                             const dateTime = parts[0];
                             const participants = parts[1];
-                            // Create multi-line format: each info on separate line
-                            tooltip = `${title}\n${dateTime}\n${participants}`;
+                            const entries = parts[2];
+                            
+                            // Create visually appealing multi-line format with icons
+                            tooltip = `📝 ${title}\n\n📅 ${dateTime}\n👥 ${participants}\n💬 ${entries}`;
+                        } else if (parts.length >= 2) {
+                            const dateTime = parts[0];
+                            const participants = parts[1];
+                            tooltip = `📝 ${title}\n\n📅 ${dateTime}\n👥 ${participants}`;
                         } else {
-                            tooltip = `${title}\n${meta}`;
+                            tooltip = `📝 ${title}\n\n📋 ${meta}`;
                         }
                     }
                     
