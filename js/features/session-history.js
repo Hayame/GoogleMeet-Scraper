@@ -469,6 +469,12 @@ window.SessionHistoryManager = {
         
         console.log('🆕 [NEW SESSION] Created new session ID:', window.currentSessionId);
         
+        // CRITICAL FIX: Refresh session list to remove highlighting from previous session
+        if (window.SessionUIManager && window.SessionUIManager.renderSessionHistory) {
+            window.SessionUIManager.renderSessionHistory();
+            console.log('🆕 [NEW SESSION] Session list refreshed to remove highlighting');
+        }
+        
         // Stop any existing timer
         if (window.stopDurationTimer) {
             window.stopDurationTimer();
