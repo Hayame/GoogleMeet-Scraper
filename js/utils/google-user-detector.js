@@ -19,67 +19,12 @@ window.GoogleUserDetector = {
         retryTimer: null
     },
 
-    /**
-     * Precision selectors prioritized by reliability and context
-     * Ordered from most specific to most general
-     */
-    selectors: [
-        // PRIORITY 0: Google Meet participants list (MOST RELIABLE during meeting)
-        '[role="list"][aria-label*="Uczestnicy"] [role="listitem"]:first-child[aria-label]',    // Polish participants list - flexible match
-        '[role="list"][aria-label*="Participants"] [role="listitem"]:first-child[aria-label]', // English participants list - flexible match
-        '[role="list"][aria-label="Uczestnicy rozmowy"] [role="listitem"]:first-child[aria-label]', // Specific Polish version
-        '[role="list"][aria-label="Participants in call"] [role="listitem"]:first-child[aria-label]', // Specific English version
-        '[role="list"][aria-label*="Uczestnicy"] [role="listitem"]:first-child .zWGUib',       // Polish participants list - name span
-        '[role="list"][aria-label*="Participants"] [role="listitem"]:first-child .zWGUib',    // English participants list - name span
-        '[role="list"][aria-label="Uczestnicy rozmowy"] [role="listitem"]:first-child .zWGUib', // Specific Polish name span
-        '[role="list"][aria-label="Participants in call"] [role="listitem"]:first-child .zWGUib', // Specific English name span
-        
-        // PRIORITY 1: Specific Google Account name containers (fallback when not in meeting)
-        '[aria-label*="Google Account"] .gb_Ab',           // Google bar account name
-        '[aria-label*="Konto Google"] .gb_Ab',            // Polish Google bar account name
-        '.gb_B [role="button"] span:not(.gb_D)',          // Google bar button text (not services)
-        '.gb_b .gb_db',                                   // Classic Google bar username
-        
-        // PRIORITY 2: Google Account menu patterns with context validation
-        '[aria-label*="Google Account"]:not([data-ved]):not([jsname])', // Avoid controls
-        '[aria-label*="Konto Google"]:not([data-ved]):not([jsname])',  // Polish version
-        '[aria-label*="Account menu"]:not([data-ved])',   // Account menu (not video controls)
-        '[aria-label*="Menu konta"]:not([data-ved])',     // Polish account menu
-        
-        // PRIORITY 3: Navigation and header account areas
-        'header .gb_Ab:not(.gb_Cc)',                      // Header account name (not services)
-        'nav [role="button"][aria-label*="Account"] span', // Navigation account button text
-        '.gb_D .gb_Ca:first-child',                       // Google services first name element
-        
-        // PRIORITY 4: Profile containers (avoid status elements)
-        '.profile-info .user-name',                       // Profile container username
-        '.account-info .display-name',                    // Account display name
-        '.user-profile .name-text',                       // User profile name
-        
-        // PRIORITY 5: Breadcrumb and navigation name display
-        '.breadcrumb .user-info span',                    // Breadcrumb user info
-        '.account-name:not(.status):not(.control)',       // Account name (not status/control)
-        
-        // PRIORITY 6: Validated aria-label patterns
-        '[aria-label*="profile"]:not([aria-label*="camera"]):not([aria-label*="microphone"])',
-        '[aria-label*="profil"]:not([aria-label*="kamera"]):not([aria-label*="mikrofon"])',
-        
-        // PRIORITY 7: Google Bar alternatives with validation
-        '.gb_db:not(.gb_Ec):not([jsname])',              // Google bar name (not controls)
-        '.gb_Ca:not(.gb_Cc):not([data-ved])',            // Alternative bar name
-        
-        // PRIORITY 8: Material Design account buttons (validated)
-        '.VfPpkd-Bz112c-LgbsSe:not([jsname*="camera"]):not([jsname*="mic"])', // MD button (not camera/mic)
-        
-        // PRIORITY 9: Safe title/alt patterns  
-        '[title*="Google Account"]:not([title*="camera"]):not([title*="microphone"])',
-        '[title*="Konto Google"]:not([title*="kamera"]):not([title*="mikrofon"])',
-        'img[alt*="Google Account"]:not([alt*="camera"])',
-        'img[alt*="Konto Google"]:not([alt*="kamera"])',
-        
-        // PRIORITY 10: Last resort - highly validated generic patterns
-        '[role="button"][aria-label*="Account"]:not([aria-label*="camera"]):not([aria-label*="video"])',
-        '.gb_d[aria-label*="Google"]:not([aria-label*="Meet"]):not([data-tooltip*="camera"])'
+    // Essential Google Account selectors for fallback detection
+    fallbackSelectors: [
+        '[aria-label*="Google Account"] .gb_Ab',
+        '[aria-label*="Konto Google"] .gb_Ab',
+        '.gb_B [role="button"] span:not(.gb_D)',
+        '.gb_b .gb_db'
     ],
 
     /**
@@ -435,682 +380,102 @@ window.GoogleUserDetector = {
     detect() {
         this.log('🔍 Starting Google user name detection...');
         
-        // METHOD 1: Try script tag detection first (most reliable)
-        this.log('🔍 [METHOD 1] Attempting script tag detection...');
+        // PRIMARY METHOD: Script tag detection (most reliable)
+        this.log('📜 Attempting script tag detection...');
         const scriptName = this.detectFromScriptTags();
         if (scriptName) {
-            this.log(`✅ [METHOD 1] Script tag detection successful: "${scriptName}"`);
+            this.log(`✅ Script tag detection successful: "${scriptName}"`);
             this.state.lastDetectedName = scriptName;
             this.state.detectionAttempts++;
             this.notifyUserNameDetected(scriptName);
             return scriptName;
         }
-        this.log('❌ [METHOD 1] Script tag detection failed');
         
-        // METHOD 2: Fallback to DOM selector detection
-        this.log('🔍 [METHOD 2] Attempting DOM selector detection...');
-        
-        // Check if we're in a Google Meet meeting context
-        const inMeeting = this.isInMeetingContext();
-        this.log(`📍 Meeting context: ${inMeeting ? 'IN MEETING' : 'NOT IN MEETING'}`);
-        
-        for (let i = 0; i < this.selectors.length; i++) {
-            const selector = this.selectors[i];
-            
-            // Skip participants list selectors only if we're definitely not in a meeting context
-            // Allow them to run on main page in case participants list is visible
-            if (!inMeeting && (selector.includes('Uczestnicy') || selector.includes('Participants'))) {
-                // Only skip if we're clearly on a non-meeting page
-                const url = window.location.href;
-                if (!url.includes('meet.google.com/')) {
-                    this.log(`⏭️ Skipping participants selector (not on Meet page): "${selector}"`);
-                    continue;
-                }
-                // Allow to continue if we're on Meet page even without meeting context
-                this.log(`🤔 Trying participants selector on Meet page: "${selector}"`);
-            }
-            
-            const elements = document.querySelectorAll(selector);
-            
-            this.log(`🔍 Trying selector ${i + 1}/${this.selectors.length}: "${selector}" - found ${elements.length} elements`);
-            
-            // Extra debugging for participants list selectors
-            if ((selector.includes('Uczestnicy') || selector.includes('Participants')) && elements.length === 0) {
-                // Check what participants lists actually exist
-                const allLists = document.querySelectorAll('[role="list"]');
-                this.log(`🔍 [DEBUG] Found ${allLists.length} total lists on page`);
-                allLists.forEach((list, idx) => {
-                    const ariaLabel = list.getAttribute('aria-label');
-                    this.log(`🔍 [DEBUG] List ${idx}: aria-label="${ariaLabel}"`);
-                });
-            }
-            
-            // If this is a participants list selector and we found elements, prioritize it
-            if (elements.length > 0 && (selector.includes('Uczestnicy') || selector.includes('Participants'))) {
-                this.log(`🎯 PARTICIPANTS LIST FOUND - high priority detection!`);
-            }
-            
-            for (let j = 0; j < elements.length; j++) {
-                const element = elements[j];
-                const userName = this.extractUserName(element, `${selector}[${j}]`);
-                
-                if (userName) {
-                    this.log(`✅ [METHOD 2] DOM selector detection successful: "${userName}" from ${selector}[${j}]`);
-                    this.state.lastDetectedName = userName;
-                    this.state.detectionAttempts++;
-                    
-                    // Send to background/popup
-                    this.notifyUserNameDetected(userName);
-                    return userName;
-                }
-            }
+        // FALLBACK METHOD: Basic DOM detection
+        this.log('🔍 Script tag failed, trying basic DOM fallback...');
+        const domName = this.detectFromDOM();
+        if (domName) {
+            this.log(`✅ DOM fallback successful: "${domName}"`);
+            this.state.lastDetectedName = domName;
+            this.state.detectionAttempts++;
+            this.notifyUserNameDetected(domName);
+            return domName;
         }
         
-        this.log('❌ [METHOD 2] DOM selector detection failed - no valid names found');
-        this.log('❌ All detection methods failed in this attempt');
+        this.log('❌ All detection methods failed');
         this.state.detectionAttempts++;
         return null;
     },
 
     /**
-     * Check if we're currently in a Google Meet meeting context
+     * Simple DOM detection fallback
      */
-    isInMeetingContext() {
-        // Check URL pattern - allow both main page and meeting rooms
-        const url = window.location.href;
-        const isOnMeetPage = url.includes('meet.google.com/');
+    detectFromDOM() {
+        this.log('🔍 Starting basic DOM detection...');
         
-        // Check for participants list existence (indicates active meeting)
-        const participantsList = document.querySelector('[role="list"][aria-label*="Uczestnicy"], [role="list"][aria-label*="Participants"]');
-        
-        // Check for meeting controls (camera/mic buttons)
-        const meetingControls = document.querySelector('[aria-label*="mikrofon"], [aria-label*="microphone"], [aria-label*="kamera"], [aria-label*="camera"]');
-        
-        // We're in meeting context if we have participants list OR meeting controls
-        // This allows detection on both main page and during meetings
-        const inMeeting = isOnMeetPage && (participantsList || meetingControls);
-        
-        this.log(`📍 Meeting context check: URL=${isOnMeetPage}, participants=${!!participantsList}, controls=${!!meetingControls} => ${inMeeting}`);
-        
-        return inMeeting;
-    },
-
-    /**
-     * Enhanced user name extraction from DOM element with context validation
-     */
-    extractUserName(element, context) {
-        if (!element) return null;
-        
-        // STEP 1: Validate element context before extraction
-        if (!this.validateElementContext(element, context)) {
-            return null;
-        }
-        
-        let userName = null;
-        
-        // Method 1: Extract from aria-label
-        const ariaLabel = element.getAttribute('aria-label');
-        if (ariaLabel) {
-            userName = this.parseAriaLabel(ariaLabel);
-            if (userName) {
-                this.log(`📝 Extracted from aria-label: "${userName}" (${context})`);
-                return userName;
-            }
-        }
-        
-        // Method 2: Extract from title attribute
-        const title = element.getAttribute('title');
-        if (title) {
-            userName = this.parseTitleAttribute(title);
-            if (userName) {
-                this.log(`📝 Extracted from title: "${userName}" (${context})`);
-                return userName;
-            }
-        }
-        
-        // Method 3: Extract from text content
-        const textContent = element.textContent?.trim();
-        if (textContent) {
-            userName = this.parseTextContent(textContent);
-            if (userName) {
-                this.log(`📝 Extracted from text: "${userName}" (${context})`);
-                return userName;
-            }
-        }
-        
-        // Method 4: Extract from data attributes (limited and validated)
-        const dataName = element.getAttribute('data-name');
-        if (dataName && this.isValidDataAttribute(dataName)) {
-            userName = this.parseDataAttribute(dataName);
-            if (userName) {
-                this.log(`📝 Extracted from data-name: "${userName}" (${context})`);
-                return userName;
-            }
-        }
-        
-        // Method 5: Extract from participants list (special handling)
-        const participantsName = this.extractFromParticipantsList(element, context);
-        if (participantsName) {
-            this.log(`📝 Extracted from participants list: "${participantsName}" (${context})`);
-            return participantsName;
-        }
-        
-        // Method 6: Extract from nested elements
-        const nestedUserName = this.extractFromNestedElements(element);
-        if (nestedUserName) {
-            this.log(`📝 Extracted from nested elements: "${nestedUserName}" (${context})`);
-            return nestedUserName;
-        }
-        
-        return null;
-    },
-
-    /**
-     * Extract user name from Google Meet participants list
-     * Special handling for participants list which has clean, reliable data
-     */
-    extractFromParticipantsList(element, context) {
-        // Check if this is a participants list context
-        if (!context.includes('role="list"') || !context.includes('aria-label')) {
-            return null;
-        }
-        
-        this.log(`👥 [PARTICIPANTS] Analyzing participants list element: ${context}`);
-        this.log(`👥 [PARTICIPANTS] Element HTML: ${element.outerHTML?.substring(0, 200)}...`);
-        
-        // Method 1: Extract from aria-label (most reliable for participants)
-        const ariaLabel = element.getAttribute('aria-label');
-        this.log(`👥 [PARTICIPANTS] Element aria-label: "${ariaLabel}"`);
-        if (ariaLabel) {
-            // For participants list, aria-label usually contains clean name
-            const cleanName = this.parseParticipantAriaLabel(ariaLabel);
-            if (cleanName) {
-                this.log(`👥 [PARTICIPANTS] Clean name from aria-label: "${cleanName}"`);
-                return cleanName;
-            }
-        }
-        
-        // Method 2: Extract from .zWGUib span (participants name span)
-        if (element.classList && element.classList.contains('zWGUib')) {
-            const textContent = element.textContent?.trim();
-            if (textContent && textContent.length >= 2 && textContent.length <= 50) {
-                this.log(`👥 [PARTICIPANTS] Name from .zWGUib span: "${textContent}"`);
-                return textContent;
-            }
-        }
-        
-        // Method 3: Look for .zWGUib within this element
-        const nameSpan = element.querySelector('.zWGUib');
-        if (nameSpan) {
-            const textContent = nameSpan.textContent?.trim();
-            if (textContent && textContent.length >= 2 && textContent.length <= 50) {
-                this.log(`👥 [PARTICIPANTS] Name from nested .zWGUib: "${textContent}"`);
-                return textContent;
-            }
-        }
-        
-        // Method 4: Check if this is a container with "(Ty)" marker
-        // Look for elements that contain Ty/You marker programmatically (not using :contains selector)
-        const allElements = element.querySelectorAll('*');
-        for (const el of allElements) {
-            const text = el.textContent;
-            if (text && (text.includes('(Ty)') || text.includes('(You)')) && el.classList.contains('NnTWjc')) {
-                // Found "(Ty)" marker, look for associated name in parent/sibling
-                const parent = el.parentElement;
-                if (parent) {
-                    const nameSpanNearby = parent.querySelector('.zWGUib');
-                    if (nameSpanNearby) {
-                        const textContent = nameSpanNearby.textContent?.trim();
-                        if (textContent && textContent.length >= 2 && textContent.length <= 50) {
-                            this.log(`👥 [PARTICIPANTS] Name associated with "(Ty)" marker: "${textContent}"`);
-                            return textContent;
+        for (const selector of this.fallbackSelectors) {
+            try {
+                const elements = document.querySelectorAll(selector);
+                this.log(`🔍 Trying selector: "${selector}" - found ${elements.length} elements`);
+                
+                for (const element of elements) {
+                    const text = element.textContent?.trim();
+                    if (text && this.isValidBasicUserName(text)) {
+                        const cleaned = this.cleanUserName(text);
+                        if (cleaned) {
+                            this.log(`✅ Found valid name: "${cleaned}"`);
+                            return cleaned;
                         }
                     }
                 }
+            } catch (error) {
+                this.log(`⚠️ Error with selector "${selector}": ${error.message}`);
             }
         }
         
-        // Method 5: Check if parent/ancestor is listitem and we're the first child
-        let parentElement = element.parentElement;
-        while (parentElement && !parentElement.getAttribute('role')) {
-            parentElement = parentElement.parentElement;
-        }
-        
-        if (parentElement && parentElement.getAttribute('role') === 'listitem') {
-            // We're inside a listitem, check if it's the first child (host)
-            const listContainer = parentElement.parentElement;
-            if (listContainer && listContainer.querySelector('[role="listitem"]:first-child') === parentElement) {
-                // This is the first participant (host), try to get name from aria-label
-                const hostAriaLabel = parentElement.getAttribute('aria-label');
-                if (hostAriaLabel) {
-                    const cleanName = this.parseParticipantAriaLabel(hostAriaLabel);
-                    if (cleanName) {
-                        this.log(`👥 [PARTICIPANTS] Host name from parent listitem: "${cleanName}"`);
-                        return cleanName;
-                    }
-                }
-            }
-        }
-        
+        this.log('❌ DOM detection failed');
         return null;
     },
 
     /**
-     * Parse aria-label specifically for participants list
-     * Participants aria-labels are usually clean names without prefixes
+     * Basic name validation for DOM detection
      */
-    parseParticipantAriaLabel(ariaLabel) {
-        if (!ariaLabel) return null;
+    isValidBasicUserName(name) {
+        if (!name || typeof name !== 'string') return false;
         
-        this.log(`👥 [PARTICIPANTS] Parsing aria-label: "${ariaLabel}"`);
+        const trimmed = name.trim();
+        if (trimmed.length < 2 || trimmed.length > 50) return false;
+        if (!/[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/.test(trimmed)) return false;
+        if (trimmed.includes('@') || trimmed.includes('http')) return false;
         
-        const cleanLabel = ariaLabel.trim();
-        
-        // For participants list, aria-label is usually just the clean name
-        // Examples: "Łukasz Szlachtowski", "John Smith", etc.
-        
-        // Basic validation - should look like a name
-        if (cleanLabel.length >= 2 && cleanLabel.length <= 50 && 
-            !cleanLabel.includes('@') && 
-            !this.isUILabel(cleanLabel)) {
-            
-            this.log(`👥 [PARTICIPANTS] Valid participant name found: "${cleanLabel}"`);
-            return cleanLabel;
-        }
-        
-        this.log(`👥 [PARTICIPANTS] Aria-label validation failed for: "${cleanLabel}"`);
-        return null;
+        const blacklisted = ['settings', 'account', 'profile', 'zamknij', 'close', 'menu'];
+        return !blacklisted.some(term => trimmed.toLowerCase().includes(term));
     },
 
     /**
-     * Check if text is a UI label (helper for participants parsing)
-     */
-    isUILabel(text) {
-        const lowerText = text.toLowerCase();
-        const uiLabels = [
-            'uczestnicy', 'participants', 'więcej', 'more', 'actions', 'czynności',
-            'mikrofon', 'microphone', 'kamera', 'camera', 'udostępnij', 'share'
-        ];
-        
-        return uiLabels.some(label => lowerText.includes(label));
-    },
-
-    /**
-     * Validate element context to avoid controls/status elements
-     */
-    validateElementContext(element, context) {
-        if (!element) return false;
-        
-        this.log(`🔍 Validating context for element: ${context}`);
-        
-        // Check element's own classes for problematic patterns
-        const className = element.className || '';
-        const classList = className.toLowerCase();
-        
-        // REJECT: Camera/microphone control classes
-        const badClassPatterns = [
-            'camera', 'mic', 'microphone', 'video', 'audio', 'mute',
-            'control', 'button', 'toggle', 'switch', 'status',
-            'device', 'connection', 'stream', 'feed', 'permission',
-            'disabled', 'enabled', 'unavailable', 'blocked'
-        ];
-        
-        if (badClassPatterns.some(pattern => classList.includes(pattern))) {
-            this.log(`❌ Element has problematic class: ${className}`);
-            return false;
-        }
-        
-        // Check parent element context (up to 3 levels)
-        let parent = element.parentElement;
-        let level = 0;
-        
-        while (parent && level < 3) {
-            const parentClass = (parent.className || '').toLowerCase();
-            const parentId = (parent.id || '').toLowerCase();
-            
-            // REJECT: Parent is clearly a control area
-            const badParentPatterns = [
-                'camera-control', 'mic-control', 'video-control', 'audio-control',
-                'device-controls', 'meeting-controls', 'toolbar', 'control-bar',
-                'status-bar', 'status-panel', 'device-status', 'connection-status',
-                'permission-dialog', 'settings-panel', 'controls-container'
-            ];
-            
-            if (badParentPatterns.some(pattern => 
-                parentClass.includes(pattern) || parentId.includes(pattern)
-            )) {
-                this.log(`❌ Parent element (level ${level}) is control area: ${parent.className || parent.id}`);
-                return false;
-            }
-            
-            // ACCEPT: Parent is account/profile area
-            const goodParentPatterns = [
-                'account', 'profile', 'user', 'avatar', 'header', 'navigation',
-                'gb_', 'google-bar', 'breadcrumb', 'menu'
-            ];
-            
-            if (goodParentPatterns.some(pattern => 
-                parentClass.includes(pattern) || parentId.includes(pattern)
-            )) {
-                this.log(`✅ Parent element (level ${level}) is valid context: ${parent.className || parent.id}`);
-                break; // Found good context, stop checking
-            }
-            
-            parent = parent.parentElement;
-            level++;
-        }
-        
-        // Check element attributes for additional validation
-        const attributes = element.attributes;
-        for (let i = 0; i < attributes.length; i++) {
-            const attr = attributes[i];
-            const attrValue = attr.value.toLowerCase();
-            
-            // REJECT: Attributes suggesting control functionality
-            if (attr.name.includes('data-') && (
-                attrValue.includes('camera') || 
-                attrValue.includes('mic') || 
-                attrValue.includes('video') ||
-                attrValue.includes('control') ||
-                attrValue.includes('device') ||
-                attrValue.includes('status') ||
-                attrValue.includes('permission')
-            )) {
-                this.log(`❌ Element has problematic attribute: ${attr.name}="${attr.value}"`);
-                return false;
-            }
-        }
-        
-        // Check element position and size (controls are usually small or positioned specifically)
-        try {
-            const rect = element.getBoundingClientRect();
-            
-            // REJECT: Very small elements (likely icons)
-            if (rect.width < 10 || rect.height < 10) {
-                this.log(`❌ Element too small: ${rect.width}x${rect.height}`);
-                return false;
-            }
-            
-            // REJECT: Hidden elements
-            if (rect.width === 0 || rect.height === 0) {
-                this.log(`❌ Element is hidden`);
-                return false;
-            }
-            
-        } catch (error) {
-            // getBoundingClientRect failed, but don't reject based on this
-            this.log(`⚠️ Could not get element bounds: ${error.message}`);
-        }
-        
-        this.log(`✅ Element passed context validation`);
-        return true;
-    },
-
-    /**
-     * Validate data-name attribute to avoid technical values
-     */
-    isValidDataAttribute(dataValue) {
-        if (!dataValue) return false;
-        
-        const lowerValue = dataValue.toLowerCase();
-        
-        // REJECT: Technical patterns
-        if (lowerValue.includes('_') && lowerValue.length > 8) {
-            return false; // Likely technical identifier
-        }
-        
-        // REJECT: Known bad patterns
-        const badPatterns = [
-            'domain_disabled', 'camera', 'mic', 'video', 'audio',
-            'control', 'button', 'status', 'device', 'permission'
-        ];
-        
-        return !badPatterns.some(pattern => lowerValue.includes(pattern));
-    },
-
-    /**
-     * Parse aria-label for user name
-     */
-    parseAriaLabel(ariaLabel) {
-        // First, try patterns with prefixes (Google Account, etc.)
-        const prefixPatterns = [
-            /Google Account:\s*(.+)/i,
-            /Konto Google:\s*(.+)/i,
-            /Account menu for\s*(.+)/i,
-            /Menu konta dla\s*(.+)/i,
-            /Profile for\s*(.+)/i,
-            /Profil dla\s*(.+)/i
-        ];
-        
-        for (const pattern of prefixPatterns) {
-            const match = ariaLabel.match(pattern);
-            if (match && match[1]) {
-                return this.cleanUserName(match[1]);
-            }
-        }
-        
-        // If no prefix patterns match, check if this might be a clean name
-        // (especially for participants list where aria-label is just the name)
-        const cleanLabel = ariaLabel.trim();
-        
-        // Basic validation for clean names
-        if (cleanLabel.length >= 2 && cleanLabel.length <= 50 && 
-            !cleanLabel.includes('@') && 
-            !this.isUILabel(cleanLabel) &&
-            !this.isBlacklistedValue(cleanLabel)) {
-            
-            // Looks like a clean name, apply light cleaning and return
-            this.log(`🏷️ [ARIA] Clean name detected (no prefix): "${cleanLabel}"`);
-            return this.cleanUserName(cleanLabel);
-        }
-        
-        return null;
-    },
-
-    /**
-     * Check if value is in blacklist (helper for aria-label parsing)
-     */
-    isBlacklistedValue(text) {
-        const lowerText = text.toLowerCase();
-        const quickBlacklist = [
-            'domain_disabled', 'camera', 'microphone', 'video', 'audio', 'muted',
-            'disabled', 'enabled', 'settings', 'menu', 'more', 'button'
-        ];
-        
-        return quickBlacklist.some(blacklisted => lowerText.includes(blacklisted));
-    },
-
-    /**
-     * Parse title attribute for user name
-     */
-    parseTitleAttribute(title) {
-        // Similar patterns as aria-label
-        return this.parseAriaLabel(title);
-    },
-
-    /**
-     * Parse text content for user name with comprehensive filtering
-     */
-    parseTextContent(text) {
-        // Filter out obviously non-name content
-        if (text.length === 0 || text.length > 100) return null;
-        if (text.includes('@')) return null; // Probably email, not display name
-        if (/^[0-9\s\-\(\)\[\]]+$/.test(text)) return null; // Numbers/symbols only
-        
-        this.log(`🔍 Analyzing text content: "${text}"`);
-        
-        // BLACKLIST: Google Meet controls and statuses
-        const blacklistedValues = [
-            // Device/connection statuses
-            'domain_disabled', 'disabled', 'enabled', 'connected', 'disconnected',
-            'on', 'off', 'active', 'inactive', 'available', 'unavailable',
-            
-            // Camera/Audio controls
-            'camera', 'microphone', 'mic', 'video', 'audio', 'muted', 'unmuted',
-            'camera_on', 'camera_off', 'mic_on', 'mic_off', 'video_on', 'video_off',
-            'kamera', 'mikrofon', 'dźwięk', 'wideo', 'wyciszony', 'niewyciszony',
-            
-            // Google Meet UI elements
-            'share', 'screen', 'chat', 'participants', 'settings', 'more', 'options',
-            'udostępnij', 'ekran', 'czat', 'uczestnicy', 'ustawienia', 'więcej',
-            'join', 'leave', 'end', 'call', 'meeting', 'room',
-            'dołącz', 'opuść', 'zakończ', 'rozmowa', 'spotkanie', 'sala',
-            
-            // Generic UI labels
-            'settings', 'menu', 'account', 'profile', 'konto', 'profil', 'ustawienia',
-            'button', 'przycisk', 'link', 'loading', 'ładowanie', 'error', 'błąd',
-            
-            // Status indicators
-            'online', 'offline', 'busy', 'away', 'do_not_disturb', 'invisible',
-            'dostępny', 'niedostępny', 'zajęty', 'zaraz_wracam', 'nie_przeszkadzać',
-            
-            // Google services
-            'google', 'gmail', 'drive', 'docs', 'sheets', 'slides', 'calendar',
-            'photos', 'maps', 'youtube', 'search', 'chrome', 'android',
-            
-            // Common false positives
-            'user', 'admin', 'guest', 'host', 'owner', 'moderator',
-            'użytkownik', 'administrator', 'gość', 'gospodarz', 'właściciel', 'moderator',
-            'default', 'domyślny', 'unknown', 'nieznany', 'anonymous', 'anonimowy'
-        ];
-        
-        // Check if text exactly matches blacklisted values (case insensitive)
-        const lowerText = text.toLowerCase().trim();
-        if (blacklistedValues.some(blacklisted => lowerText === blacklisted.toLowerCase())) {
-            this.log(`❌ Text "${text}" is blacklisted`);
-            return null;
-        }
-        
-        // Check if text contains blacklisted patterns (for compound values)
-        const blacklistPatterns = [
-            /^(camera|mic|video|audio)_/i,           // camera_enabled, mic_disabled
-            /_(on|off|enabled|disabled)$/i,          // device_on, status_off
-            /^(domain|connection|device)_/i,         // domain_disabled, connection_lost
-            /(status|state|mode)$/i,                 // camera_status, mic_state
-            /^(btn|button|icon)_/i,                  // btn_camera, button_mic
-            /^google_(meet|hangouts|duo)/i,          // google_meet_camera
-            /\b(true|false|null|undefined)\b/i       // boolean/null values
-        ];
-        
-        if (blacklistPatterns.some(pattern => pattern.test(text))) {
-            this.log(`❌ Text "${text}" matches blacklist pattern`);
-            return null;
-        }
-        
-        // Enhanced UI label detection
-        if (/^(settings|menu|account|profile|konto|profil|ustawienia|opcje|narzędzia)$/i.test(text)) {
-            this.log(`❌ Text "${text}" is UI label`);
-            return null;
-        }
-        
-        // Filter out technical identifiers
-        if (/^[a-z0-9_\-]{3,}$/i.test(text) && !(/^[A-Z][a-z]+ [A-Z][a-z]+$/.test(text))) {
-            // Looks like technical ID (lowercase_with_underscores) unless it's proper Name Format
-            this.log(`❌ Text "${text}" looks like technical identifier`);
-            return null;
-        }
-        
-        // Check if it looks like a name
-        if (text.length >= 2 && text.length <= 50) {
-            this.log(`✅ Text "${text}" passed filters, attempting to clean`);
-            return this.cleanUserName(text);
-        }
-        
-        this.log(`❌ Text "${text}" failed length validation`);
-        return null;
-    },
-
-    /**
-     * Parse data attributes for user name
-     */
-    parseDataAttribute(dataValue) {
-        if (dataValue && dataValue.length >= 2 && dataValue.length <= 50 && !dataValue.includes('@')) {
-            return this.cleanUserName(dataValue);
-        }
-        return null;
-    },
-
-    /**
-     * Extract user name from nested elements
-     */
-    extractFromNestedElements(element) {
-        // Look for text in child elements
-        const textElements = element.querySelectorAll('span, div, p');
-        
-        for (const textEl of textElements) {
-            const text = textEl.textContent?.trim();
-            if (text) {
-                const userName = this.parseTextContent(text);
-                if (userName) return userName;
-            }
-        }
-        
-        return null;
-    },
-
-    /**
-     * Clean and validate user name
+     * Simplified name cleaning
      */
     cleanUserName(name) {
         if (!name) return null;
         
-        // Remove extra whitespace
         name = name.trim();
         this.log(`🧹 Cleaning name: "${name}"`);
         
-        // Remove common prefixes/suffixes
+        // Remove prefixes
         name = name.replace(/^(Google Account|Konto Google|Account|Profile|Profil):\s*/i, '');
-        name = name.replace(/\s*(Account|Konto|Profile|Profil)$/i, '');
-        this.log(`🧹 After prefix/suffix removal: "${name}"`);
         
-        // Enhanced email removal - handle nested parentheses and various formats
-        const originalName = name;
-        
-        // Pattern 1: Remove email in parentheses (including nested)
-        // "Łukasz Szlachtowski (szlachtowski.lukasz@gmail.com)" → "Łukasz Szlachtowski"
+        // Remove email in parentheses
         name = name.replace(/\s*\([^()]*@[^()]*\)\s*$/, '');
         
-        // Pattern 2: Remove email in nested parentheses 
-        // "Name (info (email@domain.com))" → "Name"
-        name = name.replace(/\s*\([^()]*\([^()]*@[^()]*\)[^()]*\)\s*$/, '');
-        
-        // Pattern 3: Remove email in angle brackets
-        // "Name <email@domain.com>" → "Name"
-        name = name.replace(/\s*<[^>]*@[^>]*>\s*$/, '');
-        
-        // Pattern 4: Remove standalone email addresses
-        // "Name email@domain.com" → "Name"
-        name = name.replace(/\s+[^\s]+@[^\s]+\s*$/, '');
-        
-        // Pattern 5: More aggressive parentheses cleaning if email detected
-        if (originalName.includes('@') && name === originalName) {
-            // If nothing was removed but email is present, try broader patterns
-            name = name.replace(/\s*\([^)]*\)\s*$/, ''); // Remove last parentheses group
-        }
-        
-        // Clean up extra spaces
+        // Clean up spaces
         name = name.replace(/\s+/g, ' ').trim();
         
-        this.log(`🧹 After email removal: "${name}"`);
+        this.log(`🧹 Cleaned: "${name}"`);
         
-        // Additional cleaning patterns
-        // Remove trailing punctuation
-        name = name.replace(/[,;:\-\.\s]+$/, '');
-        
-        // Remove leading punctuation
-        name = name.replace(/^[,;:\-\.\s]+/, '');
-        
-        // Final trim
-        name = name.trim();
-        
-        this.log(`🧹 Final cleaned name: "${name}"`);
-        
-        // Final validation
         if (name.length >= 2 && name.length <= 50 && !name.includes('@')) {
             return name;
         }
         
-        this.log(`❌ Name validation failed: length=${name.length}, hasEmail=${name.includes('@')}`);
         return null;
     },
 
@@ -1200,7 +565,7 @@ window.GoogleUserDetector = {
         return {
             config: this.config,
             state: this.state,
-            selectorsCount: this.selectors.length,
+            fallbackSelectorsCount: this.fallbackSelectors.length,
             pageUrl: window.location.href,
             timestamp: new Date().toISOString()
         };
