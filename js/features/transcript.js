@@ -572,8 +572,11 @@ window.TranscriptManager = {
      */
     initialize() {
         console.log('📄 [TRANSCRIPT] TranscriptManager initialized');
-        // TranscriptManager doesn't need special initialization
-        // Transcript functionality is managed through data updates and rendering calls
+        
+        // CRITICAL FIX: Initialize participant count clickability for empty session (0 participants = non-clickable)
+        // This ensures proper styling from the start, regardless of session state
+        this.updateParticipantCountClickability(0);
+        console.log('📄 [TRANSCRIPT] Initialized participant count as non-clickable for empty session');
         
         // Set up global aliases for backward compatibility
         this.setupGlobalAliases();
