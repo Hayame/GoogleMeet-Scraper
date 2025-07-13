@@ -30,7 +30,7 @@ chrome.action.onClicked.addListener((tab) => {
     }
 });
 
-// Nasłuchuj wiadomości z popup
+// Nasłuchuj wiadomości z popup i content script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {    
     if (request.action === 'startBackgroundScanning') {
         startBackgroundScanning(request.tabId);
@@ -43,6 +43,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             isScanning: isScanning,
             tabId: scanningTabId
         });
+    } else if (request.action === 'updateGoogleUserName') {
+        // Forward message from content script to popup (SettingsManager)
+        console.log('⚙️ [BACKGROUND] Received Google user name update:', request.userName);
+        
+        // Try to send to popup if it's open
+        chrome.runtime.sendMessage({
+            action: 'updateGoogleUserName',
+            userName: request.userName
+        }).catch(error => {
+            // Popup is not open, that's normal
+            console.log('⚙️ [BACKGROUND] Popup not open for user name update');
+        });
+        
+        sendResponse({ success: true });
     }
     
     return true;

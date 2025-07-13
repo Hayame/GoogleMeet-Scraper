@@ -103,65 +103,74 @@ async function initializeApplication() {
         console.log('✅ Modal Manager initialized');
     }
     
-    // 6. Initialize background scanner
+    // 6. Initialize settings manager
+    if (window.SettingsManager) {
+        await window.SettingsManager.initialize();
+        console.log('✅ Settings Manager initialized');
+    }
+    
+    // 7. Initialize background scanner
     if (window.BackgroundScanner) {
         window.BackgroundScanner.initialize();
         console.log('✅ Background Scanner initialized');
     }
     
-    // 7. Initialize recording management
+    // 8. Initialize recording management
     if (window.RecordingManager) {
         window.RecordingManager.initialize();
         console.log('✅ Recording Manager initialized');
     }
     
-    // 8. Initialize session history (CRITICAL: Must await before state restoration)
+    // 9. Initialize session history (CRITICAL: Must await before state restoration)
     if (window.SessionHistoryManager && window.SessionUIManager) {
         await window.SessionHistoryManager.initialize();
         window.SessionUIManager.initialize();
         console.log('✅ Session History initialized');
     }
     
-    // 9. Initialize transcript features
+    // 10. Initialize transcript features
     if (window.TranscriptManager) {
         window.TranscriptManager.initialize();
         console.log('✅ Transcript Manager initialized');
     }
     
-    // 10. Initialize search and filter
+    // 11. Initialize search and filter
     if (window.SearchFilterManager) {
         window.SearchFilterManager.initialize();
         console.log('✅ Search Filter Manager initialized');
     }
     
-    // 11. Initialize export functionality
+    // 12. Initialize export functionality
     if (window.ExportManager) {
         window.ExportManager.initialize();
         console.log('✅ Export Manager initialized');
     }
     
-    // 12. Setup main event listeners
+    // 13. Setup main event listeners
     setupMainEventListeners();
     
-    // 13. Initialize theme system
+    // 13.5. Setup message listener for background communication
+    setupMessageListener();
+    
+    // 14. Initialize theme system
     if (window.ThemeManager) {
         window.ThemeManager.initialize();
         console.log('✅ Theme Manager initialized');
     }
     
-    // 14. Initialize debug manager  
+    // 15. Initialize debug manager  
     if (window.DebugManager) {
         window.DebugManager.initialize();
         console.log('✅ Debug Manager initialized');
     }
     
-    // 15. Validate critical global functions before state restoration
+    // 16. Validate critical global functions before state restoration
     validateGlobalFunctions();
     
-    // 16. Restore application state
+    // 17. Restore application state
     await restoreCompleteApplicationState();
     
-    // 17. Validate state restoration success
+    // 18. Validate state restoration success
     if (window.StateManager && window.StateManager.validateStateRestoration) {
         window.StateManager.validateStateRestoration();
     } else {
@@ -472,6 +481,29 @@ function setupMainEventListeners() {
     }
     
     console.log('✅ Main event listeners setup complete');
+}
+
+/**
+ * Setup message listener for background script communication
+ */
+function setupMessageListener() {
+    // Listen for messages from background script
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+        if (request.action === 'updateGoogleUserName') {
+            // Update Google user name in SettingsManager
+            console.log('⚙️ [POPUP] Received Google user name update:', request.userName);
+            
+            if (window.SettingsManager && window.SettingsManager.updateGoogleUserName) {
+                window.SettingsManager.updateGoogleUserName(request.userName);
+            }
+            
+            sendResponse({ success: true });
+        }
+        
+        return true; // Keep message channel open for async response
+    });
+    
+    console.log('✅ Message listener setup complete');
 }
 
 /**

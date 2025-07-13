@@ -14,6 +14,12 @@
                 <h1 class="app-title">Google Meet Recorder</h1>
             </div>
             <div class="header-right">
+                <button id="settingsBtn" class="settings-btn" title="Ustawienia">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M12 1v6m0 6v6m4.22-10.22l1.42 1.42m-1.42 7.38l1.42 1.42M23 12h-6m-6 0H1m4.22 10.22l1.42-1.42m7.38-1.42l1.42-1.42"/>
+                    </svg>
+                </button>
                 <button id="themeToggle" class="theme-toggle" title="Przełącz na ciemny motyw">
                     <svg class="theme-icon theme-icon-light" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="5"/>
@@ -199,6 +205,36 @@
     </div>
 
     <!-- Modal Containers -->
+    <div id="settingsModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Ustawienia</h3>
+                <button class="modal-close" data-modal="settingsModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="setting-group">
+                    <label for="userDisplayName" class="setting-label">
+                        Wyświetlana nazwa twórcy konwersacji
+                    </label>
+                    <input type="text" 
+                           id="userDisplayName" 
+                           class="setting-input"
+                           placeholder="Ty"
+                           maxlength="50">
+                    <p class="setting-description">
+                        Ta nazwa będzie widoczna jako autor rozmowy na liście konwersacji. 
+                        Jeśli pole zostanie puste, automatycznie użyjemy "Ty" lub 
+                        "Ty (Twoja nazwa Google)" jeśli jest dostępna.
+                    </p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancelSettingsBtn" class="btn btn-secondary">Anuluj</button>
+                <button id="saveSettingsBtn" class="btn btn-primary">Zapisz</button>
+            </div>
+        </div>
+    </div>
+
     <div id="exportModal" class="modal" style="display: none;">
         <div class="modal-content">
             <div class="modal-header">
@@ -328,6 +364,7 @@
     
     <!-- Feature modules -->
     <script src="js/features/modal-manager.js"></script>
+    <script src="js/features/settings-manager.js"></script>
     <script src="js/features/theme-manager.js"></script>
     <script src="js/features/recording.js"></script>
     <script src="js/features/background-scanner.js"></script>

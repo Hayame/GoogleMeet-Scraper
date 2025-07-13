@@ -15,6 +15,85 @@ if (typeof chrome === 'undefined' || !chrome.runtime) {
     console.log('✅ Chrome API available');
 }
 
+// User settings for display name customization
+let userSettings = {
+    displayName: 'Ty',
+    googleUserName: null
+};
+
+// Load user settings from storage
+function loadUserSettings() {
+    chrome.storage.sync.get(['userDisplayName', 'googleUserName'], (result) => {
+        if (result.userDisplayName) {
+            userSettings.displayName = result.userDisplayName;
+        } else if (result.googleUserName) {
+            userSettings.displayName = `Ty (${result.googleUserName})`;
+        }
+        
+        console.log('⚙️ [CONTENT] Loaded user settings:', userSettings);
+    });
+}
+
+// Try to detect Google user name from page elements
+function detectGoogleUserName() {
+    // Try different selectors to find user name in Google Meet
+    const selectors = [
+        '[aria-label*="Google Account"]',
+        '[aria-label*="Konto Google"]',
+        '.gb_db', // Google bar user name
+        '[data-name]', // Some Google Meet elements have data-name
+        '.VfPpkd-Bz112c-LgbsSe', // Material Design button with account info
+    ];
+    
+    for (const selector of selectors) {
+        const element = document.querySelector(selector);
+        if (element) {
+            let userName = null;
+            
+            // Try to extract name from aria-label
+            if (element.getAttribute('aria-label')) {
+                const ariaLabel = element.getAttribute('aria-label');
+                if (ariaLabel.includes('Google Account:')) {
+                    userName = ariaLabel.replace('Google Account:', '').trim();
+                } else if (ariaLabel.includes('Konto Google:')) {
+                    userName = ariaLabel.replace('Konto Google:', '').trim();
+                }
+            }
+            
+            // Try to extract from text content
+            if (!userName && element.textContent) {
+                const text = element.textContent.trim();
+                if (text.length > 0 && text.length < 50 && !text.includes('@')) {
+                    userName = text;
+                }
+            }
+            
+            if (userName) {
+                console.log('👤 [CONTENT] Detected Google user name:', userName);
+                userSettings.googleUserName = userName;
+                
+                // Send to popup
+                chrome.runtime.sendMessage({
+                    action: 'updateGoogleUserName',
+                    userName: userName
+                });
+                
+                return userName;
+            }
+        }
+    }
+    
+    return null;
+}
+
+// Initialize user settings
+loadUserSettings();
+
+// Try to detect Google user name after page loads
+setTimeout(() => {
+    detectGoogleUserName();
+}, 2000);
+
 // Nasłuchuj wiadomości z popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'scrapeTranscript') {
@@ -25,6 +104,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             console.error('❌ Scraping error:', error);
             sendResponse({ success: false, error: error.message });
         }
+    } else if (request.action === 'updateUserDisplayName') {
+        // Update user display name from popup
+        userSettings.displayName = request.displayName;
+        console.log('⚙️ [CONTENT] Updated user display name:', userSettings.displayName);
+        loadUserSettings(); // Reload settings to stay in sync
+        sendResponse({ success: true });
     }
     return true; // Wskazuje, że odpowiedź będzie asynchroniczna
 });
@@ -81,7 +166,13 @@ function scrapeTranscript() {
         try {
             // Wyciągnij nazwę osoby mówiącej
             const speakerElement = messageElement.querySelector('.NWpY1d');
-            const speaker = speakerElement ? speakerElement.textContent.trim() : 'Nieznany';
+            let speaker = speakerElement ? speakerElement.textContent.trim() : 'Nieznany';
+            
+            // Replace "Ty" with custom display name if set
+            if (speaker === 'Ty') {
+                speaker = userSettings.displayName;
+                console.log('👤 [CONTENT] Replaced "Ty" with custom name:', speaker);
+            }
             
             // Wyciągnij tekst transkrypcji
             const textElement = messageElement.querySelector('.ygicle.VbkSUe');
