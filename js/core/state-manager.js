@@ -583,5 +583,76 @@ window.StateManager = {
     saveUIState,
     restoreUIState,
     exposeGlobalVariables,
-    initializeGlobalVariables
+    initializeGlobalVariables,
+    
+    /**
+     * Validate that state restoration was successful
+     * Extracted from popup.js for better modularity
+     * PHASE 5: Add state validation and recovery mechanisms
+     */
+    validateStateRestoration() {
+        console.log('🔍 [VALIDATION] Validating state restoration success...');
+        
+        // Check global variables
+        const globalVarsStatus = {
+            transcriptData: !!window.transcriptData,
+            realtimeMode: typeof window.realtimeMode === 'boolean',
+            currentSessionId: typeof window.currentSessionId === 'string' || window.currentSessionId === null,
+            sessionHistory: Array.isArray(window.sessionHistory),
+            sessionHistoryLength: window.sessionHistory?.length || 0
+        };
+        
+        // PHASE 5: Additional session validation
+        if (window.sessionHistory && window.sessionHistory.length > 0) {
+            console.log('📊 [VALIDATION] Session History Details:', {
+                totalSessions: window.sessionHistory.length,
+                sessionIdFormats: window.sessionHistory.slice(0, 3).map(s => ({
+                    id: s.id,
+                    idType: typeof s.id,
+                    hasTitle: !!s.title,
+                    hasTranscript: !!s.transcript
+                })),
+                allSessionIds: window.sessionHistory.map(s => s.id)
+            });
+        }
+        
+        // Check UI state
+        const sidebar = document.querySelector('.sidebar');
+        const uiStateStatus = {
+            sidebarExists: !!sidebar,
+            sidebarCollapsed: sidebar?.classList.contains('collapsed') || false,
+            theme: document.documentElement.getAttribute('data-theme') || 'light'
+        };
+        
+        // Check if we have an active session
+        const hasActiveSession = window.transcriptData || window.realtimeMode;
+        
+        // Log validation results
+        console.log('✅ [VALIDATION] Global variables status:', globalVarsStatus);
+        console.log('✅ [VALIDATION] UI state status:', uiStateStatus);
+        console.log('✅ [VALIDATION] Has active session:', hasActiveSession);
+        
+        // Provide user feedback based on restored state
+        if (window.realtimeMode) {
+            console.log('🔴 [VALIDATION] Recording mode restored - background recording should be active');
+        } else if (window.transcriptData) {
+            console.log('📜 [VALIDATION] Historical session restored - transcript data available');
+        } else {
+            console.log('🆕 [VALIDATION] No session restored - starting with clean state');
+        }
+        
+        // Recovery mechanism for broken UI state
+        if (!sidebar) {
+            console.warn('⚠️ [RECOVERY] Sidebar element not found - UI may be broken');
+        }
+        
+        console.log('✅ [VALIDATION] State restoration validation complete');
+        
+        return {
+            globalVars: globalVarsStatus,
+            uiState: uiStateStatus,
+            hasActiveSession,
+            sidebar: !!sidebar
+        };
+    }
 };

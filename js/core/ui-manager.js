@@ -228,6 +228,10 @@ window.UIManager = {
                 
                 if (sessionIndex !== -1) {
                     sessionHistory[sessionIndex].title = newName;
+                    
+                    // CRITICAL FIX: Update global sessionHistory variable
+                    window.sessionHistory = sessionHistory;
+                    
                     window.StorageManager.saveSessionHistory(sessionHistory).then(() => {
                         // Re-render session history to update the sidebar
                         if (window.renderSessionHistory) {
@@ -244,6 +248,10 @@ window.UIManager = {
                 
                 if (sessionIndex !== -1) {
                     sessionHistory[sessionIndex].title = newName;
+                    
+                    // CRITICAL FIX: Update global sessionHistory variable
+                    window.sessionHistory = sessionHistory;
+                    
                     chrome.storage.local.set({ sessionHistory }, () => {
                         if (window.renderSessionHistory) {
                             window.renderSessionHistory();
@@ -363,6 +371,7 @@ window.UIManager = {
         window.updateStatus = this.updateStatus.bind(this);
         window.showMeetingName = this.showMeetingName.bind(this);
         window.hideMeetingName = this.hideMeetingName.bind(this);
+        window.showInitializationError = this.showInitializationError.bind(this);
         // NOTE: updateDurationDisplay is now handled by TimerManager
         window.formatDuration = this.formatDuration.bind(this);
         
@@ -447,5 +456,36 @@ window.UIManager = {
         // This ensures the restored state persists for next popup open
         this.saveCurrentUIState();
         console.log('💾 [UI] Restored UI state saved to storage');
+    },
+
+    /**
+     * Show initialization error to user
+     * Extracted from popup.js for better modularity
+     * @param {Error} error - The error that occurred during initialization
+     */
+    showInitializationError(error) {
+        const errorDiv = document.createElement('div');
+        errorDiv.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #f44336;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            z-index: 10000;
+            max-width: 300px;
+        `;
+        errorDiv.innerHTML = `
+            <h3>Błąd inicjalizacji</h3>
+            <p>Wystąpił błąd podczas uruchamiania rozszerzenia:</p>
+            <p><strong>${error.message}</strong></p>
+            <p>Spróbuj odświeżyć stronę lub zrestartować rozszerzenie.</p>
+        `;
+        document.body.appendChild(errorDiv);
+        
+        console.error('❌ [UI] Initialization error displayed:', error.message);
     }
 };

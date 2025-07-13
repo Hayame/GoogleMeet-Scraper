@@ -528,17 +528,32 @@ window.SessionHistoryManager = {
 
     /**
      * Generate unique session ID
+     * DEPRECATED: Use SessionUtils.generateSessionId() instead
      * Source: popup-old.js line 1703
      */
     generateSessionId() {
+        // Delegate to SessionUtils for consistency
+        if (window.SessionUtils && window.SessionUtils.generateSessionId) {
+            return window.SessionUtils.generateSessionId();
+        }
+        // Fallback for backward compatibility
         return Date.now().toString();
     },
 
     /**
      * Generate session title based on time
+     * DEPRECATED: Use SessionUtils.generateSessionTitle() instead
      * Source: popup-old.js line 1707
      */
     generateSessionTitle(startTime = null) {
+        // Delegate to SessionUtils for consistency
+        if (window.SessionUtils && window.SessionUtils.generateSessionTitle) {
+            return startTime ? 
+                window.SessionUtils.generateSessionTitleForDate(new Date(startTime)) :
+                window.SessionUtils.generateSessionTitle();
+        }
+        
+        // Fallback for backward compatibility
         // Use provided startTime, sessionStartTime, recordingStartTime, or current time as fallback
         const timeToUse = startTime || 
                          window.StateManager?.getSessionStartTime() || 
@@ -676,8 +691,34 @@ window.SessionHistoryManager = {
         window.showEmptySession = this.showEmptySession.bind(this);
         window.performNewSessionCreation = this.performNewSessionCreation.bind(this);
         window.clearCurrentTranscript = this.clearCurrentTranscript.bind(this);
+        window.clearCurrentSession = this.clearCurrentSession.bind(this);
         
         console.log('🔗 [SESSION] Global session function aliases created for backward compatibility');
+    },
+
+    /**
+     * Clear current session (extracted from popup.js handleClearButtonClick)
+     * Handles clearing the currently active session
+     */
+    clearCurrentSession(event) {
+        // Prevent execution if recording is active
+        if (window.realtimeMode) {
+            console.log('🔍 [CLEAR] Disabled - recording active');
+            if (window.UIManager && window.UIManager.updateStatus) {
+                window.UIManager.updateStatus('Nie można usunąć sesji podczas nagrywania', 'error');
+            }
+            return;
+        }
+        
+        // Use the same function as delete buttons in session list to avoid code duplication
+        if (window.currentSessionId && this.deleteSessionFromHistory) {
+            this.deleteSessionFromHistory(window.currentSessionId, event || new Event('click'));
+        } else {
+            console.log('🔍 [CLEAR] No current session to delete');
+            if (window.UIManager && window.UIManager.updateStatus) {
+                window.UIManager.updateStatus('Brak aktywnej sesji do usunięcia', 'info');
+            }
+        }
     }
 
 };

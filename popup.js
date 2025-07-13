@@ -144,80 +144,32 @@ async function initializeApplication() {
     setupMainEventListeners();
     
     // 13. Initialize theme system
-    initializeTheme();
+    if (window.ThemeManager) {
+        window.ThemeManager.initialize();
+        console.log('✅ Theme Manager initialized');
+    }
     
-    // 14. Validate critical global functions before state restoration
+    // 14. Initialize debug manager  
+    if (window.DebugManager) {
+        window.DebugManager.initialize();
+        console.log('✅ Debug Manager initialized');
+    }
+    
+    // 15. Validate critical global functions before state restoration
     validateGlobalFunctions();
     
-    // 15. Restore application state
+    // 16. Restore application state
     await restoreCompleteApplicationState();
     
-    // 16. Validate state restoration success
-    validateStateRestorationSuccess();
+    // 17. Validate state restoration success
+    if (window.StateManager && window.StateManager.validateStateRestoration) {
+        window.StateManager.validateStateRestoration();
+    } else {
+        console.warn('⚠️ [INIT] StateManager.validateStateRestoration not available');
+    }
 }
 
-/**
- * Validate that state restoration was successful
- * PHASE 5: Add state validation and recovery mechanisms
- */
-function validateStateRestorationSuccess() {
-    console.log('🔍 [VALIDATION] Validating state restoration success...');
-    
-    // Check global variables
-    const globalVarsStatus = {
-        transcriptData: !!window.transcriptData,
-        realtimeMode: typeof window.realtimeMode === 'boolean',
-        currentSessionId: typeof window.currentSessionId === 'string' || window.currentSessionId === null,
-        sessionHistory: Array.isArray(window.sessionHistory),
-        sessionHistoryLength: window.sessionHistory?.length || 0
-    };
-    
-    // PHASE 5: Additional session validation
-    if (window.sessionHistory && window.sessionHistory.length > 0) {
-        console.log('📊 [VALIDATION] Session History Details:', {
-            totalSessions: window.sessionHistory.length,
-            sessionIdFormats: window.sessionHistory.slice(0, 3).map(s => ({
-                id: s.id,
-                idType: typeof s.id,
-                hasTitle: !!s.title,
-                hasTranscript: !!s.transcript
-            })),
-            allSessionIds: window.sessionHistory.map(s => s.id)
-        });
-    }
-    
-    // Check UI state
-    const sidebar = document.querySelector('.sidebar');
-    const uiStateStatus = {
-        sidebarExists: !!sidebar,
-        sidebarCollapsed: sidebar?.classList.contains('collapsed') || false,
-        theme: document.documentElement.getAttribute('data-theme') || 'light'
-    };
-    
-    // Check if we have an active session
-    const hasActiveSession = window.transcriptData || window.realtimeMode;
-    
-    // Log validation results
-    console.log('✅ [VALIDATION] Global variables status:', globalVarsStatus);
-    console.log('✅ [VALIDATION] UI state status:', uiStateStatus);
-    console.log('✅ [VALIDATION] Has active session:', hasActiveSession);
-    
-    // Provide user feedback based on restored state
-    if (window.realtimeMode) {
-        console.log('🔴 [VALIDATION] Recording mode restored - background recording should be active');
-    } else if (window.transcriptData) {
-        console.log('📜 [VALIDATION] Historical session restored - transcript data available');
-    } else {
-        console.log('🆕 [VALIDATION] No session restored - starting with clean state');
-    }
-    
-    // Recovery mechanism for broken UI state
-    if (!sidebar) {
-        console.warn('⚠️ [RECOVERY] Sidebar element not found - UI may be broken');
-    }
-    
-    console.log('✅ [VALIDATION] State restoration validation complete');
-}
+// validateStateRestorationSuccess() moved to StateManager.validateStateRestoration()
 
 /**
  * Restore complete application state including UI and session data
@@ -463,10 +415,10 @@ function setupMainEventListeners() {
         closeSessionBtn.addEventListener('click', window.showEmptySession);
     }
     
-    // Clear button handler
+    // Clear button handler (delegated to SessionHistoryManager)
     const clearBtn = document.getElementById('clearBtn');
-    if (clearBtn) {
-        clearBtn.addEventListener('click', handleClearButtonClick);
+    if (clearBtn && window.clearCurrentSession) {
+        clearBtn.addEventListener('click', window.clearCurrentSession);
     }
     
     // New session button handler
@@ -475,11 +427,8 @@ function setupMainEventListeners() {
         newSessionBtn.addEventListener('click', window.createNewSession);
     }
     
-    // Theme toggle handler
-    const themeToggle = document.getElementById('themeToggle');
-    if (themeToggle) {
-        themeToggle.addEventListener('click', toggleTheme);
-    }
+    // Theme toggle handler (now handled by ThemeManager)
+    // ThemeManager sets up its own event listeners in initialize()
     
     // Participant count click handler
     const participantCount = document.getElementById('participantCount');
