@@ -103,11 +103,9 @@ window.SessionUIManager = {
         }
         
         // Update tooltips for collapsed sidebar (with delay for DOM to settle)
-        if (typeof window.updateSessionTooltips === 'function') {
-            setTimeout(() => {
-                window.updateSessionTooltips();
-            }, 50); // Small delay to ensure DOM is fully rendered
-        }
+        setTimeout(() => {
+            this.updateSessionTooltips();
+        }, 50); // Small delay to ensure DOM is fully rendered
     },
 
     /**
@@ -203,11 +201,61 @@ window.SessionUIManager = {
 
 
     /**
+     * Update session tooltips for collapsed sidebar
+     * Extracted from popup-old.js lines 2735-2781
+     */
+    updateSessionTooltips() {
+        const sidebar = document.querySelector('.sidebar');
+        const sessionItems = document.querySelectorAll('.session-item');
+        
+        console.log('🔍 [TOOLTIPS] updateSessionTooltips called');
+        console.log('🔍 [TOOLTIPS] sidebar found:', !!sidebar);
+        console.log('🔍 [TOOLTIPS] sidebar collapsed:', sidebar?.classList.contains('collapsed'));
+        console.log('🔍 [TOOLTIPS] session items found:', sessionItems.length);
+        
+        if (sidebar && sidebar.classList.contains('collapsed')) {
+            sessionItems.forEach((item, index) => {
+                const sessionInfo = item.querySelector('.session-info');
+                if (sessionInfo) {
+                    const title = sessionInfo.querySelector('.session-title')?.textContent || 'Sesja';
+                    const meta = sessionInfo.querySelector('.session-meta')?.textContent || '';
+                    
+                    // Create multi-line tooltip with each info on separate line
+                    let tooltip = title;
+                    if (meta) {
+                        // Extract date and participants from meta (format: "14.01.2024 15:30 • 3 uczestników • 5 wpisów")
+                        const parts = meta.split(' • ');
+                        if (parts.length >= 2) {
+                            const dateTime = parts[0];
+                            const participants = parts[1];
+                            // Create multi-line format: each info on separate line
+                            tooltip = `${title}\n${dateTime}\n${participants}`;
+                        } else {
+                            tooltip = `${title}\n${meta}`;
+                        }
+                    }
+                    
+                    item.setAttribute('data-tooltip', tooltip);
+                    console.log('🔍 [TOOLTIPS] Set tooltip for item', index, ':', tooltip);
+                }
+            });
+        } else {
+            sessionItems.forEach(item => {
+                item.removeAttribute('data-tooltip');
+            });
+            console.log('🔍 [TOOLTIPS] Removed all tooltips');
+        }
+    },
+
+    /**
      * Initialize session UI components
      */
     initialize() {
         // Setup event listeners for session-related UI elements
         this.setupEventListeners();
+        
+        // Setup global aliases for backward compatibility
+        this.setupGlobalAliases();
     },
 
     /**
@@ -228,5 +276,16 @@ window.SessionUIManager = {
             }
         }
     },
+
+    /**
+     * Set up global function aliases for backward compatibility
+     */
+    setupGlobalAliases() {
+        // Critical fix: Expose session UI functions globally as expected by other modules
+        window.renderSessionHistory = this.renderSessionHistory.bind(this);
+        window.updateSessionTooltips = this.updateSessionTooltips.bind(this);
+        
+        console.log('🔗 [SESSION UI] Global session UI function aliases created for backward compatibility');
+    }
 
 };

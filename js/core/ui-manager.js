@@ -385,6 +385,13 @@ window.UIManager = {
             sidebarCollapsed: isNowCollapsed
         });
         
+        // CRITICAL FIX: Update tooltips after sidebar state change
+        // When sidebar is collapsed, show tooltips; when expanded, hide them
+        if (window.SessionUIManager && window.SessionUIManager.updateSessionTooltips) {
+            window.SessionUIManager.updateSessionTooltips();
+            console.log('🔍 [UI] Session tooltips updated after sidebar toggle');
+        }
+        
         console.log('📐 [UI] Sidebar toggled, collapsed:', isNowCollapsed);
     },
 
