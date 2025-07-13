@@ -75,29 +75,64 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     } else if (request.action === 'manualDetectGoogleName') {
         // Manual Google name detection triggered from settings
         console.log('👤 [CONTENT] Manual Google name detection requested');
+        console.log('👤 [CONTENT] Current page URL:', window.location.href);
+        console.log('👤 [CONTENT] GoogleUserDetector available:', !!window.GoogleUserDetector);
         
         try {
-            // Use the enhanced GoogleUserDetector for manual detection
             let userName = null;
             
             if (window.GoogleUserDetector) {
+                console.log('👤 [CONTENT] Using GoogleUserDetector for manual detection');
+                
+                // Get debug info before detection
+                const debugInfo = window.GoogleUserDetector.getDebugInfo();
+                console.log('👤 [CONTENT] GoogleUserDetector debug info:', debugInfo);
+                
                 userName = window.GoogleUserDetector.manualDetect();
+                console.log('👤 [CONTENT] GoogleUserDetector result:', userName);
+                
+                // Get additional debug info after detection
+                const postDebugInfo = window.GoogleUserDetector.getDebugInfo();
+                console.log('👤 [CONTENT] GoogleUserDetector post-detection info:', postDebugInfo);
+                
             } else {
-                // Fallback to local function if detector not available
+                console.log('👤 [CONTENT] Fallback to detectGoogleUserName function');
                 userName = detectGoogleUserName();
+                console.log('👤 [CONTENT] detectGoogleUserName result:', userName);
             }
             
             if (userName) {
+                // Test the cleaning process
+                console.log('👤 [CONTENT] Raw detected name:', userName);
+                
                 userSettings.googleUserName = userName;
                 sendResponse({ success: true, userName: userName });
-                console.log('✅ [CONTENT] Manual detection successful:', userName);
+                console.log('✅ [CONTENT] Manual detection successful, final name:', userName);
             } else {
-                sendResponse({ success: false, error: 'No Google name detected' });
-                console.log('❌ [CONTENT] Manual detection failed - no name found');
+                // Provide more detailed error information
+                const errorDetails = {
+                    pageUrl: window.location.href,
+                    detectorAvailable: !!window.GoogleUserDetector,
+                    userSettings: userSettings,
+                    detectorState: window.GoogleUserDetector ? window.GoogleUserDetector.state : null
+                };
+                
+                console.log('❌ [CONTENT] Manual detection failed - debug details:', errorDetails);
+                sendResponse({ 
+                    success: false, 
+                    error: 'No Google name detected',
+                    debug: errorDetails
+                });
             }
         } catch (error) {
             console.error('❌ [CONTENT] Manual detection error:', error);
-            sendResponse({ success: false, error: error.message });
+            console.error('❌ [CONTENT] Error stack:', error.stack);
+            
+            sendResponse({ 
+                success: false, 
+                error: error.message,
+                stack: error.stack
+            });
         }
     }
     return true; // Wskazuje, że odpowiedź będzie asynchroniczna

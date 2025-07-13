@@ -120,15 +120,51 @@ window.SettingsManager = {
     },
     
     /**
+     * Clean Google user name by removing email parts
+     */
+    cleanGoogleUserName(name) {
+        if (!name) return name;
+        
+        console.log('🧹 [SETTINGS] Cleaning Google name:', name);
+        
+        let cleaned = name.trim();
+        
+        // Remove email in parentheses (including nested)
+        cleaned = cleaned.replace(/\s*\([^()]*@[^()]*\)\s*$/, '');
+        cleaned = cleaned.replace(/\s*\([^()]*\([^()]*@[^()]*\)[^()]*\)\s*$/, '');
+        
+        // Remove email in angle brackets
+        cleaned = cleaned.replace(/\s*<[^>]*@[^>]*>\s*$/, '');
+        
+        // Remove standalone email addresses at the end
+        cleaned = cleaned.replace(/\s+[^\s]+@[^\s]+\s*$/, '');
+        
+        // If still contains email but nothing was removed, try broader parentheses removal
+        if (name.includes('@') && cleaned === name) {
+            cleaned = cleaned.replace(/\s*\([^)]*\)\s*$/, '');
+        }
+        
+        // Clean up extra spaces and punctuation
+        cleaned = cleaned.replace(/\s+/g, ' ').trim();
+        cleaned = cleaned.replace(/[,;:\-\.\s]+$/, '').trim();
+        
+        console.log('🧹 [SETTINGS] Cleaned Google name result:', cleaned);
+        
+        return cleaned || name; // Return original if cleaning failed
+    },
+
+    /**
      * Update Google user name (called from content script)
      */
     async updateGoogleUserName(name) {
         if (name && name !== this.googleUserName) {
-            this.googleUserName = name;
+            // Clean the name before storing
+            const cleanedName = this.cleanGoogleUserName(name);
+            this.googleUserName = cleanedName;
             
             // Store it for future use
-            chrome.storage.sync.set({ googleUserName: name }, () => {
-                console.log('⚙️ [SETTINGS] Updated Google user name:', name);
+            chrome.storage.sync.set({ googleUserName: cleanedName }, () => {
+                console.log('⚙️ [SETTINGS] Updated Google user name:', cleanedName);
             });
             
             // Update placeholder in settings modal if it's open
@@ -236,6 +272,8 @@ window.SettingsManager = {
         const statusEl = document.getElementById('googleDetectionStatus');
         const detectBtn = document.getElementById('detectGoogleNameBtn');
         
+        console.log('🔍 [SETTINGS] Starting manual Google name detection...');
+        
         // Show loading state
         if (statusEl) {
             statusEl.textContent = 'Wykrywanie...';
@@ -248,34 +286,74 @@ window.SettingsManager = {
         
         try {
             // Get current active tab (Google Meet)
-            const tabs = await chrome.tabs.query({ active: true, currentWindow: true, url: 'https://meet.google.com/*' });
+            console.log('🔍 [SETTINGS] Querying for Google Meet tabs...');
+            const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+            console.log('🔍 [SETTINGS] Found tabs:', tabs.length, tabs.map(t => t.url));
             
-            if (tabs.length === 0) {
-                if (statusEl) {
-                    statusEl.textContent = 'Brak aktywnej karty Google Meet';
-                    statusEl.className = 'detection-status error';
+            // Check if any tab is Google Meet
+            const meetTabs = tabs.filter(tab => tab.url && tab.url.includes('meet.google.com'));
+            console.log('🔍 [SETTINGS] Google Meet tabs:', meetTabs.length);
+            
+            if (meetTabs.length === 0) {
+                // Try to find any Google Meet tab (not necessarily active)
+                const allMeetTabs = await chrome.tabs.query({ url: 'https://meet.google.com/*' });
+                console.log('🔍 [SETTINGS] All Google Meet tabs:', allMeetTabs.length);
+                
+                if (allMeetTabs.length === 0) {
+                    if (statusEl) {
+                        statusEl.textContent = 'Brak otwartej karty Google Meet';
+                        statusEl.className = 'detection-status error';
+                    }
+                    return;
+                } else {
+                    // Use the first available Google Meet tab
+                    meetTabs.push(allMeetTabs[0]);
+                    console.log('🔍 [SETTINGS] Using first available Meet tab:', allMeetTabs[0].url);
                 }
-                return;
             }
             
-            // Send manual detection request to content script
-            const response = await chrome.tabs.sendMessage(tabs[0].id, {
-                action: 'manualDetectGoogleName'
+            const targetTab = meetTabs[0];
+            console.log('🔍 [SETTINGS] Sending detection request to tab:', targetTab.id, targetTab.url);
+            
+            // Send manual detection request to content script with timeout
+            const response = await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                    reject(new Error('Timeout: Content script nie odpowiedział w ciągu 10 sekund'));
+                }, 10000);
+                
+                chrome.tabs.sendMessage(targetTab.id, {
+                    action: 'manualDetectGoogleName'
+                }, (response) => {
+                    clearTimeout(timeout);
+                    
+                    if (chrome.runtime.lastError) {
+                        reject(new Error(`Chrome runtime error: ${chrome.runtime.lastError.message}`));
+                    } else {
+                        resolve(response);
+                    }
+                });
             });
             
+            console.log('🔍 [SETTINGS] Received response from content script:', response);
+            
             if (response && response.success && response.userName) {
-                // Update local state
-                await this.updateGoogleUserName(response.userName);
+                // Clean the detected name before using
+                const cleanedName = this.cleanGoogleUserName(response.userName);
+                console.log('🔍 [SETTINGS] Cleaned name:', cleanedName);
+                
+                // Update local state with cleaned name
+                await this.updateGoogleUserName(cleanedName);
                 
                 if (statusEl) {
-                    statusEl.textContent = `Wykryto: ${response.userName}`;
+                    statusEl.textContent = `Wykryto: ${cleanedName}`;
                     statusEl.className = 'detection-status success';
                 }
                 
-                console.log('✅ [SETTINGS] Manual detection successful:', response.userName);
+                console.log('✅ [SETTINGS] Manual detection successful:', cleanedName);
             } else {
+                const errorMsg = response?.error || 'Nieznany błąd';
                 if (statusEl) {
-                    statusEl.textContent = 'Nie udało się wykryć nazwy';
+                    statusEl.textContent = `Nie udało się wykryć nazwy: ${errorMsg}`;
                     statusEl.className = 'detection-status error';
                 }
                 
@@ -285,8 +363,17 @@ window.SettingsManager = {
         } catch (error) {
             console.error('❌ [SETTINGS] Manual detection error:', error);
             
+            let errorMessage = 'Błąd podczas wykrywania';
+            if (error.message.includes('Timeout')) {
+                errorMessage = 'Przekroczono czas oczekiwania';
+            } else if (error.message.includes('Could not establish connection')) {
+                errorMessage = 'Brak połączenia z kartą Meet';
+            } else if (error.message.includes('runtime error')) {
+                errorMessage = 'Błąd komunikacji z rozszerzeniem';
+            }
+            
             if (statusEl) {
-                statusEl.textContent = 'Błąd podczas wykrywania';
+                statusEl.textContent = errorMessage;
                 statusEl.className = 'detection-status error';
             }
         } finally {
@@ -295,13 +382,13 @@ window.SettingsManager = {
                 detectBtn.disabled = false;
             }
             
-            // Clear status after 5 seconds
+            // Clear status after 8 seconds (longer for error messages)
             setTimeout(() => {
                 if (statusEl) {
                     statusEl.textContent = '';
                     statusEl.className = 'detection-status';
                 }
-            }, 5000);
+            }, 8000);
         }
     },
 
