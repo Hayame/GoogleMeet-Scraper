@@ -418,6 +418,12 @@ window.UIManager = {
             filterPanelOpen: false  // TODO: implement when filter panel state tracking is added
         };
         
+        // CRITICAL FIX: Include filter state to prevent overwriting
+        if (window.SearchFilterManager) {
+            uiState.searchQuery = window.SearchFilterManager.getCurrentSearchQuery() || '';
+            uiState.activeParticipantFilters = Array.from(window.SearchFilterManager.getActiveParticipantFilters() || []);
+        }
+        
         await window.StateManager.saveUIState(uiState);
         console.log('💾 [UI] Current UI state saved:', uiState);
     },

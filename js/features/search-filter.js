@@ -14,6 +14,7 @@ window.SearchFilterManager = {
     _activeParticipantFilters: new Set(),
     _allParticipants: [],
     _pendingRestoreState: null,
+    _hasBeenInitialized: false,
 
     /**
      * Initialize search functionality
@@ -340,8 +341,8 @@ window.SearchFilterManager = {
             window.TranscriptManager.getSpeakerColorMap(window.transcriptData.messages) : 
             this._getSpeakerColorMap(window.transcriptData.messages);
         
-        // If no filters are set, initialize with all participants
-        if (this._activeParticipantFilters.size === 0) {
+        // If no filters are set, initialize with all participants (only on first load, not restoration)
+        if (this._activeParticipantFilters.size === 0 && !this._hasBeenInitialized) {
             this._allParticipants.forEach(participant => {
                 this._activeParticipantFilters.add(participant);
             });
@@ -396,6 +397,13 @@ window.SearchFilterManager = {
             
             filterParticipantsList.appendChild(filterItem);
         });
+        
+        // Update "All participants" checkbox based on actual state
+        if (allParticipantsCheckbox) {
+            const allSelected = this._allParticipants.length > 0 && 
+                               this._allParticipants.every(p => this._activeParticipantFilters.has(p));
+            allParticipantsCheckbox.checked = allSelected;
+        }
         
         // Update filter badge
         this.updateFilterBadge();
@@ -524,6 +532,7 @@ window.SearchFilterManager = {
     resetParticipantFilters() {
         this._activeParticipantFilters.clear();
         this._allParticipants = [];
+        this._hasBeenInitialized = false; // Reset initialization flag for new sessions
         
         const filterBtn = document.getElementById('filterBtn');
         const filterDropdown = document.getElementById('filterDropdown');
@@ -760,6 +769,7 @@ window.SearchFilterManager = {
             // Restore participant filters
             if (uiState.activeParticipantFilters && Array.isArray(uiState.activeParticipantFilters)) {
                 this._activeParticipantFilters = new Set(uiState.activeParticipantFilters);
+                this._hasBeenInitialized = true; // Mark as initialized from storage to prevent auto-selection
                 
                 // Update participant list UI if transcript data is available
                 if (window.transcriptData && window.transcriptData.messages) {
@@ -784,6 +794,9 @@ window.SearchFilterManager = {
     completePendingRestoration() {
         if (this._pendingRestoreState && window.transcriptData && window.transcriptData.messages) {
             console.log('🔄 [SEARCH] Completing pending filter restoration with transcript data');
+            
+            // Ensure we're marked as initialized to preserve restored filters
+            this._hasBeenInitialized = true;
             
             // Update participant filters UI now that we have transcript data
             this.updateParticipantFiltersList();
