@@ -63,7 +63,6 @@ window.ExportManager = {
                 const content = await this.prepareExportContent(shouldWrapInPrompt);
                 
                 await this.copyToClipboard(content);
-                this._updateStatus('Skopiowano do schowka!', 'success');
                 this._hideModal('exportModal');
             });
         } else {
@@ -141,6 +140,7 @@ ${transcriptContent}`;
         try {
             await navigator.clipboard.writeText(content);
             console.log('Content copied to clipboard successfully');
+            this.showToast('Skopiowano do schowka!', 'success');
         } catch (error) {
             console.error('Failed to copy to clipboard:', error);
             // Fallback for older browsers
@@ -164,11 +164,56 @@ ${transcriptContent}`;
         try {
             document.execCommand('copy');
             console.log('Fallback copy successful');
+            this.showToast('Skopiowano do schowka!', 'success');
         } catch (error) {
             console.error('Fallback copy failed:', error);
+            this.showToast('Błąd kopiowania do schowka', 'error');
         } finally {
             document.body.removeChild(textArea);
         }
+    },
+
+    /**
+     * Show toast notification
+     */
+    showToast(message, type = 'success') {
+        const toastContainer = document.getElementById('toast-container');
+        if (!toastContainer) {
+            console.error('Toast container not found');
+            return;
+        }
+
+        // Create toast element
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        
+        // Create toast content
+        const icon = type === 'success' ? '✓' : '✕';
+        toast.innerHTML = `
+            <div class="toast-icon">${icon}</div>
+            <div class="toast-message">${message}</div>
+            <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+        `;
+
+        // Add toast to container
+        toastContainer.appendChild(toast);
+
+        // Trigger animation
+        setTimeout(() => {
+            toast.classList.add('toast-show');
+        }, 10);
+
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+            if (toast.parentElement) {
+                toast.classList.remove('toast-show');
+                setTimeout(() => {
+                    if (toast.parentElement) {
+                        toast.remove();
+                    }
+                }, 300);
+            }
+        }, 3000);
     },
 
     /**
