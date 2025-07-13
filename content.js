@@ -34,8 +34,7 @@ function loadUserSettings() {
     });
 }
 
-// Google user name detection is now handled by GoogleUserDetector module
-// This function is kept for backward compatibility but delegates to the new module
+// Google user name detection with fallback script tag parsing
 function detectGoogleUserName() {
     if (window.GoogleUserDetector) {
         const userName = window.GoogleUserDetector.manualDetect();
@@ -45,9 +44,351 @@ function detectGoogleUserName() {
         }
         return userName;
     } else {
-        console.warn('⚠️ [CONTENT] GoogleUserDetector module not available');
+        console.warn('⚠️ [CONTENT] GoogleUserDetector module not available, using fallback detection');
+        return detectGoogleUserNameFallback();
+    }
+}
+
+// Fallback detection with script tag parsing
+function detectGoogleUserNameFallback() {
+    console.log('🔄 [CONTENT] === STARTING FALLBACK DETECTION ===');
+    console.log('🔄 [CONTENT] Page URL:', window.location.href);
+    console.log('🔄 [CONTENT] Document ready state:', document.readyState);
+    
+    try {
+        // Method 1: Try script tag detection first
+        console.log('🔄 [CONTENT] === METHOD 1: SCRIPT TAG DETECTION ===');
+        const scriptName = detectFromScriptTagsFallback();
+        if (scriptName) {
+            console.log('✅ [CONTENT] Fallback script tag detection successful:', scriptName);
+            return scriptName;
+        }
+        
+        // Method 2: Fallback to basic DOM detection (simplified)
+        console.log('🔄 [CONTENT] === METHOD 2: DOM DETECTION ===');
+        const domName = detectFromDOMFallback();
+        if (domName) {
+            console.log('✅ [CONTENT] Fallback DOM detection successful:', domName);
+            return domName;
+        }
+        
+        console.log('❌ [CONTENT] === ALL FALLBACK METHODS FAILED ===');
+        return null;
+        
+    } catch (error) {
+        console.error('❌ [CONTENT] CRITICAL ERROR in fallback detection:', error);
+        console.error('❌ [CONTENT] Error stack:', error.stack);
         return null;
     }
+}
+
+// Script tag detection fallback (simplified version)
+function detectFromScriptTagsFallback() {
+    console.log('📜 [CONTENT] === STARTING SCRIPT TAG ANALYSIS ===');
+    
+    try {
+        // Test basic DOM access
+        console.log('📜 [CONTENT] Testing document access...');
+        if (!document) {
+            console.error('❌ [CONTENT] Document not available!');
+            return null;
+        }
+        
+        console.log('📜 [CONTENT] Querying for script tags...');
+        const scriptTags = document.querySelectorAll('script');
+        console.log(`📜 [CONTENT] Found ${scriptTags.length} script tags to analyze`);
+        
+        if (scriptTags.length === 0) {
+            console.warn('⚠️ [CONTENT] No script tags found on page!');
+            return null;
+        }
+        
+        let scriptsWithCallback = 0;
+        let accessibleScripts = 0;
+        
+        for (let i = 0; i < scriptTags.length; i++) {
+            try {
+                const script = scriptTags[i];
+                console.log(`📜 [CONTENT] Analyzing script ${i + 1}/${scriptTags.length}...`);
+                
+                // Test script access
+                let content;
+                try {
+                    content = script.textContent || script.innerHTML;
+                    accessibleScripts++;
+                } catch (accessError) {
+                    console.warn(`⚠️ [CONTENT] Cannot access script ${i + 1} content:`, accessError.message);
+                    continue;
+                }
+                
+                if (!content) {
+                    console.log(`📜 [CONTENT] Script ${i + 1} has no content, skipping`);
+                    continue;
+                }
+                
+                console.log(`📜 [CONTENT] Script ${i + 1} content length: ${content.length}`);
+                
+                if (content.includes('AF_initDataCallback')) {
+                    scriptsWithCallback++;
+                    console.log(`📜 [CONTENT] ✅ Found AF_initDataCallback in script ${i + 1} (${scriptsWithCallback} total found)`);
+                    
+                    // Try direct name extraction (most reliable)
+                    console.log(`📜 [CONTENT] Attempting name extraction from script ${i + 1}...`);
+                    const userName = extractNameDirectlyFromScriptFallback(content);
+                    if (userName) {
+                        console.log(`✅ [CONTENT] Direct extraction successful from script ${i + 1}: "${userName}"`);
+                        const cleanedName = cleanUserNameFallback(userName);
+                        console.log(`✅ [CONTENT] Final cleaned name: "${cleanedName}"`);
+                        return cleanedName;
+                    } else {
+                        console.log(`📜 [CONTENT] No valid name found in script ${i + 1}`);
+                    }
+                } else {
+                    console.log(`📜 [CONTENT] Script ${i + 1} does not contain AF_initDataCallback`);
+                }
+                
+            } catch (scriptError) {
+                console.error(`❌ [CONTENT] Error processing script ${i + 1}:`, scriptError);
+                continue;
+            }
+        }
+        
+        console.log(`📜 [CONTENT] === SCRIPT ANALYSIS COMPLETE ===`);
+        console.log(`📜 [CONTENT] Total scripts: ${scriptTags.length}`);
+        console.log(`📜 [CONTENT] Accessible scripts: ${accessibleScripts}`);
+        console.log(`📜 [CONTENT] Scripts with AF_initDataCallback: ${scriptsWithCallback}`);
+        console.log('📜 [CONTENT] No valid user name found in any script tag');
+        return null;
+        
+    } catch (error) {
+        console.error('❌ [CONTENT] CRITICAL ERROR in script tag detection:', error);
+        console.error('❌ [CONTENT] Error stack:', error.stack);
+        return null;
+    }
+}
+
+// Direct name extraction from script content (fallback version)
+function extractNameDirectlyFromScriptFallback(scriptContent) {
+    console.log('📜 [CONTENT] Attempting direct name extraction...');
+    console.log('📜 [CONTENT] Script content length:', scriptContent.length);
+    
+    try {
+        // Pattern 1: Look for email followed by name pattern (flexible URL handling)
+        // Example: "szlachtowski.lukasz@gmail.com","https://lh3.googleusercontent.com/a/ACg8ocJAZPiPB_Sgx9kdDHb_wZuS3PZZTGajVLsVfyHoqQh5uVs6HQ\u003ds192-c-mo","Łukasz Szlachtowski"
+        const emailNamePattern = /"([^"]+@[^"]+)","[^"]*","([^"]{2,50})"/g;
+        let match;
+        let patternAttempts = 0;
+        
+        console.log('📜 [CONTENT] Trying Pattern 1: Email-URL-Name pattern...');
+        while ((match = emailNamePattern.exec(scriptContent)) !== null && patternAttempts < 20) {
+            patternAttempts++;
+            const email = match[1];
+            const name = match[2];
+            
+            console.log(`📜 [CONTENT] Pattern 1 match ${patternAttempts}: "${email}" -> "${name}"`);
+            
+            if (isValidUserNameFallback(name)) {
+                console.log(`📜 [CONTENT] Pattern 1 success: "${name}"`);
+                return name;
+            } else {
+                console.log(`📜 [CONTENT] Pattern 1 rejected: "${name}" (failed validation)`);
+            }
+        }
+        
+        // Pattern 2: More flexible email-name pattern (skip middle part)
+        // Look for email, then any content, then a name-like string
+        console.log('📜 [CONTENT] Trying Pattern 2: Flexible email...name pattern...');
+        const flexibleEmailPattern = /"([^"]+@gmail\.com)"[^"]*"[^"]*"([A-ZĄŻĆĘŁŃÓŚŹŻ][^"]{2,49})"/g;
+        patternAttempts = 0;
+        
+        while ((match = flexibleEmailPattern.exec(scriptContent)) !== null && patternAttempts < 20) {
+            patternAttempts++;
+            const email = match[1];
+            const name = match[2];
+            
+            console.log(`📜 [CONTENT] Pattern 2 match ${patternAttempts}: "${email}" -> "${name}"`);
+            
+            if (isValidUserNameFallback(name)) {
+                console.log(`📜 [CONTENT] Pattern 2 success: "${name}"`);
+                return name;
+            } else {
+                console.log(`📜 [CONTENT] Pattern 2 rejected: "${name}" (failed validation)`);
+            }
+        }
+        
+        // Pattern 3: Look for Polish names with special characters anywhere
+        console.log('📜 [CONTENT] Trying Pattern 3: Polish names...');
+        const polishNamePattern = /"([A-ZĄŻĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+\s+[A-ZĄŻĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+)"/g;
+        patternAttempts = 0;
+        
+        while ((match = polishNamePattern.exec(scriptContent)) !== null && patternAttempts < 20) {
+            patternAttempts++;
+            const name = match[1];
+            
+            console.log(`📜 [CONTENT] Pattern 3 match ${patternAttempts}: "${name}"`);
+            
+            if (isValidUserNameFallback(name)) {
+                console.log(`📜 [CONTENT] Pattern 3 success: "${name}"`);
+                return name;
+            } else {
+                console.log(`📜 [CONTENT] Pattern 3 rejected: "${name}" (failed validation)`);
+            }
+        }
+        
+        // Pattern 4: Very broad name pattern - look for any quoted string that looks like a name
+        console.log('📜 [CONTENT] Trying Pattern 4: Broad name pattern...');
+        const broadNamePattern = /"([A-ZĄŻĆĘŁŃÓŚŹŻ][A-Za-ząćęłńóśźż\s]{2,48}[a-ząćęłńóśźżA-Za-z])"/g;
+        patternAttempts = 0;
+        
+        while ((match = broadNamePattern.exec(scriptContent)) !== null && patternAttempts < 50) {
+            patternAttempts++;
+            const name = match[1];
+            
+            // Only log promising candidates to avoid spam
+            if (name.includes('ł') || name.includes('Ł') || name.includes(' ')) {
+                console.log(`📜 [CONTENT] Pattern 4 match ${patternAttempts}: "${name}"`);
+                
+                if (isValidUserNameFallback(name)) {
+                    console.log(`📜 [CONTENT] Pattern 4 success: "${name}"`);
+                    return name;
+                }
+            }
+        }
+        
+        console.log('📜 [CONTENT] All patterns failed - no valid name found');
+        return null;
+        
+    } catch (error) {
+        console.error('❌ [CONTENT] Error in direct extraction:', error);
+        return null;
+    }
+}
+
+// Simple validation for fallback detection
+function isValidUserNameFallback(name) {
+    if (!name || typeof name !== 'string') {
+        console.log(`📜 [CONTENT] Validation failed: not a string`);
+        return false;
+    }
+    
+    const trimmed = name.trim();
+    
+    // Basic validation
+    if (trimmed.length < 2 || trimmed.length > 50) {
+        console.log(`📜 [CONTENT] Validation failed: invalid length ${trimmed.length}`);
+        return false;
+    }
+    
+    // Must contain letters
+    if (!/[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/.test(trimmed)) {
+        console.log(`📜 [CONTENT] Validation failed: no letters found`);
+        return false;
+    }
+    
+    // Should not be email or URL
+    if (trimmed.includes('@') || trimmed.includes('http') || trimmed.includes('://')) {
+        console.log(`📜 [CONTENT] Validation failed: contains email/URL patterns`);
+        return false;
+    }
+    
+    // Enhanced blacklist for script tag content
+    const blacklistedTerms = [
+        // UI terms
+        'settings', 'account', 'profile', 'zamknij', 'close', 'menu', 'more', 'camera', 'microphone',
+        // Google services and APIs
+        'apis.google.com', 'client.js', 'javascript', 'google.com', 'gstatic.com',
+        'accounts.google.com', 'googleapis.com', 'googleusercontent.com',
+        // Technical terms
+        'undefined', 'null', 'true', 'false', 'callback', 'function', 'window', 'document',
+        'script', 'src', 'type', 'text', 'application', 'json', 'css', 'html',
+        // Common false positives from scripts
+        'Meet', 'Hangouts', 'Chrome', 'Browser', 'Android', 'iOS',
+        'Service', 'API', 'SDK', 'Library', 'Framework'
+    ];
+    
+    const lowerName = trimmed.toLowerCase();
+    for (const term of blacklistedTerms) {
+        if (lowerName.includes(term.toLowerCase())) {
+            console.log(`📜 [CONTENT] Validation failed: contains blacklisted term "${term}"`);
+            return false;
+        }
+    }
+    
+    // Should look like a name (has space and proper capitalization)
+    if (trimmed.includes(' ')) {
+        const words = trimmed.split(' ');
+        // Check if it looks like "FirstName LastName"
+        const looksLikeName = words.length >= 2 && 
+                             words.every(word => /^[A-ZĄŻĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+$/.test(word));
+        
+        if (looksLikeName) {
+            console.log(`📜 [CONTENT] Validation passed: looks like proper name "${trimmed}"`);
+            return true;
+        }
+    }
+    
+    // Single names are less reliable but allow them if they contain Polish characters
+    if (/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/.test(trimmed)) {
+        console.log(`📜 [CONTENT] Validation passed: contains Polish characters "${trimmed}"`);
+        return true;
+    }
+    
+    console.log(`📜 [CONTENT] Validation failed: doesn't look like a name "${trimmed}"`);
+    return false;
+}
+
+// Basic DOM detection fallback (very simple)
+function detectFromDOMFallback() {
+    console.log('🔍 [CONTENT] Starting basic DOM detection fallback...');
+    
+    // Only try a few safe selectors to avoid picking up "Zamknij"
+    const safeSelectors = [
+        '[aria-label*="Google Account"] .gb_Ab',
+        '.gb_B [role="button"] span:not(.gb_D)',
+        '.gb_b .gb_db'
+    ];
+    
+    for (const selector of safeSelectors) {
+        try {
+            const elements = document.querySelectorAll(selector);
+            console.log(`🔍 [CONTENT] Trying selector: "${selector}" - found ${elements.length} elements`);
+            
+            for (const element of elements) {
+                const text = element.textContent?.trim();
+                if (text && isValidUserNameFallback(text)) {
+                    console.log(`🔍 [CONTENT] Found valid name: "${text}"`);
+                    return cleanUserNameFallback(text);
+                }
+            }
+        } catch (error) {
+            console.warn(`⚠️ [CONTENT] Error with selector "${selector}":`, error);
+        }
+    }
+    
+    console.log('🔍 [CONTENT] Basic DOM detection failed');
+    return null;
+}
+
+// Simple name cleaning for fallback
+function cleanUserNameFallback(name) {
+    if (!name) return null;
+    
+    // Basic cleaning
+    let cleaned = name.trim();
+    
+    // Remove email in parentheses
+    cleaned = cleaned.replace(/\s*\([^()]*@[^()]*\)\s*$/, '');
+    
+    // Remove extra whitespace
+    cleaned = cleaned.replace(/\s+/g, ' ').trim();
+    
+    console.log(`🧹 [CONTENT] Cleaned name: "${name}" -> "${cleaned}"`);
+    
+    if (cleaned.length >= 2 && cleaned.length <= 50) {
+        return cleaned;
+    }
+    
+    return null;
 }
 
 // Initialize user settings

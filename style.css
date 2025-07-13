@@ -324,13 +324,14 @@ body {
     line-height: 1.4;
     margin: 0;
     padding: 0 4px;
+    margin-bottom: 8px;
 }
 
 .setting-actions {
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-top: 12px;
+    margin-top: 20px;
 }
 
 .btn-small {
