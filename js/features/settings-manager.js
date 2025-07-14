@@ -375,12 +375,16 @@ window.SettingsManager = {
      * Update tab footer visibility based on changes
      */
     updateTabFooterVisibility(visible) {
-        const tabFooter = document.querySelector('.tab-footer');
-        if (tabFooter) {
-            if (visible) {
-                tabFooter.classList.add('visible');
-            } else {
-                tabFooter.classList.remove('visible');
+        // Find the currently active tab
+        const activeTab = document.querySelector('.tab-pane.active');
+        if (activeTab) {
+            const tabFooter = activeTab.querySelector('.tab-footer');
+            if (tabFooter) {
+                if (visible) {
+                    tabFooter.classList.add('visible');
+                } else {
+                    tabFooter.classList.remove('visible');
+                }
             }
         }
     },

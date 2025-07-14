@@ -433,6 +433,11 @@ body {
     height: 280px;
 }
 
+/* Larger height for prompt tab */
+.tab-content:has(#prompt-tab.active) {
+    height: 380px;
+}
+
 .tab-pane {
     display: none;
     animation: fadeIn 0.2s ease-in-out;
@@ -510,9 +515,9 @@ body {
 /* Prompt textarea styling */
 .prompt-textarea {
     width: 100%;
-    min-height: 120px;
-    max-height: 180px;
-    height: 120px;
+    min-height: 160px;
+    max-height: 280px;
+    height: 160px;
     padding: 12px;
     border: 1px solid var(--border-primary);
     border-radius: 8px;
@@ -590,7 +595,7 @@ input[type="checkbox"] {
 
 /* Prompt tab specific styling */
 #prompt-tab .tab-body {
-    gap: 16px; /* Smaller gap for prompt tab */
+    gap: 20px; /* More space with larger height */
 }
 
 #prompt-tab .input-group:has(.prompt-textarea) {
