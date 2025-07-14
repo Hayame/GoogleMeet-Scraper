@@ -19,7 +19,23 @@ if (!DEBUG_ENABLED) {
     // console.warn and console.error remain active for critical issues
 }
 
-// Make debug status available globally
-window.DEBUG_ENABLED = DEBUG_ENABLED;
+// Make debug status available globally - compatible with all contexts
+try {
+    // Popup and Content Script (have window)
+    if (typeof window !== 'undefined') {
+        window.DEBUG_ENABLED = DEBUG_ENABLED;
+    }
+    // Service Worker (has globalThis)
+    if (typeof globalThis !== 'undefined') {
+        globalThis.DEBUG_ENABLED = DEBUG_ENABLED;
+    }
+} catch (e) {
+    // Ignore errors when setting global variables
+}
 
-console.warn('🔧 Debug Config: Logging is', DEBUG_ENABLED ? 'ENABLED' : 'DISABLED');
+// Safe status logging
+try {
+    console.warn('🔧 Debug Config: Logging is', DEBUG_ENABLED ? 'ENABLED' : 'DISABLED');
+} catch (e) {
+    // Ignore if console.warn is also blocked
+}
