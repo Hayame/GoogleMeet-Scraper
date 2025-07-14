@@ -422,7 +422,9 @@ async function restoreStateFromStorage() {
             window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION,
             window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_DURATION,
             window.AppConstants.STORAGE_KEYS.MEET_TAB_ID,
-            window.AppConstants.STORAGE_KEYS.SESSION_STATE
+            window.AppConstants.STORAGE_KEYS.SESSION_STATE,
+            window.AppConstants.STORAGE_KEYS.RECORDING_PAUSED,
+            window.AppConstants.STORAGE_KEYS.RECORDING_STOPPED
         ]);
         
         console.log('🔄 [RESTORE DEBUG] Storage contents:', {
@@ -546,11 +548,21 @@ async function restoreStateFromStorage() {
                     sessionState.totalDuration = result[window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION];
                 }
                 
+                // CRITICAL FIX: Restore paused and stopped flags for resume functionality
+                if (result[window.AppConstants.STORAGE_KEYS.RECORDING_PAUSED]) {
+                    sessionState.isRecordingPaused = result[window.AppConstants.STORAGE_KEYS.RECORDING_PAUSED];
+                    console.log('🔄 [RESTORE DEBUG] Paused session - recordingPaused flag restored:', sessionState.isRecordingPaused);
+                }
+                if (result[window.AppConstants.STORAGE_KEYS.RECORDING_STOPPED]) {
+                    sessionState.isRecordingStopped = result[window.AppConstants.STORAGE_KEYS.RECORDING_STOPPED];
+                    console.log('🔄 [RESTORE DEBUG] Paused session - recordingStopped flag restored:', sessionState.isRecordingStopped);
+                }
+                
                 exposeGlobalVariables();
                 
                 // Clear restoration flag for successful paused session restoration
                 setRestorationInProgress(false);
-                console.log('🔄 [RESTORE] Restoration complete - paused session restored');
+                console.log('🔄 [RESTORE] Restoration complete - paused session restored with resume capability');
                 
                 return {
                     restored: true,
@@ -559,7 +571,9 @@ async function restoreStateFromStorage() {
                     transcriptData: transcriptData,
                     currentSessionId: currentSessionId,
                     sessionStartTime: result[window.AppConstants.STORAGE_KEYS.SESSION_START_TIME],
-                    sessionTotalDuration: result[window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION]
+                    sessionTotalDuration: result[window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION],
+                    recordingPaused: result[window.AppConstants.STORAGE_KEYS.RECORDING_PAUSED],
+                    recordingStopped: result[window.AppConstants.STORAGE_KEYS.RECORDING_STOPPED]
                 };
             }
         }

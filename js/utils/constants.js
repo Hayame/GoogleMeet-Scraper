@@ -29,7 +29,9 @@ const STORAGE_KEYS = {
     SEARCH_QUERY: 'searchQuery',
     ACTIVE_PARTICIPANT_FILTERS: 'activeParticipantFilters',
     LAST_UI_STATE: 'lastUIState',
-    SESSION_STATE: 'sessionState'
+    SESSION_STATE: 'sessionState',
+    RECORDING_PAUSED: 'recordingPaused',
+    RECORDING_STOPPED: 'recordingStopped'
 };
 
 // Application states

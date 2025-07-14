@@ -148,12 +148,14 @@ async function setPausedSessionState() {
         window.AppConstants.STORAGE_KEYS.MEET_TAB_ID
     ]);
     
-    // Set session state to paused
+    // Set session state to paused and save paused/stopped flags
     await setStorageData({
-        [window.AppConstants.STORAGE_KEYS.SESSION_STATE]: window.AppConstants.SESSION_STATES.PAUSED_SESSION
+        [window.AppConstants.STORAGE_KEYS.SESSION_STATE]: window.AppConstants.SESSION_STATES.PAUSED_SESSION,
+        [window.AppConstants.STORAGE_KEYS.RECORDING_PAUSED]: true,
+        [window.AppConstants.STORAGE_KEYS.RECORDING_STOPPED]: true
     });
     
-    console.log('⏸️ [STORAGE] Set session to paused state - preserved transcript data and total duration');
+    console.log('⏸️ [STORAGE] Set session to paused state - preserved transcript data and paused/stopped flags');
 }
 
 /**
@@ -167,9 +169,11 @@ async function clearRecordingState() {
         window.AppConstants.STORAGE_KEYS.SESSION_START_TIME,
         window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION,
         window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_DURATION,
-        window.AppConstants.STORAGE_KEYS.MEET_TAB_ID
+        window.AppConstants.STORAGE_KEYS.MEET_TAB_ID,
+        window.AppConstants.STORAGE_KEYS.RECORDING_PAUSED,
+        window.AppConstants.STORAGE_KEYS.RECORDING_STOPPED
     ]);
-    console.log('🧹 [STORAGE] Cleared all recording state keys');
+    console.log('🧹 [STORAGE] Cleared all recording state keys including paused/stopped flags');
 }
 
 // Export all storage functions

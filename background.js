@@ -76,7 +76,7 @@ function startBackgroundScanning(tabId) {
     
     let scanCount = 0;
     
-    // Skanuj co 5 sekund
+    // Skanuj co 3 sekundy
     scanInterval = setInterval(async () => {
         scanCount++;
         const scanTime = new Date().toISOString();
@@ -128,7 +128,7 @@ function startBackgroundScanning(tabId) {
         } catch (error) {
             console.error('🔶 [BACKGROUND DEBUG] Scan error:', error);
             
-            // Jeśli błąd to brak content script, spróbuj ponownie za 5 sekund
+            // Jeśli błąd to brak content script, spróbuj ponownie za 3 sekundy
             if (error.message.includes('Could not establish connection')) {
                 console.log('🔶 [BACKGROUND DEBUG] Content script not ready, will retry...');
             } else {
@@ -136,7 +136,7 @@ function startBackgroundScanning(tabId) {
                 stopBackgroundScanning();
             }
         }
-    }, 5000);
+    }, 3000);
     
     console.log('🔶 [BACKGROUND DEBUG] Background scanning started at:', startTime);
 }
