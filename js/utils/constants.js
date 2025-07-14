@@ -69,6 +69,27 @@ const LOG_LEVELS = {
     DEBUG: 'debug'
 };
 
+// Debug configuration - Global console.log control
+// Aby włączyć logi debugowania, zmień ENABLE_CONSOLE_LOGS na true
+const DEBUG_CONFIG = {
+    ENABLE_CONSOLE_LOGS: false, // Zmień na true aby włączyć wszystkie logi
+    LOG_LEVELS: {
+        ERROR: true,   // Zawsze pokazuj błędy
+        WARN: true,    // Zawsze pokazuj ostrzeżenia  
+        INFO: false,   // Ukryj logi informacyjne
+        DEBUG: false   // Ukryj logi debugowania
+    }
+};
+
+// Override console methods based on debug configuration
+if (!DEBUG_CONFIG.ENABLE_CONSOLE_LOGS) {
+    console.log = () => {};
+    console.debug = () => {};
+    if (!DEBUG_CONFIG.LOG_LEVELS.INFO) console.info = () => {};
+    if (!DEBUG_CONFIG.LOG_LEVELS.WARN) console.warn = () => {};
+    // console.error zawsze aktywny dla krytycznych błędów
+}
+
 // Export all constants
 window.AppConstants = {
     TIMING,
@@ -77,5 +98,6 @@ window.AppConstants = {
     SESSION_STATES,
     EXPORT_FORMATS,
     THEMES,
-    LOG_LEVELS
+    LOG_LEVELS,
+    DEBUG_CONFIG
 };
