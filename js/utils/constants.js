@@ -81,14 +81,7 @@ const DEBUG_CONFIG = {
     }
 };
 
-// Override console methods based on debug configuration
-if (!DEBUG_CONFIG.ENABLE_CONSOLE_LOGS) {
-    console.log = () => {};
-    console.debug = () => {};
-    if (!DEBUG_CONFIG.LOG_LEVELS.INFO) console.info = () => {};
-    if (!DEBUG_CONFIG.LOG_LEVELS.WARN) console.warn = () => {};
-    // console.error zawsze aktywny dla krytycznych błędów
-}
+// Console override is now handled by debug-config.js (loaded first in all contexts)
 
 // Export all constants
 window.AppConstants = {

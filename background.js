@@ -1,5 +1,8 @@
 // Background script (Service Worker) dla Chrome Manifest V3
 
+// Import debug configuration
+importScripts('debug-config.js');
+
 // Stany skanowania
 let isScanning = false;
 let scanningTabId = null;
