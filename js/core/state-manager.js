@@ -62,11 +62,12 @@ function getRealtimeMode() {
 }
 
 /**
- * Set current session ID
+ * Set current session ID with proper persistence
  * @param {string} sessionId - Session identifier
  */
 function setCurrentSessionId(sessionId) {
     currentSessionId = sessionId;
+    window.currentSessionId = sessionId;
     
     // CRITICAL FIX: Automatically save to storage when currentSessionId changes
     if (sessionId) {
@@ -86,23 +87,7 @@ function getCurrentSessionId() {
     return currentSessionId;
 }
 
-/**
- * Update current session ID with proper persistence
- * @param {string} sessionId - Session identifier
- */
-function updateCurrentSessionId(sessionId) {
-    currentSessionId = sessionId;
-    window.currentSessionId = sessionId;
-    
-    // CRITICAL FIX: Automatically save to storage when currentSessionId changes
-    if (sessionId) {
-        const storageUpdate = {};
-        storageUpdate[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID] = sessionId;
-        chrome.storage.local.set(storageUpdate, () => {
-            console.log('🔄 [STATE DEBUG] currentSessionId updated and saved to storage:', sessionId);
-        });
-    }
-}
+// updateCurrentSessionId() method removed - use setCurrentSessionId() instead
 
 /**
  * Set recording start time
@@ -680,7 +665,6 @@ window.StateManager = {
     getRealtimeMode,
     setCurrentSessionId,
     getCurrentSessionId,
-    updateCurrentSessionId,
     setRecordingStartTime,
     getRecordingStartTime,
     setSessionStartTime,

@@ -90,37 +90,8 @@ window.SessionHistoryManager = {
         // Simplified: just use all messages from transcriptData
         const validMessages = window.transcriptData.messages;
         
-        // CRITICAL FIX: Defensive check for null currentSessionId
-        let sessionId = window.currentSessionId;
-        if (!sessionId) {
-            console.log('🔄 [SESSION HISTORY DEBUG] currentSessionId is null, attempting to recover from transcript data');
-            
-            // Try to recover session ID from existing transcript data
-            const existingSessionInStorage = window.sessionHistory && window.sessionHistory.length > 0 ? 
-                window.sessionHistory.find(s => s.transcript && s.transcript.messages && 
-                    s.transcript.messages.length > 0 && window.transcriptData && window.transcriptData.messages &&
-                    s.transcript.messages[0].text === window.transcriptData.messages[0].text) : null;
-            
-            if (existingSessionInStorage) {
-                sessionId = existingSessionInStorage.id;
-                if (window.StateManager && window.StateManager.updateCurrentSessionId) {
-                    window.StateManager.updateCurrentSessionId(sessionId);
-                } else {
-                    window.currentSessionId = sessionId;
-                }
-                console.log('🔄 [SESSION HISTORY DEBUG] Recovered currentSessionId from existing session:', sessionId);
-            } else {
-                console.log('🔄 [SESSION HISTORY DEBUG] Cannot recover currentSessionId, generating new one');
-                sessionId = window.generateSessionId ? window.generateSessionId() : 'session_' + Date.now();
-                if (window.StateManager && window.StateManager.updateCurrentSessionId) {
-                    window.StateManager.updateCurrentSessionId(sessionId);
-                } else {
-                    window.currentSessionId = sessionId;
-                    chrome.storage.local.set({ currentSessionId: sessionId });
-                }
-                console.log('🔄 [SESSION HISTORY DEBUG] Generated new currentSessionId:', sessionId);
-            }
-        }
+        // Use current session ID - defensive recovery mechanisms removed
+        const sessionId = window.currentSessionId || window.generateSessionId();
         const uniqueParticipants = new Set(validMessages.map(m => m.speaker)).size;
         
         // CRITICAL FIX: If sessionHistory is not loaded yet, check storage directly
@@ -129,29 +100,8 @@ window.SessionHistoryManager = {
             chrome.storage.local.get(['sessionHistory'], (result) => {
                 const storageHistory = result.sessionHistory || [];
                 
-                // Enhanced session lookup in storage with multiple ID formats
-                let existsInStorage = storageHistory.find(s => s.id === sessionId);
-                
-                if (!existsInStorage) {
-                    console.log('🔄 [SESSION AUTOSAVE] Session not found in storage with exact match, trying alternative formats');
-                    console.log('🔄 [SESSION AUTOSAVE] Storage session IDs:', storageHistory.map(s => ({ id: s.id, type: typeof s.id })));
-                    
-                    // Try different ID formats
-                    if (typeof sessionId === 'string') {
-                        const numericSessionId = parseInt(sessionId.replace('session_', ''));
-                        if (!isNaN(numericSessionId)) {
-                            existsInStorage = storageHistory.find(s => 
-                                s.id === numericSessionId || 
-                                (typeof s.id === 'string' && s.id.includes(numericSessionId.toString()))
-                            );
-                        }
-                    }
-                    
-                    if (!existsInStorage && typeof sessionId === 'number') {
-                        const stringSessionId = 'session_' + sessionId;
-                        existsInStorage = storageHistory.find(s => s.id === stringSessionId);
-                    }
-                }
+                // Simple session lookup in storage - no complex format matching needed
+                const existsInStorage = storageHistory.find(s => s.id === sessionId);
                 
                 if (existsInStorage) {
                     console.log('🔄 [SESSION AUTOSAVE] Session already exists in storage, skipping duplicate creation');
@@ -172,45 +122,10 @@ window.SessionHistoryManager = {
      * @private
      */
     _performAutoSave(sessionId, validMessages, uniqueParticipants) {
-        // CRITICAL FIX: Enhanced session ID comparison with multiple formats
-        let existingIndex = window.sessionHistory.findIndex(s => s.id === sessionId);
+        // Simple session ID lookup - no complex format matching needed
+        const existingIndex = window.sessionHistory.findIndex(s => s.id === sessionId);
         
-        // If not found, try different ID formats for compatibility
-        if (existingIndex < 0) {
-            console.log('🔄 [SESSION AUTOSAVE DEBUG] Session not found with exact match, trying alternative formats');
-            console.log('🔄 [SESSION AUTOSAVE DEBUG] Looking for sessionId:', sessionId, 'type:', typeof sessionId);
-            console.log('🔄 [SESSION AUTOSAVE DEBUG] Available session IDs:', window.sessionHistory.map(s => ({ id: s.id, type: typeof s.id })));
-            
-            // Try numeric comparison if sessionId is string
-            if (typeof sessionId === 'string') {
-                const numericSessionId = parseInt(sessionId.replace('session_', ''));
-                if (!isNaN(numericSessionId)) {
-                    existingIndex = window.sessionHistory.findIndex(s => 
-                        s.id === numericSessionId || 
-                        (typeof s.id === 'string' && s.id.includes(numericSessionId.toString()))
-                    );
-                    console.log('🔄 [SESSION AUTOSAVE DEBUG] Numeric lookup result:', existingIndex);
-                }
-            }
-            
-            // Try string comparison if sessionId is number
-            if (existingIndex < 0 && typeof sessionId === 'number') {
-                const stringSessionId = 'session_' + sessionId;
-                existingIndex = window.sessionHistory.findIndex(s => s.id === stringSessionId);
-                console.log('🔄 [SESSION AUTOSAVE DEBUG] String lookup result:', existingIndex);
-            }
-            
-            // Try loose comparison - contains sessionId
-            if (existingIndex < 0) {
-                existingIndex = window.sessionHistory.findIndex(s => 
-                    s.id.toString().includes(sessionId.toString()) || 
-                    sessionId.toString().includes(s.id.toString())
-                );
-                console.log('🔄 [SESSION AUTOSAVE DEBUG] Loose lookup result:', existingIndex);
-            }
-        }
-        
-        console.log('🔄 [SESSION AUTOSAVE DEBUG] Final existingIndex:', existingIndex);
+        console.log('🔄 [SESSION AUTOSAVE DEBUG] Session lookup result:', existingIndex);
         const originalDate = existingIndex >= 0 ? window.sessionHistory[existingIndex].date : new Date().toISOString();
         const originalTitle = existingIndex >= 0 ? window.sessionHistory[existingIndex].title : window.generateSessionTitle();
         
@@ -288,22 +203,8 @@ window.SessionHistoryManager = {
             availableSessionIds: window.sessionHistory?.map(s => ({ id: s.id, idType: typeof s.id })) || []
         });
         
-        // Try multiple session ID formats for compatibility
-        let session = window.sessionHistory?.find(s => s.id === sessionId);
-        
-        // If not found as string, try as number (timestamp compatibility)
-        if (!session && typeof sessionId === 'string') {
-            const numericSessionId = parseInt(sessionId);
-            session = window.sessionHistory?.find(s => s.id === numericSessionId);
-            console.log('🔍 [SESSION DEBUG] Trying numeric lookup:', numericSessionId, 'found:', !!session);
-        }
-        
-        // If not found as number, try as string (session_ prefix compatibility) 
-        if (!session && typeof sessionId === 'number') {
-            const stringSessionId = sessionId.toString();
-            session = window.sessionHistory?.find(s => s.id === stringSessionId);
-            console.log('🔍 [SESSION DEBUG] Trying string lookup:', stringSessionId, 'found:', !!session);
-        }
+        // Simple session lookup - no complex format matching needed
+        const session = window.sessionHistory?.find(s => s.id === sessionId);
         
         if (!session) {
             console.error('❌ [SESSION] Session not found after all attempts:', sessionId);
@@ -681,42 +582,7 @@ window.SessionHistoryManager = {
         console.log('📚 [SESSION] SessionHistoryManager initialization complete');
     },
 
-    /**
-     * Generate unique session ID
-     * DEPRECATED: Use SessionUtils.generateSessionId() instead
-     * Source: popup-old.js line 1703
-     */
-    generateSessionId() {
-        // Delegate to SessionUtils for consistency
-        if (window.SessionUtils && window.SessionUtils.generateSessionId) {
-            return window.SessionUtils.generateSessionId();
-        }
-        // Fallback for backward compatibility
-        return Date.now().toString();
-    },
-
-    /**
-     * Generate session title based on time
-     * DEPRECATED: Use SessionUtils.generateSessionTitle() instead
-     * Source: popup-old.js line 1707
-     */
-    generateSessionTitle(startTime = null) {
-        // Delegate to SessionUtils for consistency
-        if (window.SessionUtils && window.SessionUtils.generateSessionTitle) {
-            return startTime ? 
-                window.SessionUtils.generateSessionTitleForDate(new Date(startTime)) :
-                window.SessionUtils.generateSessionTitle();
-        }
-        
-        // Fallback for backward compatibility
-        // Use provided startTime, sessionStartTime, recordingStartTime, or current time as fallback
-        const timeToUse = startTime || 
-                         window.StateManager?.getSessionStartTime() || 
-                         window.StateManager?.getRecordingStartTime() || 
-                         new Date();
-        const time = timeToUse.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
-        return `Spotkanie o ${time}`;
-    },
+    // generateSessionId() and generateSessionTitle() methods removed - use window.generateSessionId() and window.generateSessionTitle() instead
 
     /**
      * Clear current transcript data
@@ -841,8 +707,6 @@ window.SessionHistoryManager = {
     setupGlobalAliases() {
         // Critical fix: Expose session functions globally as expected by other modules
         window.createNewSession = this.createNewSession.bind(this);
-        window.generateSessionId = this.generateSessionId.bind(this);
-        window.generateSessionTitle = this.generateSessionTitle.bind(this);
         window.showEmptySession = this.showEmptySession.bind(this);
         window.performNewSessionCreation = this.performNewSessionCreation.bind(this);
         window.clearCurrentTranscript = this.clearCurrentTranscript.bind(this);
