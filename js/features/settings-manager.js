@@ -215,15 +215,6 @@ window.SettingsManager = {
     },
     
     /**
-     * Hide settings modal
-     */
-    hideSettingsModal() {
-        if (window.ModalManager) {
-            window.ModalManager.hideModal('settingsModal');
-        }
-    },
-    
-    /**
      * Update settings modal placeholder if it's visible
      */
     updateSettingsModalPlaceholder() {
@@ -252,13 +243,11 @@ window.SettingsManager = {
         // Settings modal cancel button
         const cancelSettingsBtn = document.getElementById('cancelSettingsBtn');
         if (cancelSettingsBtn) {
-            cancelSettingsBtn.addEventListener('click', () => this.hideSettingsModal());
-        }
-        
-        // Close button in modal header
-        const closeBtn = document.querySelector('#settingsModal .modal-close');
-        if (closeBtn) {
-            closeBtn.addEventListener('click', () => this.hideSettingsModal());
+            cancelSettingsBtn.addEventListener('click', () => {
+                if (window.ModalManager) {
+                    window.ModalManager.hideModal('settingsModal');
+                }
+            });
         }
         
         // Manual Google name detection button
@@ -462,7 +451,11 @@ window.SettingsManager = {
         };
         
         await this.saveSettings(newSettings);
-        this.hideSettingsModal();
+        
+        // Close the modal
+        if (window.ModalManager) {
+            window.ModalManager.hideModal('settingsModal');
+        }
     },
     
     /**

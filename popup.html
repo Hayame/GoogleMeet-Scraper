@@ -238,10 +238,6 @@
                 <div class="tab-content">
                     <!-- Profile Tab -->
                     <div class="tab-pane active" id="profile-tab">
-                        <div class="tab-header">
-                            <h4 class="tab-title">Profil użytkownika</h4>
-                            <p class="tab-description">Personalizacja wyświetlanej nazwy w aplikacji</p>
-                        </div>
                         <div class="tab-body">
                             <div class="input-group">
                                 <label for="userDisplayName" class="input-label">
@@ -269,14 +265,16 @@
                                 <span id="googleDetectionStatus" class="detection-status"></span>
                             </div>
                         </div>
+                        
+                        <!-- Profile Tab Footer -->
+                        <div class="tab-footer">
+                            <button id="cancelSettingsBtn" class="btn btn-secondary">Anuluj</button>
+                            <button id="saveSettingsBtn" class="btn btn-primary">Zapisz zmiany</button>
+                        </div>
                     </div>
 
                     <!-- Data Management Tab -->
                     <div class="tab-pane" id="data-tab">
-                        <div class="tab-header">
-                            <h4 class="tab-title">Zarządzanie danymi</h4>
-                            <p class="tab-description">Usuń wszystkie zapisane sesje z historii</p>
-                        </div>
                         <div class="tab-body">
                             <div class="danger-notice">
                                 <div class="danger-notice-icon">
@@ -305,10 +303,6 @@
                         </div>
                     </div>
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button id="cancelSettingsBtn" class="btn btn-secondary">Anuluj</button>
-                <button id="saveSettingsBtn" class="btn btn-primary">Zapisz</button>
             </div>
         </div>
     </div>
