@@ -8,6 +8,9 @@ window.SettingsManager = {
     userDisplayName: '',
     googleUserName: null,
     
+    // Track original values for change detection
+    originalUserDisplayName: '',
+    
     /**
      * Initialize Settings Manager
      */
@@ -203,14 +206,74 @@ window.SettingsManager = {
         if (userNameInput) {
             userNameInput.value = this.userDisplayName;
             userNameInput.placeholder = this.getPlaceholderText();
+            
+            // Store original value for change detection
+            this.originalUserDisplayName = this.userDisplayName;
+            
+            // Setup input change listener
+            this.setupInputChangeListener();
         }
         
         // Update session count info
         this.updateSessionCountInfo();
         
+        // Hide tab footer initially (no changes yet)
+        this.updateTabFooterVisibility(false);
+        
         // Show modal using ModalManager
         if (window.ModalManager) {
             window.ModalManager.showModal('settingsModal');
+        }
+    },
+    
+    /**
+     * Setup input change listener for real-time change detection
+     */
+    setupInputChangeListener() {
+        const userNameInput = document.getElementById('userDisplayName');
+        if (userNameInput) {
+            // Remove existing listeners to avoid duplicates
+            userNameInput.removeEventListener('input', this.handleInputChange);
+            
+            // Add new listener
+            userNameInput.addEventListener('input', this.handleInputChange.bind(this));
+        }
+    },
+
+    /**
+     * Handle input changes and update button visibility
+     */
+    handleInputChange() {
+        const hasChanges = this.hasUnsavedChanges();
+        this.updateTabFooterVisibility(hasChanges);
+        
+        if (hasChanges) {
+            console.log('⚙️ [SETTINGS] Unsaved changes detected');
+        }
+    },
+
+    /**
+     * Check if there are unsaved changes
+     */
+    hasUnsavedChanges() {
+        const userNameInput = document.getElementById('userDisplayName');
+        if (!userNameInput) return false;
+        
+        const currentValue = userNameInput.value.trim();
+        return currentValue !== this.originalUserDisplayName;
+    },
+
+    /**
+     * Update tab footer visibility based on changes
+     */
+    updateTabFooterVisibility(visible) {
+        const tabFooter = document.querySelector('.tab-footer');
+        if (tabFooter) {
+            if (visible) {
+                tabFooter.classList.add('visible');
+            } else {
+                tabFooter.classList.remove('visible');
+            }
         }
     },
     
@@ -243,11 +306,7 @@ window.SettingsManager = {
         // Settings modal cancel button
         const cancelSettingsBtn = document.getElementById('cancelSettingsBtn');
         if (cancelSettingsBtn) {
-            cancelSettingsBtn.addEventListener('click', () => {
-                if (window.ModalManager) {
-                    window.ModalManager.hideModal('settingsModal');
-                }
-            });
+            cancelSettingsBtn.addEventListener('click', () => this.handleCancelSettings());
         }
         
         // Manual Google name detection button
@@ -451,6 +510,27 @@ window.SettingsManager = {
         };
         
         await this.saveSettings(newSettings);
+        
+        // Close the modal
+        if (window.ModalManager) {
+            window.ModalManager.hideModal('settingsModal');
+        }
+    },
+
+    /**
+     * Handle cancel settings button click
+     */
+    handleCancelSettings() {
+        console.log('⚙️ [SETTINGS] Canceling settings changes');
+        
+        // Restore original values
+        const userNameInput = document.getElementById('userDisplayName');
+        if (userNameInput) {
+            userNameInput.value = this.originalUserDisplayName;
+        }
+        
+        // Hide the tab footer since changes are canceled
+        this.updateTabFooterVisibility(false);
         
         // Close the modal
         if (window.ModalManager) {

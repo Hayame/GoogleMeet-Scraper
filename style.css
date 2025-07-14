@@ -430,7 +430,7 @@ body {
 /* Tab content */
 .tab-content {
     position: relative;
-    min-height: 240px;
+    height: 280px;
 }
 
 .tab-pane {
@@ -474,6 +474,16 @@ body {
     border-top: 1px solid var(--border-primary);
     margin-top: auto;
     flex-shrink: 0;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: all 0.2s ease-in-out;
+    pointer-events: none;
+}
+
+.tab-footer.visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
 }
 
 /* Input styling */
