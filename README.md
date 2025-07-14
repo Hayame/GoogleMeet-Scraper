@@ -21,6 +21,20 @@ Rozszerzenie do Chrome/Edge umożliwiające nagrywanie, pobieranie i eksportowan
 
 ## Instalacja
 
+### Opcja A: Gotowe rozszerzenie (zalecane)
+
+W folderze `dist/` znajdziesz gotowe do instalacji rozszerzenie:
+- `GoogleMeet-Scraper.crx` - spakowane rozszerzenie Chrome/Edge
+
+**Instalacja CRX:**
+1. Pobierz plik `GoogleMeet-Scraper.crx` z folderu `dist/`
+2. Otwórz Chrome/Edge i wejdź na `chrome://extensions/` lub `edge://extensions/`
+3. Włącz "Tryb dewelopera" 
+4. Przeciągnij plik `.crx` na stronę rozszerzeń
+5. Potwierdź instalację
+
+### Opcja B: Instalacja z kodu źródłowego
+
 ### Krok 1: Przygotowanie plików
 1. Utwórz nowy folder na komputerze, np. `google-meet-transcript-scraper`
 2. Skopiuj wszystkie pliki do tego folderu:
@@ -60,6 +74,8 @@ Możesz użyć dowolnego generatora ikon online lub utworzyć proste ikony z emo
 3. Kliknij "Załaduj rozpakowane"
 4. Wybierz folder z rozszerzeniem
 5. Rozszerzenie zostanie zainstalowane
+
+> **Uwaga:** Opcja A (gotowe CRX) jest szybsza i łatwiejsza. Opcja B jest przydatna dla programistów lub gdy chcesz modyfikować kod.
 
 ## Użytkowanie
 
