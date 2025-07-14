@@ -205,6 +205,9 @@ window.SettingsManager = {
             userNameInput.placeholder = this.getPlaceholderText();
         }
         
+        // Update session count info
+        this.updateSessionCountInfo();
+        
         // Show modal using ModalManager
         if (window.ModalManager) {
             window.ModalManager.showModal('settingsModal');
@@ -262,6 +265,12 @@ window.SettingsManager = {
         const detectBtn = document.getElementById('detectGoogleNameBtn');
         if (detectBtn) {
             detectBtn.addEventListener('click', () => this.handleManualDetection());
+        }
+        
+        // Clear all sessions button
+        const clearAllSessionsBtn = document.getElementById('clearAllSessionsBtn');
+        if (clearAllSessionsBtn) {
+            clearAllSessionsBtn.addEventListener('click', () => this.handleClearAllSessions());
         }
     },
     
@@ -405,6 +414,132 @@ window.SettingsManager = {
         
         await this.saveSettings(newSettings);
         this.hideSettingsModal();
+    },
+    
+    /**
+     * Handle clear all sessions button click
+     */
+    async handleClearAllSessions() {
+        // Get current session count
+        const sessionCount = window.sessionHistory ? window.sessionHistory.length : 0;
+        
+        if (sessionCount === 0) {
+            // Show info if no sessions to clear
+            if (window.ModalManager && window.ModalManager.showToast) {
+                window.ModalManager.showToast('Brak sesji do usunięcia', 'info');
+            }
+            return;
+        }
+        
+        // Show confirmation modal
+        this.showClearAllSessionsConfirmation(sessionCount);
+    },
+    
+    /**
+     * Show clear all sessions confirmation modal
+     */
+    showClearAllSessionsConfirmation(sessionCount) {
+        const confirmModal = document.getElementById('confirmModal');
+        const confirmMessage = document.getElementById('confirmMessage');
+        const confirmOk = document.getElementById('confirmOk');
+        const confirmCancel = document.getElementById('confirmCancel');
+        
+        if (!confirmModal || !confirmMessage || !confirmOk || !confirmCancel) {
+            console.error('❌ [SETTINGS] Required modal elements not found');
+            return;
+        }
+        
+        // Update modal content
+        confirmMessage.innerHTML = `
+            <div class="clear-all-sessions-warning">
+                <div class="warning-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                </div>
+                <div class="warning-content">
+                    <h4>Usuń wszystkie sesje?</h4>
+                    <p>Czy na pewno chcesz usunąć <strong>${sessionCount} ${sessionCount === 1 ? 'sesję' : sessionCount < 5 ? 'sesje' : 'sesji'}</strong> z historii?</p>
+                    <div class="warning-note">
+                        <strong>⚠️ Ta akcja jest nieodwracalna!</strong><br>
+                        Wszystkie zapisane transkrypcje zostaną trwale usunięte.
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Update button text
+        confirmOk.textContent = 'Usuń wszystkie';
+        confirmOk.className = 'btn btn-danger';
+        confirmCancel.textContent = 'Anuluj';
+        
+        // Remove any existing event listeners
+        const newConfirmOk = confirmOk.cloneNode(true);
+        confirmOk.parentNode.replaceChild(newConfirmOk, confirmOk);
+        
+        // Add new event listener
+        newConfirmOk.addEventListener('click', () => {
+            this.executeClearAllSessions();
+            if (window.ModalManager && window.ModalManager.hideModal) {
+                window.ModalManager.hideModal('confirmModal');
+            }
+        });
+        
+        // Show modal
+        if (window.ModalManager && window.ModalManager.showModal) {
+            window.ModalManager.showModal('confirmModal');
+        }
+    },
+    
+    /**
+     * Execute the clear all sessions action
+     */
+    async executeClearAllSessions() {
+        try {
+            console.log('🗑️ [SETTINGS] Clearing all sessions...');
+            
+            // Call session history manager to clear all sessions
+            if (window.SessionHistoryManager && window.SessionHistoryManager.clearAllSessionsFromHistory) {
+                await window.SessionHistoryManager.clearAllSessionsFromHistory();
+                
+                // Update session count info in settings
+                this.updateSessionCountInfo();
+                
+                // Show success toast
+                if (window.ModalManager && window.ModalManager.showToast) {
+                    window.ModalManager.showToast('Wszystkie sesje zostały usunięte', 'success');
+                }
+                
+                console.log('✅ [SETTINGS] All sessions cleared successfully');
+            } else {
+                console.error('❌ [SETTINGS] SessionHistoryManager not available');
+                if (window.ModalManager && window.ModalManager.showToast) {
+                    window.ModalManager.showToast('Błąd podczas usuwania sesji', 'error');
+                }
+            }
+        } catch (error) {
+            console.error('❌ [SETTINGS] Error clearing sessions:', error);
+            if (window.ModalManager && window.ModalManager.showToast) {
+                window.ModalManager.showToast('Błąd podczas usuwania sesji', 'error');
+            }
+        }
+    },
+    
+    /**
+     * Update session count info display
+     */
+    updateSessionCountInfo() {
+        const sessionCountInfo = document.getElementById('sessionCountInfo');
+        if (sessionCountInfo) {
+            const sessionCount = window.sessionHistory ? window.sessionHistory.length : 0;
+            if (sessionCount === 0) {
+                sessionCountInfo.textContent = 'Brak sesji';
+                sessionCountInfo.className = 'session-count-info empty';
+            } else {
+                sessionCountInfo.textContent = `${sessionCount} ${sessionCount === 1 ? 'sesja' : sessionCount < 5 ? 'sesje' : 'sesji'}`;
+                sessionCountInfo.className = 'session-count-info';
+            }
+        }
     },
     
     /**

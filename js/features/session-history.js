@@ -738,6 +738,114 @@ window.SessionHistoryManager = {
                 window.UIManager.updateStatus('Brak aktywnej sesji do usunięcia', 'info');
             }
         }
+    },
+
+    /**
+     * Clear all sessions from history
+     * Called by SettingsManager when user confirms clearing all sessions
+     */
+    async clearAllSessionsFromHistory() {
+        return new Promise((resolve, reject) => {
+            try {
+                console.log('🗑️ [HISTORY] Clearing all sessions from history...');
+                
+                const oldSessionCount = window.sessionHistory ? window.sessionHistory.length : 0;
+                
+                // Check if currently recording or has active session
+                const wasRecording = window.realtimeMode;
+                const hadActiveSession = window.currentSessionId && window.transcriptData;
+                
+                // Stop any active recording
+                if (wasRecording && window.deactivateRealtimeMode) {
+                    console.log('🔴 [HISTORY] Stopping active recording during clear all');
+                    window.deactivateRealtimeMode();
+                }
+                
+                // Clear all current session data
+                if (hadActiveSession) {
+                    window.transcriptData = null;
+                    window.currentSessionId = null;
+                    
+                    // Update UI to show empty state
+                    if (window.displayTranscript) {
+                        window.displayTranscript({ messages: [] });
+                    }
+                    if (window.updateStats) {
+                        window.updateStats({ messages: [] });
+                    }
+                    
+                    // Reset timer and duration
+                    if (window.StateManager) {
+                        window.StateManager.setRecordingStartTime(null);
+                        window.StateManager.setSessionStartTime(null);
+                        window.StateManager.setSessionTotalDuration(0);
+                    }
+                    if (window.stopDurationTimer) {
+                        window.stopDurationTimer();
+                    }
+                    
+                    // Update duration display to show 0:00
+                    const durationElement = document.getElementById('duration');
+                    if (durationElement) {
+                        durationElement.textContent = '0:00';
+                    }
+                    
+                    // Update UI for new session state
+                    if (window.updateButtonVisibility) {
+                        window.updateButtonVisibility('NEW');
+                    }
+                    if (window.hideMeetingName) {
+                        window.hideMeetingName();
+                    }
+                    
+                    // Disable export button
+                    const exportTxtBtn = document.getElementById('exportTxtBtn');
+                    if (exportTxtBtn) {
+                        exportTxtBtn.disabled = true;
+                    }
+                }
+                
+                // Clear the session history array
+                window.sessionHistory = [];
+                
+                // Clear all session-related data from storage
+                const keysToRemove = [
+                    'sessionHistory',
+                    'transcriptData', 
+                    'currentSessionId', 
+                    'recordingStartTime', 
+                    'sessionStartTime', 
+                    'sessionTotalDuration', 
+                    'currentSessionDuration', 
+                    'meetTabId'
+                ];
+                
+                chrome.storage.local.remove(keysToRemove, () => {
+                    if (chrome.runtime.lastError) {
+                        console.error('❌ [HISTORY] Error clearing storage:', chrome.runtime.lastError);
+                        reject(chrome.runtime.lastError);
+                        return;
+                    }
+                    
+                    console.log(`✅ [HISTORY] Cleared ${oldSessionCount} sessions and storage data`);
+                    
+                    // Re-render session history UI to show empty state
+                    if (window.SessionUIManager && window.SessionUIManager.renderSessionHistory) {
+                        window.SessionUIManager.renderSessionHistory();
+                    }
+                    
+                    resolve({
+                        clearedSessionCount: oldSessionCount,
+                        wasRecording: wasRecording,
+                        hadActiveSession: hadActiveSession
+                    });
+                });
+                
+            } catch (error) {
+                console.error('❌ [HISTORY] Error in clearAllSessionsFromHistory:', error);
+                reject(error);
+            }
+        });
     }
 
 };
