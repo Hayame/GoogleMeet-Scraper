@@ -448,29 +448,7 @@ window.ModalManager = {
             console.error('Export TXT button not found');
         }
         
-        const exportJsonBtn = document.getElementById('exportJsonBtn');
-        
-        if (exportJsonBtn) {
-            exportJsonBtn.addEventListener('click', () => {
-                console.log('Export JSON button clicked');
-                
-                if (!window.transcriptData || !window.transcriptData.messages || window.transcriptData.messages.length === 0) {
-                    if (window.UIManager && window.UIManager.updateStatus) {
-                        window.UIManager.updateStatus('Brak danych do eksportu', 'error');
-                    }
-                    return;
-                }
-                
-                const jsonContent = this.generateJsonContent();
-                this.downloadFile(jsonContent, 'transkrypcja-google-meet.json', 'application/json');
-                if (window.UIManager && window.UIManager.updateStatus) {
-                    window.UIManager.updateStatus('Wyeksportowano do pliku JSON!', 'success');
-                }
-                this.hideModal('exportModal');
-            });
-        } else {
-            console.error('Export JSON button not found');
-        }
+        // JSON export functionality removed - only TXT export is supported
     },
 
     /**
@@ -498,20 +476,7 @@ window.ModalManager = {
         return content;
     },
 
-    /**
-     * Generate JSON content for export
-     * @returns {string} Formatted JSON content
-     */
-    generateJsonContent() {
-        const jsonData = {
-            exportedAt: new Date().toISOString(),
-            meetingUrl: window.transcriptData?.meetingUrl || '',
-            totalMessages: window.transcriptData?.messages?.length || 0,
-            entries: window.transcriptData?.messages || []
-        };
-        
-        return JSON.stringify(jsonData, null, 2);
-    },
+    // generateJsonContent() function removed - JSON export no longer supported
 
     /**
      * Download file helper

@@ -49,8 +49,7 @@ const SESSION_STATES = {
 
 // Export format types
 const EXPORT_FORMATS = {
-    TXT: 'txt',
-    JSON: 'json'
+    TXT: 'txt'
 };
 
 // Theme options

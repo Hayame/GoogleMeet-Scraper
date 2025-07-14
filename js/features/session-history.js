@@ -24,9 +24,23 @@ window.SessionHistoryManager = {
                             window.sessionHistory.slice(0, 5).map(s => ({
                                 id: s.id,
                                 idType: typeof s.id,
-                                title: s.title
+                                title: s.title,
+                                date: s.date,
+                                entryCount: s.entryCount
                             }))
                         );
+                        
+                        // CRITICAL DEBUG: Log current session context for duplicate prevention
+                        if (window.currentSessionId) {
+                            const currentSessionExists = window.sessionHistory.find(s => s.id === window.currentSessionId);
+                            console.log('📁 [HISTORY DEBUG] Current session context:', {
+                                currentSessionId: window.currentSessionId,
+                                existsInLoadedHistory: !!currentSessionExists,
+                                realtimeMode: window.realtimeMode,
+                                hasTranscriptData: !!window.transcriptData,
+                                restorationInProgress: window.StateManager?.isRestorationInProgress()
+                            });
+                        }
                     }
                     
                     // Render the session history UI
@@ -67,14 +81,136 @@ window.SessionHistoryManager = {
             return;
         }
         
+        // CRITICAL FIX: Check if state restoration is in progress
+        if (window.StateManager?.isRestorationInProgress()) {
+            console.log('🔄 [SESSION AUTOSAVE] Skipping - state restoration in progress');
+            return;
+        }
+        
         // Simplified: just use all messages from transcriptData
         const validMessages = window.transcriptData.messages;
         
-        const sessionId = window.currentSessionId || window.generateSessionId();
+        // CRITICAL FIX: Defensive check for null currentSessionId
+        let sessionId = window.currentSessionId;
+        if (!sessionId) {
+            console.log('🔄 [SESSION HISTORY DEBUG] currentSessionId is null, attempting to recover from transcript data');
+            
+            // Try to recover session ID from existing transcript data
+            const existingSessionInStorage = window.sessionHistory && window.sessionHistory.length > 0 ? 
+                window.sessionHistory.find(s => s.transcript && s.transcript.messages && 
+                    s.transcript.messages.length > 0 && window.transcriptData && window.transcriptData.messages &&
+                    s.transcript.messages[0].text === window.transcriptData.messages[0].text) : null;
+            
+            if (existingSessionInStorage) {
+                sessionId = existingSessionInStorage.id;
+                if (window.StateManager && window.StateManager.updateCurrentSessionId) {
+                    window.StateManager.updateCurrentSessionId(sessionId);
+                } else {
+                    window.currentSessionId = sessionId;
+                }
+                console.log('🔄 [SESSION HISTORY DEBUG] Recovered currentSessionId from existing session:', sessionId);
+            } else {
+                console.log('🔄 [SESSION HISTORY DEBUG] Cannot recover currentSessionId, generating new one');
+                sessionId = window.generateSessionId ? window.generateSessionId() : 'session_' + Date.now();
+                if (window.StateManager && window.StateManager.updateCurrentSessionId) {
+                    window.StateManager.updateCurrentSessionId(sessionId);
+                } else {
+                    window.currentSessionId = sessionId;
+                    chrome.storage.local.set({ currentSessionId: sessionId });
+                }
+                console.log('🔄 [SESSION HISTORY DEBUG] Generated new currentSessionId:', sessionId);
+            }
+        }
         const uniqueParticipants = new Set(validMessages.map(m => m.speaker)).size;
         
-        // Check if session already exists and preserve its original date and title
-        const existingIndex = window.sessionHistory.findIndex(s => s.id === sessionId);
+        // CRITICAL FIX: If sessionHistory is not loaded yet, check storage directly
+        if (!window.sessionHistory || window.sessionHistory.length === 0) {
+            console.log('🔄 [SESSION AUTOSAVE] Session history not loaded, checking storage directly');
+            chrome.storage.local.get(['sessionHistory'], (result) => {
+                const storageHistory = result.sessionHistory || [];
+                
+                // Enhanced session lookup in storage with multiple ID formats
+                let existsInStorage = storageHistory.find(s => s.id === sessionId);
+                
+                if (!existsInStorage) {
+                    console.log('🔄 [SESSION AUTOSAVE] Session not found in storage with exact match, trying alternative formats');
+                    console.log('🔄 [SESSION AUTOSAVE] Storage session IDs:', storageHistory.map(s => ({ id: s.id, type: typeof s.id })));
+                    
+                    // Try different ID formats
+                    if (typeof sessionId === 'string') {
+                        const numericSessionId = parseInt(sessionId.replace('session_', ''));
+                        if (!isNaN(numericSessionId)) {
+                            existsInStorage = storageHistory.find(s => 
+                                s.id === numericSessionId || 
+                                (typeof s.id === 'string' && s.id.includes(numericSessionId.toString()))
+                            );
+                        }
+                    }
+                    
+                    if (!existsInStorage && typeof sessionId === 'number') {
+                        const stringSessionId = 'session_' + sessionId;
+                        existsInStorage = storageHistory.find(s => s.id === stringSessionId);
+                    }
+                }
+                
+                if (existsInStorage) {
+                    console.log('🔄 [SESSION AUTOSAVE] Session already exists in storage, skipping duplicate creation');
+                    return;
+                }
+                // Continue with normal save if not found in storage
+                this._performAutoSave(sessionId, validMessages, uniqueParticipants);
+            });
+            return;
+        }
+        
+        // Continue with normal save
+        this._performAutoSave(sessionId, validMessages, uniqueParticipants);
+    },
+
+    /**
+     * Internal method to perform the actual auto-save
+     * @private
+     */
+    _performAutoSave(sessionId, validMessages, uniqueParticipants) {
+        // CRITICAL FIX: Enhanced session ID comparison with multiple formats
+        let existingIndex = window.sessionHistory.findIndex(s => s.id === sessionId);
+        
+        // If not found, try different ID formats for compatibility
+        if (existingIndex < 0) {
+            console.log('🔄 [SESSION AUTOSAVE DEBUG] Session not found with exact match, trying alternative formats');
+            console.log('🔄 [SESSION AUTOSAVE DEBUG] Looking for sessionId:', sessionId, 'type:', typeof sessionId);
+            console.log('🔄 [SESSION AUTOSAVE DEBUG] Available session IDs:', window.sessionHistory.map(s => ({ id: s.id, type: typeof s.id })));
+            
+            // Try numeric comparison if sessionId is string
+            if (typeof sessionId === 'string') {
+                const numericSessionId = parseInt(sessionId.replace('session_', ''));
+                if (!isNaN(numericSessionId)) {
+                    existingIndex = window.sessionHistory.findIndex(s => 
+                        s.id === numericSessionId || 
+                        (typeof s.id === 'string' && s.id.includes(numericSessionId.toString()))
+                    );
+                    console.log('🔄 [SESSION AUTOSAVE DEBUG] Numeric lookup result:', existingIndex);
+                }
+            }
+            
+            // Try string comparison if sessionId is number
+            if (existingIndex < 0 && typeof sessionId === 'number') {
+                const stringSessionId = 'session_' + sessionId;
+                existingIndex = window.sessionHistory.findIndex(s => s.id === stringSessionId);
+                console.log('🔄 [SESSION AUTOSAVE DEBUG] String lookup result:', existingIndex);
+            }
+            
+            // Try loose comparison - contains sessionId
+            if (existingIndex < 0) {
+                existingIndex = window.sessionHistory.findIndex(s => 
+                    s.id.toString().includes(sessionId.toString()) || 
+                    sessionId.toString().includes(s.id.toString())
+                );
+                console.log('🔄 [SESSION AUTOSAVE DEBUG] Loose lookup result:', existingIndex);
+            }
+        }
+        
+        console.log('🔄 [SESSION AUTOSAVE DEBUG] Final existingIndex:', existingIndex);
         const originalDate = existingIndex >= 0 ? window.sessionHistory[existingIndex].date : new Date().toISOString();
         const originalTitle = existingIndex >= 0 ? window.sessionHistory[existingIndex].title : window.generateSessionTitle();
         
@@ -99,18 +235,19 @@ window.SessionHistoryManager = {
             totalDuration: currentTotalDuration
         };
         
-        console.log('🔄 [AUTOSAVE DEBUG] Creating session with:', {
+        console.log('🔄 [SESSION AUTOSAVE DEBUG] Creating session with:', {
             id: sessionId,
             entryCount: validMessages.length,
-            participantCount: uniqueParticipants
+            participantCount: uniqueParticipants,
+            existingIndex: existingIndex
         });
         
         if (existingIndex >= 0) {
             window.sessionHistory[existingIndex] = session;
-            console.log('🔄 [AUTOSAVE DEBUG] Updated existing session in history');
+            console.log('🔄 [SESSION AUTOSAVE DEBUG] Updated existing session in history');
         } else {
             window.sessionHistory.unshift(session);
-            console.log('🔄 [AUTOSAVE DEBUG] Added new session to history');
+            console.log('🔄 [SESSION AUTOSAVE DEBUG] Added new session to history');
         }
         
         // Limit history to 50 sessions
@@ -123,7 +260,7 @@ window.SessionHistoryManager = {
             if (window.SessionUIManager && window.SessionUIManager.renderSessionHistory) {
                 window.SessionUIManager.renderSessionHistory();
             }
-            console.log('🔄 [AUTOSAVE DEBUG] Session saved to storage and history rendered');
+            console.log('🔄 [SESSION AUTOSAVE DEBUG] Session saved to storage and history rendered');
             
             // Highlight the new/updated session if it's the current one
             if (sessionId === window.currentSessionId && existingIndex < 0) {

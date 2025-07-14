@@ -14,6 +14,35 @@ window.BackgroundScanner = {
         const timestamp = new Date().toISOString();
         console.log('🟡 [BACKGROUND DEBUG] Handling background scan update at:', timestamp);
         console.log('🟡 [BACKGROUND DEBUG] Data messages length:', data ? data.messages?.length : 'undefined');
+        console.log('🟡 [BACKGROUND DEBUG] Current state:', {
+            realtimeMode: window.realtimeMode,
+            currentSessionId: window.currentSessionId,
+            currentSessionIdType: typeof window.currentSessionId,
+            hasTranscriptData: !!window.transcriptData,
+            hasSessionHistory: !!window.sessionHistory,
+            sessionHistoryLength: window.sessionHistory?.length || 0,
+            restorationInProgress: window.StateManager?.isRestorationInProgress()
+        });
+        
+        // ENHANCED DEBUG: Show session ID format analysis
+        if (window.currentSessionId && window.sessionHistory && window.sessionHistory.length > 0) {
+            console.log('🟡 [BACKGROUND DEBUG] Session ID analysis:', {
+                currentSessionId: window.currentSessionId,
+                currentSessionIdType: typeof window.currentSessionId,
+                sessionHistoryIds: window.sessionHistory.slice(0, 3).map(s => ({ id: s.id, type: typeof s.id })),
+                exactMatchExists: !!window.sessionHistory.find(s => s.id === window.currentSessionId)
+            });
+        }
+        
+        // CRITICAL FIX: Check if state restoration is in progress
+        if (window.StateManager?.isRestorationInProgress()) {
+            console.log('🟡 [BACKGROUND DEBUG] Ignoring - state restoration in progress');
+            return;
+        }
+        
+        // REMOVED: Problematic session history check that created infinite loop for new users
+        // The check for sessionHistory.length === 0 incorrectly treated empty arrays as "not loaded"
+        // This is now handled by the enhanced session existence verification in the auto-save logic
         
         if (!window.realtimeMode) {
             console.log('🟡 [BACKGROUND DEBUG] Ignoring - not in realtime mode');
@@ -106,7 +135,86 @@ window.BackgroundScanner = {
             
             // Auto-save session to history
             if (window.RecordingManager && window.RecordingManager.autoSaveCurrentSession) {
-                window.RecordingManager.autoSaveCurrentSession();
+                // CRITICAL FIX: Defensive check for null currentSessionId
+                if (!window.currentSessionId) {
+                    console.log('🔄 [BACKGROUND DEBUG] currentSessionId is null, attempting to recover from transcript data');
+                    
+                    // Try to recover session ID from existing transcript data
+                    const existingSessionInStorage = window.sessionHistory && window.sessionHistory.length > 0 ? 
+                        window.sessionHistory.find(s => s.transcript && s.transcript.messages && 
+                            s.transcript.messages.length > 0 && window.transcriptData && window.transcriptData.messages &&
+                            s.transcript.messages[0].text === window.transcriptData.messages[0].text) : null;
+                    
+                    if (existingSessionInStorage) {
+                        if (window.StateManager && window.StateManager.updateCurrentSessionId) {
+                            window.StateManager.updateCurrentSessionId(existingSessionInStorage.id);
+                        } else {
+                            window.currentSessionId = existingSessionInStorage.id;
+                        }
+                        console.log('🔄 [BACKGROUND DEBUG] Recovered currentSessionId from existing session:', window.currentSessionId);
+                    } else {
+                        console.log('🔄 [BACKGROUND DEBUG] Cannot recover currentSessionId, generating new one');
+                        const newSessionId = window.generateSessionId ? window.generateSessionId() : 'session_' + Date.now();
+                        if (window.StateManager && window.StateManager.updateCurrentSessionId) {
+                            window.StateManager.updateCurrentSessionId(newSessionId);
+                        } else {
+                            window.currentSessionId = newSessionId;
+                            chrome.storage.local.set({ currentSessionId: newSessionId });
+                        }
+                        console.log('🔄 [BACKGROUND DEBUG] Generated new currentSessionId:', window.currentSessionId);
+                    }
+                }
+                
+                // CRITICAL FIX: Enhanced session existence check with multiple ID formats
+                let sessionExists = false;
+                
+                if (window.currentSessionId && window.sessionHistory && window.sessionHistory.length > 0) {
+                    // Try exact match first
+                    sessionExists = window.sessionHistory.find(s => s.id === window.currentSessionId);
+                    
+                    // If not found, try alternative formats
+                    if (!sessionExists) {
+                        console.log('🟡 [BACKGROUND DEBUG] Session not found with exact match, trying alternative formats');
+                        console.log('🟡 [BACKGROUND DEBUG] Looking for currentSessionId:', window.currentSessionId, 'type:', typeof window.currentSessionId);
+                        console.log('🟡 [BACKGROUND DEBUG] Available session IDs:', window.sessionHistory.map(s => ({ id: s.id, type: typeof s.id })));
+                        
+                        const sessionId = window.currentSessionId;
+                        
+                        // Try numeric comparison if sessionId is string
+                        if (typeof sessionId === 'string') {
+                            const numericSessionId = parseInt(sessionId.replace('session_', ''));
+                            if (!isNaN(numericSessionId)) {
+                                sessionExists = window.sessionHistory.find(s => 
+                                    s.id === numericSessionId || 
+                                    (typeof s.id === 'string' && s.id.includes(numericSessionId.toString()))
+                                );
+                            }
+                        }
+                        
+                        // Try string comparison if sessionId is number
+                        if (!sessionExists && typeof sessionId === 'number') {
+                            const stringSessionId = 'session_' + sessionId;
+                            sessionExists = window.sessionHistory.find(s => s.id === stringSessionId);
+                        }
+                        
+                        // Try loose comparison
+                        if (!sessionExists) {
+                            sessionExists = window.sessionHistory.find(s => 
+                                s.id.toString().includes(sessionId.toString()) || 
+                                sessionId.toString().includes(s.id.toString())
+                            );
+                        }
+                        
+                        console.log('🟡 [BACKGROUND DEBUG] Alternative format lookup result:', !!sessionExists);
+                    }
+                }
+                
+                if (!sessionExists) {
+                    console.log('🟡 [BACKGROUND DEBUG] Session not found in history, auto-saving new session');
+                    window.RecordingManager.autoSaveCurrentSession();
+                } else {
+                    console.log('🟡 [BACKGROUND DEBUG] Session already exists, skipping initial auto-save');
+                }
             }
             
             if (window.updateStatus) {

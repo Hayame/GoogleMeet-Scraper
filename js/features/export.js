@@ -2,7 +2,7 @@
  * Export Functionality Module
  * 
  * Extracted from popup.js lines 3222-3313
- * Handles TXT and JSON export functionality
+ * Handles TXT export functionality
  */
 
 window.ExportManager = {
