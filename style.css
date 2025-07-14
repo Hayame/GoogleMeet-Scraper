@@ -367,164 +367,197 @@ body {
     transition: var(--transition-fast);
 }
 
-/* Modern settings sections */
-.settings-sections {
+/* Modern tab system */
+.settings-tabs {
     display: flex;
-    flex-direction: column;
-    gap: 24px;
+    border-bottom: 2px solid var(--border-primary);
+    margin-bottom: 24px;
+    gap: 4px;
 }
 
-.settings-section {
-    border: 1px solid var(--border-primary);
-    border-radius: 12px;
-    background: var(--bg-primary);
-    overflow: hidden;
-    transition: var(--transition-medium);
-}
-
-.settings-section:hover {
-    border-color: var(--border-hover);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.section-header {
+.tab-button {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 16px 20px;
-    background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border-primary);
-}
-
-.section-icon {
-    display: flex;
-    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    border-radius: 8px 8px 0 0;
+    position: relative;
+    min-width: 0;
+    flex: 1;
     justify-content: center;
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    background: var(--accent-bg);
-    color: var(--accent-color);
+}
+
+.tab-button:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.tab-button.active {
+    background: var(--bg-secondary);
+    color: var(--btn-primary-bg);
+    font-weight: 600;
+}
+
+.tab-button.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--btn-primary-bg);
+    border-radius: 1px 1px 0 0;
+}
+
+.tab-button svg {
+    flex-shrink: 0;
     transition: var(--transition-fast);
 }
 
-.section-icon.profile-icon {
-    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-    color: white;
+.tab-button span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.section-icon.danger-icon {
-    background: linear-gradient(135deg, #ef4444, #dc2626);
-    color: white;
+/* Tab content */
+.tab-content {
+    position: relative;
+    min-height: 300px;
 }
 
-.section-info {
-    flex: 1;
+.tab-pane {
+    display: none;
+    animation: fadeIn 0.2s ease-in-out;
 }
 
-.section-title {
-    margin: 0 0 4px 0;
-    font-size: 15px;
+.tab-pane.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Tab content structure */
+.tab-header {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-primary);
+}
+
+.tab-title {
+    margin: 0 0 8px 0;
+    font-size: 18px;
     font-weight: 600;
     color: var(--text-primary);
+    letter-spacing: -0.025em;
 }
 
-.section-description {
-    font-size: 13px;
-    color: var(--text-secondary);
+.tab-description {
     margin: 0;
-}
-
-.section-content {
-    padding: 20px;
-}
-
-.input-group {
-    margin-bottom: 16px;
-}
-
-.input-label {
-    display: block;
-    font-weight: 500;
-    color: var(--text-primary);
-    margin-bottom: 8px;
     font-size: 14px;
-}
-
-.input-description {
-    margin: 8px 0 0 0;
-    font-size: 12px;
     color: var(--text-secondary);
     line-height: 1.4;
 }
 
-.section-actions {
+.tab-body {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Input styling */
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.input-label {
+    font-weight: 500;
+    color: var(--text-primary);
+    font-size: 14px;
+    margin: 0;
+}
+
+.input-description {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    margin: 0;
+}
+
+/* Tab actions */
+.tab-actions {
     display: flex;
     align-items: center;
     gap: 12px;
     flex-wrap: wrap;
 }
 
-/* Danger section specific styles */
-.danger-section {
-    border-color: var(--btn-danger-bg);
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.03), rgba(239, 68, 68, 0.01));
-}
-
-.danger-section .section-header {
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(239, 68, 68, 0.05));
-    border-bottom-color: rgba(239, 68, 68, 0.2);
-}
-
-.danger-section .section-title {
-    color: var(--btn-danger-bg);
-}
-
-.danger-warning {
+/* Danger notice for data tab */
+.danger-notice {
     display: flex;
     align-items: flex-start;
     gap: 12px;
-    padding: 12px 16px;
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.2);
-    border-radius: 8px;
-    margin-bottom: 16px;
+    padding: 16px;
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(239, 68, 68, 0.12));
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: 10px;
+    border-left: 4px solid var(--btn-danger-bg);
 }
 
-.warning-icon-small {
+.danger-notice-icon {
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     background: var(--btn-danger-bg);
     color: white;
 }
 
-.warning-text {
+.danger-notice-content {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
 }
 
-.warning-text strong {
-    font-size: 13px;
+.danger-notice-content strong {
+    font-size: 14px;
     font-weight: 600;
     color: var(--btn-danger-bg);
 }
 
-.warning-text span {
-    font-size: 12px;
+.danger-notice-content span {
+    font-size: 13px;
     color: var(--text-secondary);
+    line-height: 1.4;
 }
 
+/* Session count info styling */
 .session-count-info {
     font-size: 12px;
     color: var(--text-secondary);
     font-weight: 500;
-    padding: 4px 8px;
+    padding: 6px 10px;
     background: var(--bg-secondary);
     border-radius: 6px;
     border: 1px solid var(--border-primary);
@@ -627,26 +660,50 @@ body {
     background: var(--bg-secondary);
 }
 
-/* Responsive styles for settings sections */
+/* Responsive styles for tab system */
 @media (max-width: 480px) {
-    .settings-section {
-        border-radius: 8px;
+    .settings-tabs {
+        gap: 2px;
+        margin-bottom: 20px;
     }
     
-    .section-header {
-        padding: 12px 16px;
+    .tab-button {
+        padding: 10px 12px;
+        font-size: 13px;
+        gap: 6px;
+    }
+    
+    .tab-button svg {
+        width: 16px;
+        height: 16px;
+    }
+    
+    .tab-content {
+        min-height: 280px;
+    }
+    
+    .tab-header {
+        margin-bottom: 20px;
+        padding-bottom: 12px;
+    }
+    
+    .tab-title {
+        font-size: 16px;
+    }
+    
+    .tab-description {
+        font-size: 13px;
+    }
+    
+    .tab-body {
+        gap: 16px;
+    }
+    
+    .danger-notice {
+        padding: 12px;
         flex-direction: column;
-        align-items: flex-start;
+        text-align: center;
         gap: 8px;
-    }
-    
-    .section-icon {
-        width: 32px;
-        height: 32px;
-    }
-    
-    .section-content {
-        padding: 16px;
     }
     
     .clear-all-sessions-warning {
@@ -661,25 +718,31 @@ body {
         height: 56px;
     }
     
-    .section-actions {
+    .tab-actions {
         flex-direction: column;
         align-items: stretch;
         gap: 8px;
     }
     
-    .section-actions .btn {
+    .tab-actions .btn {
         width: 100%;
         justify-content: center;
     }
 }
 
-/* Dark theme adjustments for gradients */
-[data-theme="dark"] .danger-section {
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.05), rgba(239, 68, 68, 0.02));
+/* Dark theme adjustments */
+[data-theme="dark"] .tab-button.active {
+    background: var(--bg-tertiary);
+    color: #818cf8;
 }
 
-[data-theme="dark"] .danger-section .section-header {
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.08));
+[data-theme="dark"] .tab-button.active::after {
+    background: #818cf8;
+}
+
+[data-theme="dark"] .danger-notice {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(239, 68, 68, 0.15));
+    border-color: rgba(239, 68, 68, 0.3);
 }
 
 [data-theme="dark"] .warning-icon {

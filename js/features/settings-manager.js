@@ -272,6 +272,55 @@ window.SettingsManager = {
         if (clearAllSessionsBtn) {
             clearAllSessionsBtn.addEventListener('click', () => this.handleClearAllSessions());
         }
+
+        // Tab switching functionality
+        this.setupTabSwitching();
+    },
+
+    /**
+     * Setup tab switching functionality
+     */
+    setupTabSwitching() {
+        const tabButtons = document.querySelectorAll('.tab-button');
+        
+        tabButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetTab = button.getAttribute('data-tab');
+                this.switchTab(targetTab);
+            });
+        });
+    },
+
+    /**
+     * Switch to specified tab
+     */
+    switchTab(targetTab) {
+        // Remove active class from all tab buttons
+        const allTabButtons = document.querySelectorAll('.tab-button');
+        allTabButtons.forEach(button => {
+            button.classList.remove('active');
+        });
+
+        // Add active class to clicked tab button
+        const targetButton = document.querySelector(`[data-tab="${targetTab}"]`);
+        if (targetButton) {
+            targetButton.classList.add('active');
+        }
+
+        // Hide all tab panes
+        const allTabPanes = document.querySelectorAll('.tab-pane');
+        allTabPanes.forEach(pane => {
+            pane.classList.remove('active');
+        });
+
+        // Show target tab pane
+        const targetPane = document.getElementById(`${targetTab}-tab`);
+        if (targetPane) {
+            targetPane.classList.add('active');
+        }
+
+        console.log(`⚙️ [SETTINGS] Switched to tab: ${targetTab}`);
     },
     
     /**
