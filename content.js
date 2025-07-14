@@ -1,3 +1,11 @@
+// Override console.log to respect DEBUG_ENABLED setting
+const originalConsoleLog = console.log;
+console.log = function(...args) {
+    if (window.DEBUG_ENABLED) {
+        originalConsoleLog.apply(console, args);
+    }
+};
+
 // Potwierdzenie załadowania content script
 console.log('🚀 Google Meet Recorder - Content script loaded at:', window.location.href);
 
