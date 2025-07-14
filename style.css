@@ -510,7 +510,9 @@ body {
 /* Prompt textarea styling */
 .prompt-textarea {
     width: 100%;
-    min-height: 200px;
+    min-height: 120px;
+    max-height: 180px;
+    height: 120px;
     padding: 12px;
     border: 1px solid var(--border-primary);
     border-radius: 8px;
@@ -520,6 +522,7 @@ body {
     font-size: 13px;
     line-height: 1.4;
     resize: vertical;
+    overflow: auto;
     transition: var(--transition-theme);
     box-sizing: border-box;
 }
@@ -583,6 +586,42 @@ input[type="checkbox"] {
     font-weight: 500;
     color: var(--text-primary);
     font-size: 14px;
+}
+
+/* Prompt tab specific styling */
+#prompt-tab .tab-body {
+    gap: 16px; /* Smaller gap for prompt tab */
+}
+
+#prompt-tab .input-group:has(.prompt-textarea) {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+#prompt-tab .input-group:has(.prompt-textarea) .prompt-textarea {
+    flex: 1;
+}
+
+/* Custom scrollbar for prompt textarea */
+.prompt-textarea::-webkit-scrollbar {
+    width: 8px;
+}
+
+.prompt-textarea::-webkit-scrollbar-track {
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+}
+
+.prompt-textarea::-webkit-scrollbar-thumb {
+    background: var(--border-secondary);
+    border-radius: 4px;
+    transition: background 0.2s ease;
+}
+
+.prompt-textarea::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
 }
 
 /* Tab actions */
