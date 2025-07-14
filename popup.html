@@ -224,6 +224,16 @@
                         </svg>
                         <span>Profil</span>
                     </button>
+                    <button class="tab-button" data-tab="prompt">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14,2 14,8 20,8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                            <polyline points="10,9 9,9 8,9"/>
+                        </svg>
+                        <span>Prompt</span>
+                    </button>
                     <button class="tab-button" data-tab="data">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M3 6h18"/>
@@ -270,6 +280,43 @@
                         <div class="tab-footer">
                             <button id="cancelSettingsBtn" class="btn btn-secondary">Anuluj</button>
                             <button id="saveSettingsBtn" class="btn btn-primary">Zapisz zmiany</button>
+                        </div>
+                    </div>
+
+                    <!-- Prompt Settings Tab -->
+                    <div class="tab-pane" id="prompt-tab">
+                        <div class="tab-body">
+                            <div class="input-group">
+                                <label class="switch-label">
+                                    <input type="checkbox" id="useDefaultPrompt" checked>
+                                    <span class="switch-slider"></span>
+                                    <span class="switch-text">Zastosuj domyślny prompt przy eksporcie konwersacji</span>
+                                </label>
+                                <p class="input-description">
+                                    Gdy włączone, transkrypcja będzie opakowana w domyślny szablon promptu. 
+                                    Gdy wyłączone, możesz edytować własny prompt.
+                                </p>
+                            </div>
+                            
+                            <div class="input-group" id="customPromptGroup" style="display: none;">
+                                <label for="customPromptText" class="input-label">
+                                    Niestandardowy prompt
+                                </label>
+                                <textarea 
+                                    id="customPromptText" 
+                                    class="prompt-textarea"
+                                    placeholder="Wczytywanie domyślnego promptu..."
+                                    rows="10"></textarea>
+                                <p class="input-description">
+                                    Edytuj szablon promptu według własnych potrzeb. Transkrypcja zostanie dodana na końcu.
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <!-- Prompt Tab Footer -->
+                        <div class="tab-footer">
+                            <button id="cancelPromptBtn" class="btn btn-secondary">Anuluj</button>
+                            <button id="savePromptBtn" class="btn btn-primary">Zapisz zmiany</button>
                         </div>
                     </div>
 

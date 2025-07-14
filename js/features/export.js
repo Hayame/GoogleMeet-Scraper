@@ -114,22 +114,68 @@ window.ExportManager = {
      */
     async wrapWithLLMPrompt(transcriptContent) {
         try {
-            // Read prompt.md content
-            const response = await fetch(chrome.runtime.getURL('prompt.md'));
-            const promptTemplate = await response.text();
+            const promptTemplate = await this.getPromptTemplate();
             
-            // Add transcript after "### 📎 Input" line
+            // Add transcript after the prompt template
             return promptTemplate + '\n' + transcriptContent;
         } catch (error) {
             console.error('Error reading prompt template:', error);
             // Fallback: return transcript with basic prompt
-            return `## 🧠 Prompt: Stwórz szczegółowe podsumowanie konwersacji
+            return `# Prompt: Stwórz szczegółowe podsumowanie konwersacji
 
 Na podstawie poniższej transkrypcji stwórz szczegółowe podsumowanie w formacie Markdown.
 
-### 📎 Input
+### Input transkrypcji:
 
 ${transcriptContent}`;
+        }
+    },
+
+    /**
+     * Get the appropriate prompt template (custom or default)
+     */
+    async getPromptTemplate() {
+        // Check if we should use default prompt
+        const settings = await this.getPromptSettings();
+        
+        if (settings.useDefaultPrompt) {
+            // Use default prompt.md
+            const response = await fetch(chrome.runtime.getURL('prompt.md'));
+            return await response.text();
+        } else {
+            // Use custom prompt from settings
+            return settings.customPrompt || await this.getDefaultPromptFallback();
+        }
+    },
+
+    /**
+     * Get prompt settings from storage
+     */
+    async getPromptSettings() {
+        return new Promise((resolve) => {
+            chrome.storage.sync.get(['useDefaultPrompt', 'customPrompt'], (result) => {
+                resolve({
+                    useDefaultPrompt: result.useDefaultPrompt !== undefined ? result.useDefaultPrompt : true,
+                    customPrompt: result.customPrompt || ''
+                });
+            });
+        });
+    },
+
+    /**
+     * Get default prompt as fallback
+     */
+    async getDefaultPromptFallback() {
+        try {
+            const response = await fetch(chrome.runtime.getURL('prompt.md'));
+            return await response.text();
+        } catch (error) {
+            console.error('Error loading default prompt fallback:', error);
+            return `# Prompt: Stwórz szczegółowe podsumowanie konwersacji
+
+Na podstawie poniższej transkrypcji stwórz szczegółowe podsumowanie w formacie Markdown.
+
+### Input transkrypcji:`;
         }
     },
 

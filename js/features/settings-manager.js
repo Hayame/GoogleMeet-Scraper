@@ -7,9 +7,13 @@ window.SettingsManager = {
     // Current settings
     userDisplayName: '',
     googleUserName: null,
+    useDefaultPrompt: true,
+    customPrompt: '',
     
     // Track original values for change detection
     originalUserDisplayName: '',
+    originalUseDefaultPrompt: true,
+    originalCustomPrompt: '',
     
     /**
      * Initialize Settings Manager
@@ -37,13 +41,17 @@ window.SettingsManager = {
      */
     async loadSettings() {
         return new Promise((resolve) => {
-            chrome.storage.sync.get(['userDisplayName', 'googleUserName'], (result) => {
+            chrome.storage.sync.get(['userDisplayName', 'googleUserName', 'useDefaultPrompt', 'customPrompt'], (result) => {
                 this.userDisplayName = result.userDisplayName || '';
                 this.googleUserName = result.googleUserName || null;
+                this.useDefaultPrompt = result.useDefaultPrompt !== undefined ? result.useDefaultPrompt : true;
+                this.customPrompt = result.customPrompt || '';
                 
                 console.log('⚙️ [SETTINGS] Loaded settings:', {
                     userDisplayName: this.userDisplayName,
-                    googleUserName: this.googleUserName
+                    googleUserName: this.googleUserName,
+                    useDefaultPrompt: this.useDefaultPrompt,
+                    customPrompt: this.customPrompt ? 'Custom prompt set' : 'No custom prompt'
                 });
                 
                 resolve();
@@ -101,8 +109,22 @@ window.SettingsManager = {
             userDisplayName: settings.userDisplayName || ''
         };
         
+        // Add prompt settings if provided
+        if (settings.useDefaultPrompt !== undefined) {
+            dataToSave.useDefaultPrompt = settings.useDefaultPrompt;
+        }
+        if (settings.customPrompt !== undefined) {
+            dataToSave.customPrompt = settings.customPrompt;
+        }
+        
         // Update local state
         this.userDisplayName = dataToSave.userDisplayName;
+        if (dataToSave.useDefaultPrompt !== undefined) {
+            this.useDefaultPrompt = dataToSave.useDefaultPrompt;
+        }
+        if (dataToSave.customPrompt !== undefined) {
+            this.customPrompt = dataToSave.customPrompt;
+        }
         
         // Save to storage
         return new Promise((resolve) => {
@@ -214,6 +236,33 @@ window.SettingsManager = {
             this.setupInputChangeListener();
         }
         
+        // Update prompt settings
+        const useDefaultPromptSwitch = document.getElementById('useDefaultPrompt');
+        const customPromptText = document.getElementById('customPromptText');
+        const customPromptGroup = document.getElementById('customPromptGroup');
+        
+        if (useDefaultPromptSwitch) {
+            useDefaultPromptSwitch.checked = this.useDefaultPrompt;
+            
+            // Store original values for change detection
+            this.originalUseDefaultPrompt = this.useDefaultPrompt;
+            this.originalCustomPrompt = this.customPrompt;
+        }
+        
+        if (customPromptText) {
+            customPromptText.value = this.customPrompt;
+            
+            // Load default prompt if custom is empty
+            if (!this.customPrompt) {
+                this.loadDefaultPrompt();
+            }
+        }
+        
+        // Show/hide custom prompt based on switch
+        if (customPromptGroup && useDefaultPromptSwitch) {
+            customPromptGroup.style.display = useDefaultPromptSwitch.checked ? 'none' : 'block';
+        }
+        
         // Update session count info
         this.updateSessionCountInfo();
         
@@ -223,6 +272,30 @@ window.SettingsManager = {
         // Show modal using ModalManager
         if (window.ModalManager) {
             window.ModalManager.showModal('settingsModal');
+        }
+    },
+
+    /**
+     * Load default prompt from prompt.md file
+     */
+    async loadDefaultPrompt() {
+        try {
+            const response = await fetch(chrome.runtime.getURL('prompt.md'));
+            const defaultPrompt = await response.text();
+            
+            const customPromptText = document.getElementById('customPromptText');
+            if (customPromptText && !this.customPrompt) {
+                customPromptText.value = defaultPrompt;
+                customPromptText.placeholder = '';
+            }
+            
+            console.log('⚙️ [SETTINGS] Default prompt loaded');
+        } catch (error) {
+            console.error('❌ [SETTINGS] Error loading default prompt:', error);
+            const customPromptText = document.getElementById('customPromptText');
+            if (customPromptText) {
+                customPromptText.placeholder = 'Błąd podczas wczytywania domyślnego promptu';
+            }
         }
     },
     
@@ -237,6 +310,24 @@ window.SettingsManager = {
             
             // Add new listener
             userNameInput.addEventListener('input', this.handleInputChange.bind(this));
+        }
+        
+        const customPromptText = document.getElementById('customPromptText');
+        if (customPromptText) {
+            // Remove existing listeners to avoid duplicates
+            customPromptText.removeEventListener('input', this.handleInputChange);
+            
+            // Add new listener
+            customPromptText.addEventListener('input', this.handleInputChange.bind(this));
+        }
+        
+        const useDefaultPromptSwitch = document.getElementById('useDefaultPrompt');
+        if (useDefaultPromptSwitch) {
+            // Remove existing listeners to avoid duplicates
+            useDefaultPromptSwitch.removeEventListener('change', this.handlePromptSwitchChange);
+            
+            // Add new listener
+            useDefaultPromptSwitch.addEventListener('change', this.handlePromptSwitchChange.bind(this));
         }
     },
 
@@ -256,11 +347,28 @@ window.SettingsManager = {
      * Check if there are unsaved changes
      */
     hasUnsavedChanges() {
+        // Check profile changes
         const userNameInput = document.getElementById('userDisplayName');
-        if (!userNameInput) return false;
+        if (userNameInput) {
+            const currentValue = userNameInput.value.trim();
+            if (currentValue !== this.originalUserDisplayName) {
+                return true;
+            }
+        }
         
-        const currentValue = userNameInput.value.trim();
-        return currentValue !== this.originalUserDisplayName;
+        // Check prompt changes
+        const useDefaultPromptSwitch = document.getElementById('useDefaultPrompt');
+        const customPromptText = document.getElementById('customPromptText');
+        
+        if (useDefaultPromptSwitch && useDefaultPromptSwitch.checked !== this.originalUseDefaultPrompt) {
+            return true;
+        }
+        
+        if (customPromptText && customPromptText.value.trim() !== this.originalCustomPrompt) {
+            return true;
+        }
+        
+        return false;
     },
 
     /**
@@ -319,6 +427,28 @@ window.SettingsManager = {
         const clearAllSessionsBtn = document.getElementById('clearAllSessionsBtn');
         if (clearAllSessionsBtn) {
             clearAllSessionsBtn.addEventListener('click', () => this.handleClearAllSessions());
+        }
+
+        // Prompt settings
+        const useDefaultPromptSwitch = document.getElementById('useDefaultPrompt');
+        if (useDefaultPromptSwitch) {
+            useDefaultPromptSwitch.addEventListener('change', () => this.handlePromptSwitchChange());
+        }
+
+        const customPromptText = document.getElementById('customPromptText');
+        if (customPromptText) {
+            customPromptText.addEventListener('input', () => this.handleInputChange());
+        }
+
+        // Prompt save/cancel buttons
+        const savePromptBtn = document.getElementById('savePromptBtn');
+        if (savePromptBtn) {
+            savePromptBtn.addEventListener('click', () => this.handleSavePromptSettings());
+        }
+
+        const cancelPromptBtn = document.getElementById('cancelPromptBtn');
+        if (cancelPromptBtn) {
+            cancelPromptBtn.addEventListener('click', () => this.handleCancelPromptSettings());
         }
 
         // Tab switching functionality
@@ -664,6 +794,87 @@ window.SettingsManager = {
                 sessionCountInfo.className = 'session-count-info';
             }
         }
+    },
+
+    /**
+     * Handle prompt switch change (show/hide custom prompt)
+     */
+    handlePromptSwitchChange() {
+        const useDefaultPromptSwitch = document.getElementById('useDefaultPrompt');
+        const customPromptGroup = document.getElementById('customPromptGroup');
+        const customPromptText = document.getElementById('customPromptText');
+        
+        if (useDefaultPromptSwitch && customPromptGroup) {
+            if (useDefaultPromptSwitch.checked) {
+                // Hide custom prompt
+                customPromptGroup.style.display = 'none';
+            } else {
+                // Show custom prompt
+                customPromptGroup.style.display = 'block';
+                
+                // Load default prompt if textarea is empty
+                if (customPromptText && !customPromptText.value.trim()) {
+                    this.loadDefaultPrompt();
+                }
+            }
+        }
+        
+        // Check for changes and update button visibility
+        this.handleInputChange();
+    },
+
+    /**
+     * Handle save prompt settings
+     */
+    async handleSavePromptSettings() {
+        const useDefaultPromptSwitch = document.getElementById('useDefaultPrompt');
+        const customPromptText = document.getElementById('customPromptText');
+        
+        if (!useDefaultPromptSwitch) return;
+        
+        const newSettings = {
+            useDefaultPrompt: useDefaultPromptSwitch.checked,
+            customPrompt: customPromptText ? customPromptText.value.trim() : ''
+        };
+        
+        await this.saveSettings(newSettings);
+        
+        // Update original values
+        this.originalUseDefaultPrompt = this.useDefaultPrompt;
+        this.originalCustomPrompt = this.customPrompt;
+        
+        // Hide tab footer
+        this.updateTabFooterVisibility(false);
+        
+        console.log('✅ [SETTINGS] Prompt settings saved');
+    },
+
+    /**
+     * Handle cancel prompt settings
+     */
+    handleCancelPromptSettings() {
+        console.log('⚙️ [SETTINGS] Canceling prompt settings changes');
+        
+        // Restore original values
+        const useDefaultPromptSwitch = document.getElementById('useDefaultPrompt');
+        const customPromptText = document.getElementById('customPromptText');
+        const customPromptGroup = document.getElementById('customPromptGroup');
+        
+        if (useDefaultPromptSwitch) {
+            useDefaultPromptSwitch.checked = this.originalUseDefaultPrompt;
+        }
+        
+        if (customPromptText) {
+            customPromptText.value = this.originalCustomPrompt;
+        }
+        
+        // Update visibility based on restored switch state
+        if (customPromptGroup && useDefaultPromptSwitch) {
+            customPromptGroup.style.display = useDefaultPromptSwitch.checked ? 'none' : 'block';
+        }
+        
+        // Hide the tab footer since changes are canceled
+        this.updateTabFooterVisibility(false);
     },
     
     /**
