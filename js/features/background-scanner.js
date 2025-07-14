@@ -134,87 +134,8 @@ window.BackgroundScanner = {
             }
             
             // Auto-save session to history
-            if (window.RecordingManager && window.RecordingManager.autoSaveCurrentSession) {
-                // CRITICAL FIX: Defensive check for null currentSessionId
-                if (!window.currentSessionId) {
-                    console.log('🔄 [BACKGROUND DEBUG] currentSessionId is null, attempting to recover from transcript data');
-                    
-                    // Try to recover session ID from existing transcript data
-                    const existingSessionInStorage = window.sessionHistory && window.sessionHistory.length > 0 ? 
-                        window.sessionHistory.find(s => s.transcript && s.transcript.messages && 
-                            s.transcript.messages.length > 0 && window.transcriptData && window.transcriptData.messages &&
-                            s.transcript.messages[0].text === window.transcriptData.messages[0].text) : null;
-                    
-                    if (existingSessionInStorage) {
-                        if (window.StateManager && window.StateManager.updateCurrentSessionId) {
-                            window.StateManager.updateCurrentSessionId(existingSessionInStorage.id);
-                        } else {
-                            window.currentSessionId = existingSessionInStorage.id;
-                        }
-                        console.log('🔄 [BACKGROUND DEBUG] Recovered currentSessionId from existing session:', window.currentSessionId);
-                    } else {
-                        console.log('🔄 [BACKGROUND DEBUG] Cannot recover currentSessionId, generating new one');
-                        const newSessionId = window.generateSessionId ? window.generateSessionId() : 'session_' + Date.now();
-                        if (window.StateManager && window.StateManager.updateCurrentSessionId) {
-                            window.StateManager.updateCurrentSessionId(newSessionId);
-                        } else {
-                            window.currentSessionId = newSessionId;
-                            chrome.storage.local.set({ currentSessionId: newSessionId });
-                        }
-                        console.log('🔄 [BACKGROUND DEBUG] Generated new currentSessionId:', window.currentSessionId);
-                    }
-                }
-                
-                // CRITICAL FIX: Enhanced session existence check with multiple ID formats
-                let sessionExists = false;
-                
-                if (window.currentSessionId && window.sessionHistory && window.sessionHistory.length > 0) {
-                    // Try exact match first
-                    sessionExists = window.sessionHistory.find(s => s.id === window.currentSessionId);
-                    
-                    // If not found, try alternative formats
-                    if (!sessionExists) {
-                        console.log('🟡 [BACKGROUND DEBUG] Session not found with exact match, trying alternative formats');
-                        console.log('🟡 [BACKGROUND DEBUG] Looking for currentSessionId:', window.currentSessionId, 'type:', typeof window.currentSessionId);
-                        console.log('🟡 [BACKGROUND DEBUG] Available session IDs:', window.sessionHistory.map(s => ({ id: s.id, type: typeof s.id })));
-                        
-                        const sessionId = window.currentSessionId;
-                        
-                        // Try numeric comparison if sessionId is string
-                        if (typeof sessionId === 'string') {
-                            const numericSessionId = parseInt(sessionId.replace('session_', ''));
-                            if (!isNaN(numericSessionId)) {
-                                sessionExists = window.sessionHistory.find(s => 
-                                    s.id === numericSessionId || 
-                                    (typeof s.id === 'string' && s.id.includes(numericSessionId.toString()))
-                                );
-                            }
-                        }
-                        
-                        // Try string comparison if sessionId is number
-                        if (!sessionExists && typeof sessionId === 'number') {
-                            const stringSessionId = 'session_' + sessionId;
-                            sessionExists = window.sessionHistory.find(s => s.id === stringSessionId);
-                        }
-                        
-                        // Try loose comparison
-                        if (!sessionExists) {
-                            sessionExists = window.sessionHistory.find(s => 
-                                s.id.toString().includes(sessionId.toString()) || 
-                                sessionId.toString().includes(s.id.toString())
-                            );
-                        }
-                        
-                        console.log('🟡 [BACKGROUND DEBUG] Alternative format lookup result:', !!sessionExists);
-                    }
-                }
-                
-                if (!sessionExists) {
-                    console.log('🟡 [BACKGROUND DEBUG] Session not found in history, auto-saving new session');
-                    window.RecordingManager.autoSaveCurrentSession();
-                } else {
-                    console.log('🟡 [BACKGROUND DEBUG] Session already exists, skipping initial auto-save');
-                }
+            if (window.SessionHistoryManager && window.SessionHistoryManager.autoSaveCurrentSession) {
+                window.SessionHistoryManager.autoSaveCurrentSession();
             }
             
             if (window.updateStatus) {
@@ -251,8 +172,8 @@ window.BackgroundScanner = {
             }
             
             // Auto-save session to history on every update
-            if (window.RecordingManager && window.RecordingManager.autoSaveCurrentSession) {
-                window.RecordingManager.autoSaveCurrentSession();
+            if (window.SessionHistoryManager && window.SessionHistoryManager.autoSaveCurrentSession) {
+                window.SessionHistoryManager.autoSaveCurrentSession();
             }
             
             if (window.updateStatus) {
@@ -323,29 +244,8 @@ window.BackgroundScanner = {
     },
 
 
-    /**
-     * Auto-save interval functionality (periodic background save)
-     * Source: popup.js lines 2117-2132
-     */
-    initializeAutoSaveInterval() {
-        // Auto-save functionality
-        setInterval(() => {
-            if (window.transcriptData && window.transcriptData.messages.length > 0 && window.currentSessionId) {
-                // Auto-save current session
-                const existingIndex = window.sessionHistory.findIndex(s => s.id === window.currentSessionId);
-                if (existingIndex >= 0) {
-                    // Update existing session silently (preserve original date)
-                    const uniqueParticipants = new Set(window.transcriptData.messages.map(e => e.speaker)).size;
-                    window.sessionHistory[existingIndex].transcript = window.transcriptData;
-                    window.sessionHistory[existingIndex].participantCount = uniqueParticipants;
-                    window.sessionHistory[existingIndex].entryCount = window.transcriptData.messages.length;
-                    // Don't update date field - preserve the original session creation date
-                    
-                    chrome.storage.local.set({ sessionHistory: window.sessionHistory });
-                }
-            }
-        }, 30000); // Auto-save every 30 seconds
-    },
+    // 30-second auto-save interval removed to prevent duplicate sessions
+    // Real-time auto-save in handleBackgroundScanUpdate() handles all saves properly
 
 
     /**
@@ -515,7 +415,7 @@ window.BackgroundScanner = {
      */
     initialize() {
         this.initializeMessageListener();
-        this.initializeAutoSaveInterval();
+        // 30-second auto-save interval removed - real-time auto-save handles all saves
         
         // CRITICAL FIX: Expose detectChanges globally for backward compatibility
         window.detectChanges = this.detectChanges.bind(this);
