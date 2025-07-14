@@ -6,15 +6,18 @@ Rozszerzenie do Chrome/Edge umożliwiające nagrywanie, pobieranie i eksportowan
 
 - 🔴 **Nagrywanie transkrypcji w czasie rzeczywistym** - automatyczne przechwytywanie napisów podczas spotkania
 - 📚 **Historia sesji** - przechowywanie do 50 sesji z możliwością przeglądania
-- 🔍 **Wyszukiwanie w transkrypcji** - szybkie znajdowanie fraz z podświetlaniem wyników
+- 🔍 **Wyszukiwanie w transkrypcji** - szybkie znajdowanie fraz z podświetlaniem wyników w czasie rzeczywistym
 - 👥 **Filtrowanie według uczestników** - wyświetlanie wiadomości wybranych osób
 - 💾 **Eksport do pliku TXT i kopiowanie do schowka** - pobieranie transkrypcji oraz szybkie kopiowanie z opcją opakowania w prompt LLM
 - 🌓 **Tryb jasny/ciemny** - dostosowanie interfejsu do preferencji
 - ⏱️ **Śledzenie czasu** - pomiar czasu trwania spotkania i nagrywania
 - 🎨 **Kolorowe oznaczenia** - wizualne rozróżnienie uczestników
 - 💾 **Auto-zapis** - automatyczne zapisywanie sesji co 30 sekund
-- 🔗 **Wykrywanie użytkownika Google** - personalizacja nazw uczestników
+- 🔗 **Wykrywanie użytkownika Google** - automatyczna personalizacja nazw uczestników
 - 📊 **Statystyki** - liczba wypowiedzi, uczestników i czas trwania
+- ⚙️ **Ustawienia użytkownika** - personalizacja nazwy twórcy konwersacji z wykrywaniem konta Google
+- 🗑️ **Zarządzanie danymi** - możliwość usunięcia wszystkich sesji jednocześnie
+- 📑 **Interfejs z zakładkami** - intuicyjny system tabów w ustawieniach
 
 ## Instalacja
 
@@ -26,9 +29,13 @@ Rozszerzenie do Chrome/Edge umożliwiające nagrywanie, pobieranie i eksportowan
    - `popup.js`
    - `content.js`
    - `background.js`
+   - `debug-config.js`
+   - `prompt.md`
    - `style.css`
    - `session-history.css`
-   - folder `js/` ze wszystkimi modułami
+   - folder `js/core/` ze wszystkimi modułami podstawowymi
+   - folder `js/utils/` ze wszystkimi modułami pomocniczymi
+   - folder `js/features/` ze wszystkimi modułami funkcjonalnymi
 
 ### Krok 2: Dodanie ikon (opcjonalne)
 Utwórz proste ikony PNG o wymiarach:
@@ -87,6 +94,16 @@ Możesz użyć dowolnego generatora ikon online lub utworzyć proste ikony z emo
 - **Ikona filtra** - filtrowanie według uczestników
 - **ESC** - zamknięcie paneli wyszukiwania/filtrowania
 
+### Ustawienia
+1. **Kliknij ikonę ustawień** (ikona koła zębatego) w prawym górnym rogu
+2. **Zakładka Profil**:
+   - **Personalizuj nazwę** - ustaw własną nazwę wyświetlaną jako autor konwersacji
+   - **Wykryj nazwę Google** - automatycznie pobierz nazwę z konta Google
+   - Przyciski Zapisz/Anuluj pojawią się tylko gdy dokonasz zmian
+3. **Zakładka Dane**:
+   - **Wyczyść wszystkie sesje** - usuń całą historię sesji (nieodwracalne!)
+   - Wyświetla aktualną liczbę zapisanych sesji
+
 ## Rozwiązywanie problemów
 
 ### "Nie znaleziono transkrypcji"
@@ -142,22 +159,39 @@ Cześć! Dziękuję za zaproszenie.
 
 ## Architektura
 
-Rozszerzenie wykorzystuje modułową architekturę JavaScript z następującymi komponentami:
+Rozszerzenie wykorzystuje modułową architekturę JavaScript z 18+ wyspecjalizowanymi modułami:
 
 ### Moduły podstawowe (Core)
-- **StateManager** - zarządzanie stanem aplikacji
+- **StateManager** - zarządzanie stanem aplikacji i przywracanie stanu
 - **StorageManager** - operacje na Chrome Storage API
-- **UIManager** - zarządzanie interfejsem użytkownika
-- **TimerManager** - śledzenie czasu trwania
+- **UIManager** - zarządzanie interfejsem użytkownika i widocznością przycisków
+- **TimerManager** - śledzenie czasu trwania spotkania i nagrywania
+
+### Moduły pomocnicze (Utils)
+- **Constants** - stałe aplikacji i konfiguracja
+- **Formatters** - formatowanie dat i czasu trwania
+- **DOMHelpers** - pomocnicze funkcje do manipulacji DOM
+- **GoogleUserDetector** - automatyczne wykrywanie nazwy użytkownika Google
+- **DebugManager** - zarządzanie logowaniem debugowania
+- **SessionUtils** - funkcje pomocnicze dla sesji
 
 ### Moduły funkcjonalne (Features)
-- **RecordingManager** - nagrywanie transkrypcji
+- **RecordingManager** - nagrywanie transkrypcji start/stop
 - **BackgroundScanner** - skanowanie w tle co 2 sekundy
-- **SessionHistoryManager** - zarządzanie historią sesji
-- **TranscriptManager** - wyświetlanie transkrypcji
-- **SearchFilterManager** - wyszukiwanie i filtrowanie
-- **ExportManager** - eksport do pliku TXT i kopiowanie do schowka z opcją promptu LLM
+- **SessionHistoryManager** - operacje CRUD na historii sesji
+- **SessionUIManager** - renderowanie interfejsu historii sesji
+- **TranscriptManager** - wyświetlanie i zarządzanie transkrypcją
+- **SearchFilterManager** - wyszukiwanie i filtrowanie w czasie rzeczywistym
+- **ExportManager** - eksport TXT/JSON i kopiowanie do schowka z opcją promptu LLM
 - **ThemeManager** - obsługa motywów jasny/ciemny
+- **ModalManager** - zarządzanie oknami dialogowymi
+- **SettingsManager** - zarządzanie preferencjami użytkownika i ustawieniami
+
+### Kolejność ładowania modułów
+1. **Moduły podstawowe** (constants, storage-manager, state-manager, ui-manager, timer-manager)
+2. **Moduły pomocnicze** (formatters, dom-helpers, google-user-detector, debug-manager, session-utils)
+3. **Moduły funkcjonalne** (modal-manager, settings-manager, theme-manager, recording, background-scanner, session-history, session-ui, transcript, export, search-filter)
+4. **Skrypt główny** (popup.js)
 
 ## Ograniczenia
 
@@ -180,8 +214,10 @@ Rozszerzenie:
 - Działa lokalnie w przeglądarce
 - Nie wysyła danych na zewnętrzne serwery
 - Przechowuje transkrypcje lokalnie w Chrome Storage
+- Niestandardowe nazwy użytkowników są przechowywane w Chrome Sync Storage (synchronizowane między urządzeniami)
 - Wymaga tylko niezbędnych uprawnień
 - Dane są usuwane po odinstalowaniu rozszerzenia
+- Wykrywanie nazwy Google odbywa się lokalnie bez wysyłania danych
 
 ## Wsparcie
 
