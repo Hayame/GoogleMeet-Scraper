@@ -372,19 +372,22 @@ window.SettingsManager = {
     },
 
     /**
-     * Update tab footer visibility based on changes
+     * Update tab footer visibility based on changes (legacy - redirect to settings footer)
      */
     updateTabFooterVisibility(visible) {
-        // Find the currently active tab
-        const activeTab = document.querySelector('.tab-pane.active');
-        if (activeTab) {
-            const tabFooter = activeTab.querySelector('.tab-footer');
-            if (tabFooter) {
-                if (visible) {
-                    tabFooter.classList.add('visible');
-                } else {
-                    tabFooter.classList.remove('visible');
-                }
+        this.updateSettingsFooterVisibility(visible);
+    },
+    
+    /**
+     * Update settings footer visibility based on changes
+     */
+    updateSettingsFooterVisibility(visible) {
+        const settingsFooter = document.querySelector('.settings-footer');
+        if (settingsFooter) {
+            if (visible) {
+                settingsFooter.classList.add('visible');
+            } else {
+                settingsFooter.classList.remove('visible');
             }
         }
     },
@@ -409,13 +412,24 @@ window.SettingsManager = {
             settingsBtn.addEventListener('click', () => this.showSettingsModal());
         }
         
-        // Settings modal save button
+        // Unified settings save button
+        const saveAllSettingsBtn = document.getElementById('saveAllSettingsBtn');
+        if (saveAllSettingsBtn) {
+            saveAllSettingsBtn.addEventListener('click', () => this.handleSaveAllSettings());
+        }
+        
+        // Unified settings cancel button
+        const cancelAllSettingsBtn = document.getElementById('cancelAllSettingsBtn');
+        if (cancelAllSettingsBtn) {
+            cancelAllSettingsBtn.addEventListener('click', () => this.handleCancelAllSettings());
+        }
+        
+        // Legacy button support (if needed)
         const saveSettingsBtn = document.getElementById('saveSettingsBtn');
         if (saveSettingsBtn) {
             saveSettingsBtn.addEventListener('click', () => this.handleSaveSettings());
         }
         
-        // Settings modal cancel button
         const cancelSettingsBtn = document.getElementById('cancelSettingsBtn');
         if (cancelSettingsBtn) {
             cancelSettingsBtn.addEventListener('click', () => this.handleCancelSettings());
@@ -444,16 +458,7 @@ window.SettingsManager = {
             customPromptText.addEventListener('input', () => this.handleInputChange());
         }
 
-        // Prompt save/cancel buttons
-        const savePromptBtn = document.getElementById('savePromptBtn');
-        if (savePromptBtn) {
-            savePromptBtn.addEventListener('click', () => this.handleSavePromptSettings());
-        }
-
-        const cancelPromptBtn = document.getElementById('cancelPromptBtn');
-        if (cancelPromptBtn) {
-            cancelPromptBtn.addEventListener('click', () => this.handleCancelPromptSettings());
-        }
+        // Prompt save/cancel buttons (removed - now using unified buttons)
 
         // Tab switching functionality
         this.setupTabSwitching();
@@ -633,17 +638,39 @@ window.SettingsManager = {
     },
 
     /**
-     * Handle save settings button click
+     * Handle save all settings button click
      */
-    async handleSaveSettings() {
+    async handleSaveAllSettings() {
+        const newSettings = {};
+        
+        // Get profile settings
         const userNameInput = document.getElementById('userDisplayName');
-        if (!userNameInput) return;
+        if (userNameInput) {
+            newSettings.userDisplayName = userNameInput.value.trim();
+        }
         
-        const newSettings = {
-            userDisplayName: userNameInput.value.trim()
-        };
+        // Get prompt settings
+        const useDefaultPromptSwitch = document.getElementById('useDefaultPrompt');
+        const customPromptText = document.getElementById('customPromptText');
         
+        if (useDefaultPromptSwitch) {
+            newSettings.useDefaultPrompt = useDefaultPromptSwitch.checked;
+        }
+        
+        if (customPromptText) {
+            newSettings.customPrompt = customPromptText.value.trim();
+        }
+        
+        // Save all settings
         await this.saveSettings(newSettings);
+        
+        // Update original values
+        this.originalUserDisplayName = this.userDisplayName;
+        this.originalUseDefaultPrompt = this.useDefaultPrompt;
+        this.originalCustomPrompt = this.customPrompt;
+        
+        // Hide the settings footer
+        this.updateSettingsFooterVisibility(false);
         
         // Close the modal
         if (window.ModalManager) {
@@ -652,24 +679,58 @@ window.SettingsManager = {
     },
 
     /**
-     * Handle cancel settings button click
+     * Handle cancel all settings button click
      */
-    handleCancelSettings() {
-        console.log('⚙️ [SETTINGS] Canceling settings changes');
+    handleCancelAllSettings() {
+        console.log('⚙️ [SETTINGS] Canceling all settings changes');
         
-        // Restore original values
+        // Restore profile values
         const userNameInput = document.getElementById('userDisplayName');
         if (userNameInput) {
             userNameInput.value = this.originalUserDisplayName;
         }
         
-        // Hide the tab footer since changes are canceled
-        this.updateTabFooterVisibility(false);
+        // Restore prompt values
+        const useDefaultPromptSwitch = document.getElementById('useDefaultPrompt');
+        const customPromptText = document.getElementById('customPromptText');
+        const customPromptGroup = document.getElementById('customPromptGroup');
+        
+        if (useDefaultPromptSwitch) {
+            useDefaultPromptSwitch.checked = this.originalUseDefaultPrompt;
+        }
+        
+        if (customPromptText) {
+            customPromptText.value = this.originalCustomPrompt;
+        }
+        
+        // Update visibility based on restored switch state
+        if (customPromptGroup && useDefaultPromptSwitch) {
+            customPromptGroup.style.display = useDefaultPromptSwitch.checked ? 'none' : 'block';
+        }
+        
+        // Hide the settings footer since changes are canceled
+        this.updateSettingsFooterVisibility(false);
         
         // Close the modal
         if (window.ModalManager) {
             window.ModalManager.hideModal('settingsModal');
         }
+    },
+    
+    /**
+     * Handle save settings button click (legacy)
+     */
+    async handleSaveSettings() {
+        // Redirect to unified handler
+        return this.handleSaveAllSettings();
+    },
+
+    /**
+     * Handle cancel settings button click (legacy)
+     */
+    handleCancelSettings() {
+        // Redirect to unified handler
+        return this.handleCancelAllSettings();
     },
     
     /**
@@ -827,59 +888,6 @@ window.SettingsManager = {
         this.handleInputChange();
     },
 
-    /**
-     * Handle save prompt settings
-     */
-    async handleSavePromptSettings() {
-        const useDefaultPromptSwitch = document.getElementById('useDefaultPrompt');
-        const customPromptText = document.getElementById('customPromptText');
-        
-        if (!useDefaultPromptSwitch) return;
-        
-        const newSettings = {
-            useDefaultPrompt: useDefaultPromptSwitch.checked,
-            customPrompt: customPromptText ? customPromptText.value.trim() : ''
-        };
-        
-        await this.saveSettings(newSettings);
-        
-        // Update original values
-        this.originalUseDefaultPrompt = this.useDefaultPrompt;
-        this.originalCustomPrompt = this.customPrompt;
-        
-        // Hide tab footer
-        this.updateTabFooterVisibility(false);
-        
-        console.log('✅ [SETTINGS] Prompt settings saved');
-    },
-
-    /**
-     * Handle cancel prompt settings
-     */
-    handleCancelPromptSettings() {
-        console.log('⚙️ [SETTINGS] Canceling prompt settings changes');
-        
-        // Restore original values
-        const useDefaultPromptSwitch = document.getElementById('useDefaultPrompt');
-        const customPromptText = document.getElementById('customPromptText');
-        const customPromptGroup = document.getElementById('customPromptGroup');
-        
-        if (useDefaultPromptSwitch) {
-            useDefaultPromptSwitch.checked = this.originalUseDefaultPrompt;
-        }
-        
-        if (customPromptText) {
-            customPromptText.value = this.originalCustomPrompt;
-        }
-        
-        // Update visibility based on restored switch state
-        if (customPromptGroup && useDefaultPromptSwitch) {
-            customPromptGroup.style.display = useDefaultPromptSwitch.checked ? 'none' : 'block';
-        }
-        
-        // Hide the tab footer since changes are canceled
-        this.updateTabFooterVisibility(false);
-    },
     
     /**
      * Setup global aliases for backward compatibility
