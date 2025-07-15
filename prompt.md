@@ -21,8 +21,6 @@ Na podstawie poniższej transkrypcji stwórz **szczegółowe podsumowanie** w fo
 2. **[Powiązania i zależności]:**
    - [Opis relacji między elementami]
 
-> *"Wstaw cytaty techniczne, jeśli istotne"*
-
 ---
 
 ## **Logika działania / Procesy**
@@ -35,7 +33,6 @@ Na podstawie poniższej transkrypcji stwórz **szczegółowe podsumowanie** w fo
 
 ## **Problemy i błędy**
 - **[Problem 1]:** [Opis problemu]
-  > *"Wstaw cytat ilustrujący problem"*
 - **[Problem 2]:** [Opis problemu]
 
 ---
@@ -68,8 +65,6 @@ Na podstawie poniższej transkrypcji stwórz **szczegółowe podsumowanie** w fo
 ## **Kluczowe decyzje**
 1. **[Decyzja 1]** – [krótki opis]
 2. **[Decyzja 2]** – [wpływ na implementację / UI / wydajność]
-
-> *"Wstaw cytaty obrazujące tok rozumowania"*
 
 ---
 

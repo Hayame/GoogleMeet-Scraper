@@ -804,6 +804,20 @@ window.SettingsManager = {
             }
         });
         
+        // Handle cancel button to return to settings modal
+        const newConfirmCancel = confirmCancel.cloneNode(true);
+        confirmCancel.parentNode.replaceChild(newConfirmCancel, confirmCancel);
+        
+        newConfirmCancel.addEventListener('click', () => {
+            if (window.ModalManager && window.ModalManager.hideModal) {
+                window.ModalManager.hideModal('confirmModal');
+                // Show settings modal again
+                setTimeout(() => {
+                    this.showSettingsModal();
+                }, 100);
+            }
+        });
+        
         // Show modal
         if (window.ModalManager && window.ModalManager.showModal) {
             window.ModalManager.showModal('confirmModal');
