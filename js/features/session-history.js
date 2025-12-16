@@ -76,7 +76,7 @@ window.SessionHistoryManager = {
      * Auto-save current session to history
      * Source: popup.js lines 1823-1893
      */
-    autoSaveCurrentSession(data = null) {
+    async autoSaveCurrentSession(data = null) {
         if (!window.transcriptData || window.transcriptData.messages.length === 0) {
             return;
         }
