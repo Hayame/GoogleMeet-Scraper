@@ -70,57 +70,57 @@ window.RecordingManager = {
         if (window.updateClearButtonState) {
             window.updateClearButtonState();
         }
-        
-        // Save recording start time and session start time to storage
-        chrome.storage.local.set({ 
-            recordingStartTime: window.StateManager?.getRecordingStartTime() ? window.StateManager?.getRecordingStartTime().toISOString() : null,
-            sessionStartTime: window.StateManager?.getSessionStartTime() ? window.StateManager?.getSessionStartTime().toISOString() : null
-        });
-        
-        // Create new session ID if none exists (session will be added to history when first entry appears)
+
+        // Create new session ID if none exists
         if (!window.currentSessionId) {
             window.currentSessionId = window.generateSessionId ? window.generateSessionId() : 'session_' + Date.now();
             console.log('🔄 [RECORDING DEBUG] Recording activation - Generated new currentSessionId:', window.currentSessionId);
-            
-            // CRITICAL FIX: Use proper storage key constant
-            const storageUpdate = {};
-            storageUpdate[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID] = window.currentSessionId;
-            chrome.storage.local.set(storageUpdate, () => {
-                console.log('🔄 [RECORDING DEBUG] Recording activation - Saved currentSessionId to storage');
-            });
         } else {
             console.log('🔄 [RECORDING DEBUG] Recording activation - Using existing currentSessionId:', window.currentSessionId);
         }
-        
-        // Uruchom skanowanie w tle
+
+        // Start background scanning
         try {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             if (tab && tab.url.includes('meet.google.com')) {
                 console.log('🟢 [ACTIVATION DEBUG] Starting background scanning for tab:', tab.id);
-                
-                // Zapisz stan wraz z ID karty Meet
-                const recordingStateToSave = { 
-                    realtimeMode: true, 
-                    recordingStartTime: window.StateManager?.getRecordingStartTime() ? window.StateManager?.getRecordingStartTime().toISOString() : null,
-                    sessionStartTime: window.StateManager?.getSessionStartTime() ? window.StateManager?.getSessionStartTime().toISOString() : null,
-                    meetTabId: tab.id  // Save the Meet tab ID
-                };
-                
-                console.log('🔴 [RECORDING DEBUG] Saving recording state to storage:', recordingStateToSave);
-                chrome.storage.local.set(recordingStateToSave, () => {
-                    if (chrome.runtime.lastError) {
-                        console.error('🔴 [RECORDING ERROR] Failed to save recording state:', chrome.runtime.lastError);
-                    } else {
-                        console.log('🔴 [RECORDING DEBUG] Recording state saved successfully');
-                        
-                        // Verify storage was saved correctly
-                        chrome.storage.local.get(['realtimeMode', 'meetTabId'], (verifyResult) => {
-                            console.log('🔴 [RECORDING DEBUG] Verification - storage now contains:', verifyResult);
-                        });
+
+                // Save complete recording state atomically using TransactionCoordinator
+                // This ensures all related data is saved together (no partial states)
+                const saveResult = await window.TransactionCoordinator.executeTransaction([
+                    {
+                        key: window.AppConstants.STORAGE_KEYS.REALTIME_MODE,
+                        value: true
+                    },
+                    {
+                        key: window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME,
+                        value: window.StateManager?.getRecordingStartTime()?.toISOString()
+                    },
+                    {
+                        key: window.AppConstants.STORAGE_KEYS.SESSION_START_TIME,
+                        value: window.StateManager?.getSessionStartTime()?.toISOString()
+                    },
+                    {
+                        key: window.AppConstants.STORAGE_KEYS.MEET_TAB_ID,
+                        value: tab.id
+                    },
+                    {
+                        key: window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID,
+                        value: window.currentSessionId
                     }
-                });
-                
-                // Rozpocznij skanowanie w tle
+                ]);
+
+                if (!saveResult.success) {
+                    console.error('❌ [RECORDING] Failed to save recording state:', saveResult.error);
+                    if (window.updateStatus) {
+                        window.updateStatus('Błąd zapisu stanu nagrywania', 'error');
+                    }
+                    return;
+                }
+
+                console.log('✅ [RECORDING] Recording state saved atomically in', saveResult.duration, 'ms');
+
+                // Start background scanning
                 chrome.runtime.sendMessage({
                     action: 'startBackgroundScanning',
                     tabId: tab.id

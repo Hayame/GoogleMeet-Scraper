@@ -68,16 +68,24 @@ function validateEssentialElements() {
  */
 async function initializeApplication() {
     console.log('🚀 [INIT] Starting application initialization sequence...');
-    
-    // 1. Initialize storage management first
+
+    // 1. Initialize transaction coordinator first (required by StorageManager)
+    if (window.TransactionCoordinator) {
+        window.TransactionCoordinator.initialize();
+        console.log('✅ Transaction Coordinator initialized');
+    } else {
+        throw new Error('TransactionCoordinator not found');
+    }
+
+    // 2. Initialize storage management
     if (window.StorageManager) {
         window.StorageManager.initialize();
         console.log('✅ Storage Manager initialized');
     } else {
         throw new Error('StorageManager not found');
     }
-    
-    // 2. Initialize core state management
+
+    // 3. Initialize core state management
     if (window.StateManager) {
         window.StateManager.initialize();
         console.log('✅ State Manager initialized');
@@ -288,9 +296,10 @@ async function applySessionStateRestoration(sessionState) {
         
         // Restart background scanner communication
         if (window.BackgroundScanner && window.BackgroundScanner.reactivateAfterRestore) {
-            window.BackgroundScanner.reactivateAfterRestore();
+            await window.BackgroundScanner.reactivateAfterRestore();
+            console.log('✅ [POPUP] Background scanner reactivation completed');
         }
-        
+
         // Restart duration timer if TimerManager exists
         if (window.TimerManager && window.TimerManager.startDurationTimer) {
             window.TimerManager.startDurationTimer();

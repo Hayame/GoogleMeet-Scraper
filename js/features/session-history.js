@@ -97,31 +97,33 @@ window.SessionHistoryManager = {
         // CRITICAL FIX: If sessionHistory is not loaded yet, check storage directly
         if (!window.sessionHistory || window.sessionHistory.length === 0) {
             console.log('🔄 [SESSION AUTOSAVE] Session history not loaded, checking storage directly');
-            chrome.storage.local.get(['sessionHistory'], (result) => {
-                const storageHistory = result.sessionHistory || [];
-                
-                // Simple session lookup in storage - no complex format matching needed
-                const existsInStorage = storageHistory.find(s => s.id === sessionId);
-                
-                if (existsInStorage) {
-                    console.log('🔄 [SESSION AUTOSAVE] Session already exists in storage, skipping duplicate creation');
-                    return;
-                }
-                // Continue with normal save if not found in storage
-                this._performAutoSave(sessionId, validMessages, uniqueParticipants);
-            });
+
+            // Use async/await instead of callback
+            const result = await window.StorageManager.getStorageData(['sessionHistory']);
+            const storageHistory = result.sessionHistory || [];
+
+            // Simple session lookup in storage
+            const existsInStorage = storageHistory.find(s => s.id === sessionId);
+
+            if (existsInStorage) {
+                console.log('🔄 [SESSION AUTOSAVE] Session already exists in storage, skipping duplicate creation');
+                return;
+            }
+            // Continue with normal save if not found in storage
+            await this._performAutoSave(sessionId, validMessages, uniqueParticipants);
             return;
         }
-        
+
         // Continue with normal save
-        this._performAutoSave(sessionId, validMessages, uniqueParticipants);
+        await this._performAutoSave(sessionId, validMessages, uniqueParticipants);
     },
 
     /**
      * Internal method to perform the actual auto-save
      * @private
+     * @returns {Promise<void>}
      */
-    _performAutoSave(sessionId, validMessages, uniqueParticipants) {
+    async _performAutoSave(sessionId, validMessages, uniqueParticipants) {
         // Simple session ID lookup - no complex format matching needed
         const existingIndex = window.sessionHistory.findIndex(s => s.id === sessionId);
         
@@ -169,19 +171,36 @@ window.SessionHistoryManager = {
         if (window.sessionHistory.length > 50) {
             window.sessionHistory = window.sessionHistory.slice(0, 50);
         }
-        
-        // Save to storage silently (no status message)
-        chrome.storage.local.set({ sessionHistory: window.sessionHistory }, () => {
-            if (window.SessionUIManager && window.SessionUIManager.renderSessionHistory) {
-                window.SessionUIManager.renderSessionHistory();
+
+        // Save to storage using TransactionCoordinator for atomic operations
+        // This ensures sessionHistory and currentSessionId are saved together
+        const saveResult = await window.TransactionCoordinator.executeTransaction([
+            {
+                key: window.AppConstants.STORAGE_KEYS.SESSION_HISTORY,
+                value: window.sessionHistory
+            },
+            {
+                key: window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID,
+                value: window.currentSessionId
             }
-            console.log('🔄 [SESSION AUTOSAVE DEBUG] Session saved to storage and history rendered');
-            
-            // Highlight the new/updated session if it's the current one
-            if (sessionId === window.currentSessionId && existingIndex < 0) {
-                // New session was added, it will be highlighted automatically by renderSessionHistory
-            }
-        });
+        ]);
+
+        if (!saveResult.success) {
+            console.error('❌ [SESSION AUTOSAVE] Failed to save:', saveResult.error);
+            return;
+        }
+
+        console.log('✅ [SESSION AUTOSAVE] Session saved atomically in', saveResult.duration, 'ms');
+
+        // Update UI after successful save
+        if (window.SessionUIManager && window.SessionUIManager.renderSessionHistory) {
+            window.SessionUIManager.renderSessionHistory();
+        }
+
+        // Highlight the new/updated session if it's the current one
+        if (sessionId === window.currentSessionId && existingIndex < 0) {
+            // New session was added, it will be highlighted automatically by renderSessionHistory
+        }
     },
 
     /**

@@ -116,6 +116,17 @@ async function saveExpandedEntries(expandedEntries) {
 
 
 /**
+ * Execute atomic storage update (used by TransactionCoordinator)
+ * Wrapper for setStorageData that makes the purpose explicit
+ *
+ * @param {Object} updates - Multiple key-value pairs to save atomically
+ * @returns {Promise<void>}
+ */
+async function executeAtomicUpdate(updates) {
+    return setStorageData(updates);
+}
+
+/**
  * Clear current session duration (used to prevent accumulation)
  */
 async function clearCurrentSessionDuration() {
@@ -141,11 +152,12 @@ async function saveRecordingStateForPopupClose() {
  */
 async function setPausedSessionState() {
     // Remove only active recording keys, preserve session data
+    // CRITICAL FIX: MEET_TAB_ID is now preserved to enable background scanning restart
     await removeStorageData([
         window.AppConstants.STORAGE_KEYS.REALTIME_MODE,
         window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME,
-        window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_DURATION,
-        window.AppConstants.STORAGE_KEYS.MEET_TAB_ID
+        window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_DURATION
+        // meetTabId POZOSTAJE w storage - umożliwia restart skanowania!
     ]);
     
     // Set session state to paused and save paused/stopped flags
@@ -178,9 +190,13 @@ async function clearRecordingState() {
 
 // Export all storage functions
 window.StorageManager = {
+    // Core operations
     getStorageData,
     setStorageData,
     removeStorageData,
+    executeAtomicUpdate,  // For TransactionCoordinator
+
+    // Convenience methods
     saveTranscriptData,
     saveSessionState,
     saveSessionHistory,

@@ -652,11 +652,13 @@ async function restoreStateFromStorage() {
         // CRITICAL FIX: Always clear restoration flag after ensuring sessionHistory is loaded
         // Use a polling approach to ensure sessionHistory is loaded before clearing flag
         const checkSessionHistoryLoaded = () => {
-            if (window.sessionHistory && window.sessionHistory.length >= 0) {
+            // CRITICAL FIX: Check if sessionHistory is actually an array (not undefined/null)
+            // Previous bug: window.sessionHistory.length >= 0 was ALWAYS true (even for empty [])
+            if (window.sessionHistory && Array.isArray(window.sessionHistory)) {
                 // SessionHistory is loaded (could be empty array for new users)
                 setRestorationInProgress(false);
                 console.log('🔄 [RESTORE] Restoration flag cleared after sessionHistory loaded');
-                console.log('🔄 [RESTORE] Session history length at flag clear:', window.sessionHistory?.length || 0);
+                console.log('🔄 [RESTORE] Session history length at flag clear:', window.sessionHistory.length);
             } else {
                 // SessionHistory not yet loaded, check again
                 console.log('🔄 [RESTORE] SessionHistory not loaded yet, checking again in 500ms');

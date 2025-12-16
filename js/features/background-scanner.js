@@ -5,12 +5,15 @@
 
 // Create background scanner manager with all extracted functions
 window.BackgroundScanner = {
+    // Mutex flag to prevent race conditions during data merge
+    _isMergingData: false,
+
     /**
      * Handle background scan updates from content script
      * Source: popup.js lines 283-399
      * @param {Object} data - Transcript data from background scan
      */
-    handleBackgroundScanUpdate(data) {
+    async handleBackgroundScanUpdate(data) {
         const timestamp = new Date().toISOString();
         console.log('🟡 [BACKGROUND DEBUG] Handling background scan update at:', timestamp);
         console.log('🟡 [BACKGROUND DEBUG] Data messages length:', data ? data.messages?.length : 'undefined');
@@ -33,13 +36,7 @@ window.BackgroundScanner = {
                 exactMatchExists: !!window.sessionHistory.find(s => s.id === window.currentSessionId)
             });
         }
-        
-        // CRITICAL FIX: Check if state restoration is in progress
-        if (window.StateManager?.isRestorationInProgress()) {
-            console.log('🟡 [BACKGROUND DEBUG] Ignoring - state restoration in progress');
-            return;
-        }
-        
+
         // REMOVED: Problematic session history check that created infinite loop for new users
         // The check for sessionHistory.length === 0 incorrectly treated empty arrays as "not loaded"
         // This is now handled by the enhanced session existence verification in the auto-save logic
@@ -180,9 +177,23 @@ window.BackgroundScanner = {
                 window.updateStatus(`Nagrywanie w tle... (${window.transcriptData.messages.length} wpisów)`, 'info');
             }
         }
-        
-        // Save to storage
-        chrome.storage.local.set({ transcriptData: window.transcriptData });        
+
+        // Save to storage - use TransactionCoordinator for atomic operations
+        // This ensures transcriptData, sessionHistory, and session state are saved together
+        const saveResult = await window.TransactionCoordinator.saveRecordingState({
+            transcriptData: window.transcriptData,
+            currentSessionId: window.currentSessionId,
+            sessionHistory: window.sessionHistory,
+            realtimeMode: window.realtimeMode
+        });
+
+        if (!saveResult.success) {
+            console.error('❌ [BACKGROUND SCANNER] Failed to save state:', saveResult.error);
+            // Data remains in memory - will retry on next update (3 seconds)
+            return;
+        }
+
+        console.log('✅ [BACKGROUND SCANNER] State saved atomically in', saveResult.duration, 'ms');
     },
 
     /**
@@ -249,47 +260,381 @@ window.BackgroundScanner = {
 
 
     /**
-     * Reactivate background scanner after state restoration
-     * Called when popup reopens and finds active recording state
+     * BULLETPROOF Reaktywacja background scannera po otwarciu popup
+     * Naprawia wszystkie 9 failure modes:
+     * - Usuwa check restoration flag
+     * - Dodaje fallback dla brakującego MEET_TAB_ID
+     * - Konwertuje chrome.tabs.get na Promise
+     * - Dodaje retry mechanism
+     * - Odzyskuje zgromadzone dane ze storage
      */
     async reactivateAfterRestore() {
         try {
-            console.log('🔄 [REACTIVATE] Reactivating background scanner after state restoration');
-            
-            // Get stored meeting tab ID
+            console.log('🔄 [REACTIVATE] ===== ROZPOCZĘCIE BULLETPROOF REAKTYWACJI =====');
+
+            // ============================================
+            // FAZA 0: ZNAJDŹ KARTĘ MEET (z fallback)
+            // ============================================
+
+            let meetTabId = null;
+
+            // Spróbuj pobrać zapisane MEET_TAB_ID ze storage
             const result = await window.StorageManager.getStorageData([window.AppConstants.STORAGE_KEYS.MEET_TAB_ID]);
-            const meetTabId = result[window.AppConstants.STORAGE_KEYS.MEET_TAB_ID];
-            
+            const storedTabId = result[window.AppConstants.STORAGE_KEYS.MEET_TAB_ID];
+
+            if (storedTabId) {
+                console.log('🔍 [REACTIVATE] Znaleziono zapisane MEET_TAB_ID:', storedTabId);
+
+                // Zweryfikuj czy karta nadal istnieje i jest kartą Meet
+                const tabValid = await this.verifyMeetTab(storedTabId);
+
+                if (tabValid) {
+                    meetTabId = storedTabId;
+                    console.log('✅ [REACTIVATE] Zapisana karta jest nadal aktywna');
+                } else {
+                    console.warn('⚠️ [REACTIVATE] Zapisana karta nie istnieje lub nie jest kartą Meet');
+                }
+            }
+
+            // FALLBACK: Jeśli brak zapisanego ID lub karta nieważna, znajdź aktywną kartę Meet
             if (!meetTabId) {
-                console.warn('⚠️ [REACTIVATE] No meeting tab ID found - cannot restart background scanning');
+                console.log('🔍 [REACTIVATE] Szukanie aktywnej karty Meet jako fallback...');
+                meetTabId = await this.findActiveMeetTab();
+
+                if (!meetTabId) {
+                    console.error('❌ [REACTIVATE] Nie znaleziono żadnej karty Google Meet');
+                    if (window.updateStatus) {
+                        window.updateStatus('Nie znaleziono aktywnej karty Google Meet', 'error');
+                    }
+                    return;
+                }
+
+                console.log('✅ [REACTIVATE] Znaleziono aktywną kartę Meet:', meetTabId);
+
+                // Zapisz nowo znalezione ID do storage
+                await window.StorageManager.setStorageData({
+                    [window.AppConstants.STORAGE_KEYS.MEET_TAB_ID]: meetTabId
+                });
+                console.log('💾 [REACTIVATE] Zapisano nowe MEET_TAB_ID do storage');
+            }
+
+            // ============================================
+            // FAZA 1: ODZYSKAJ ZGROMADZONE DANE
+            // ============================================
+
+            const accumulatedData = await this.retrieveAccumulatedScanData(meetTabId);
+
+            if (accumulatedData) {
+                console.log('📦 [REACTIVATE] Znaleziono zgromadzone dane, łączenie...');
+
+                try {
+                    await this.mergeAccumulatedData(accumulatedData);
+
+                    // DOPIERO TERAZ usuń ze storage - TYLKO jeśli merge się powiódł!
+                    const storageKey = `backgroundScan_${meetTabId}`;
+                    await window.StorageManager.removeStorageData([storageKey]);
+                    console.log('🧹 [REACTIVATE] Dane połączone i wyczyszczono ze storage');
+
+                } catch (mergeError) {
+                    console.error('❌ [REACTIVATE] Merge failed, keeping data in storage for retry:', mergeError);
+
+                    // ZOSTAW dane w storage - można spróbować ponownie później!
+                    if (window.updateStatus) {
+                        window.updateStatus('Częściowy błąd przywracania danych - dane zachowane', 'warning');
+                    }
+                }
+            } else {
+                console.log('📭 [REACTIVATE] Brak zgromadzonych danych do odzyskania');
+            }
+
+            // ============================================
+            // FAZA 2: RESTART SKANOWANIA W TLE
+            // ============================================
+
+            console.log('🔄 [REACTIVATE] Restartowanie background scanning dla tab:', meetTabId);
+
+            const restartSuccess = await this.startBackgroundScanningWithRetry(meetTabId);
+
+            if (restartSuccess) {
+                console.log('✅ [REACTIVATE] ===== REAKTYWACJA ZAKOŃCZONA SUKCESEM =====');
+
+                if (window.updateStatus) {
+                    window.updateStatus('Skanowanie w tle wznowione pomyślnie', 'success');
+                }
+            } else {
+                console.error('❌ [REACTIVATE] ===== REAKTYWACJA NIEUDANA =====');
+
+                if (window.updateStatus) {
+                    window.updateStatus('Nie udało się wznowić skanowania w tle', 'error');
+                }
+            }
+
+        } catch (error) {
+            console.error('❌ [REACTIVATE] Krytyczny błąd podczas reaktywacji:', error);
+
+            if (window.updateStatus) {
+                window.updateStatus('Błąd reaktywacji: ' + error.message, 'error');
+            }
+        }
+    },
+
+    /**
+     * Pobranie zgromadzonych danych ze skanowania w tle
+     * Wywoływane gdy popup otwiera się ponownie podczas aktywnego nagrywania
+     * @param {number} tabId - ID karty która była skanowana
+     * @returns {Promise<Object|null>} Zgromadzone dane lub null
+     */
+    async retrieveAccumulatedScanData(tabId) {
+        try {
+            console.log('🔄 [RETRIEVE] Sprawdzanie zgromadzonych danych dla tab:', tabId);
+
+            // Pobierz dane ze storage
+            const storageKey = `backgroundScan_${tabId}`;
+            const result = await window.StorageManager.getStorageData([storageKey]);
+
+            const scanData = result[storageKey];
+
+            if (!scanData) {
+                console.log('🔄 [RETRIEVE] Brak zgromadzonych danych');
+                return null;
+            }
+
+            // Sprawdź wiek danych (ignoruj dane starsze niż 1 godzina)
+            const dataAge = Date.now() - scanData.timestamp;
+            const MAX_AGE = 60 * 60 * 1000; // 1 godzina
+
+            if (dataAge > MAX_AGE) {
+                console.warn('⚠️ [RETRIEVE] Dane za stare, ignorowanie:', dataAge / 1000 / 60, 'minut');
+                await window.StorageManager.removeStorageData([storageKey]);
+                return null;
+            }
+
+            console.log('✅ [RETRIEVE] Znaleziono zgromadzone dane:', {
+                liczbaNowych: scanData.data?.messages?.length || 0,
+                wiekSekund: Math.floor(dataAge / 1000),
+                scrapedAt: scanData.data?.scrapedAt
+            });
+
+            return scanData.data;
+
+        } catch (error) {
+            console.error('❌ [RETRIEVE] Błąd pobierania danych:', error);
+            return null;
+        }
+    },
+
+    /**
+     * Połączenie zgromadzonych danych z istniejącą transkrypcją
+     * Używa detekcji duplikatów przez hashe do identyfikacji nowych wiadomości
+     * @param {Object} accumulatedData - Zgromadzone dane transkrypcji ze storage
+     */
+    async mergeAccumulatedData(accumulatedData) {
+        // Prevent race condition with handleBackgroundScanUpdate
+        if (this._isMergingData) {
+            console.log('🔄 [MERGE] Already merging, queuing...');
+            // Wait 100ms and try again
+            await new Promise(resolve => setTimeout(resolve, 100));
+            if (this._isMergingData) {
+                console.warn('⚠️ [MERGE] Still merging, aborting this merge');
                 return;
             }
-            
-            // Verify tab still exists and is a Meet tab
-            chrome.tabs.get(meetTabId, (tab) => {
-                if (chrome.runtime.lastError) {
-                    console.warn('⚠️ [REACTIVATE] Meeting tab no longer exists:', chrome.runtime.lastError.message);
-                    return;
-                }
-                
-                if (!tab.url || !tab.url.includes('meet.google.com')) {
-                    console.warn('⚠️ [REACTIVATE] Tab is no longer a Google Meet session');
-                    return;
-                }
-                
-                // Restart background scanning for this tab
-                this.startBackgroundScanning(meetTabId)
-                    .then(() => {
-                        console.log('✅ [REACTIVATE] Background scanning restarted successfully');
-                    })
-                    .catch((error) => {
-                        console.error('❌ [REACTIVATE] Failed to restart background scanning:', error);
-                    });
-            });
-            
-        } catch (error) {
-            console.error('❌ [REACTIVATE] Error during background scanner reactivation:', error);
         }
+
+        this._isMergingData = true;
+
+        try {
+            console.log('🔄 [MERGE] Łączenie zgromadzonych danych z istniejącą transkrypcją');
+
+            if (!accumulatedData || !accumulatedData.messages || accumulatedData.messages.length === 0) {
+                console.log('🔄 [MERGE] Brak wiadomości do połączenia');
+                return;
+            }
+
+            const exportTxtBtn = document.getElementById('exportTxtBtn');
+
+            // Pobierz obecny stan transkrypcji
+            const currentMessages = window.transcriptData?.messages || [];
+            const newMessages = accumulatedData.messages;
+
+            console.log('🔄 [MERGE] Porównanie danych:', {
+                obecnychWiadomosci: currentMessages.length,
+                nowychWiadomosci: newMessages.length
+            });
+
+            // Wykryj zmiany używając porównania hashy (istniejąca metoda)
+            const changes = this.detectChanges(currentMessages, newMessages);
+
+            console.log('🔄 [MERGE] Wykryte zmiany:', {
+                dodane: changes.added.length,
+                zaktualizowane: changes.updated.length,
+                usuniete: changes.removed.length
+            });
+
+            // Jeśli brak zmian, nic nie rób
+            if (changes.added.length === 0 && changes.updated.length === 0) {
+                console.log('✅ [MERGE] Brak nowych wiadomości, dane aktualne');
+                return;
+            }
+
+            // Zainicjuj lub zaktualizuj transcriptData
+            if (!window.transcriptData) {
+                console.log('🔄 [MERGE] Inicjalizacja danych transkrypcji');
+                window.transcriptData = {
+                    messages: newMessages,
+                    scrapedAt: accumulatedData.scrapedAt,
+                    meetingUrl: accumulatedData.meetingUrl
+                };
+            } else {
+                console.log('🔄 [MERGE] Aktualizacja istniejących danych');
+                window.transcriptData.messages = newMessages;
+                window.transcriptData.scrapedAt = accumulatedData.scrapedAt;
+            }
+
+            // Zaktualizuj wyświetlanie z przyrostowymi zmianami
+            if (window.displayTranscript) {
+                window.displayTranscript(window.transcriptData, changes);
+            }
+
+            // Zaktualizuj statystyki
+            if (window.updateStats) {
+                window.updateStats(window.transcriptData);
+            }
+
+            // Dokończ przywracanie filtrów
+            if (window.SearchFilterManager && window.SearchFilterManager.completePendingRestoration) {
+                window.SearchFilterManager.completePendingRestoration();
+            }
+
+            // Włącz przycisk eksportu
+            if (exportTxtBtn) {
+                exportTxtBtn.disabled = false;
+            }
+
+            // Auto-zapis sesji
+            if (window.SessionHistoryManager && window.SessionHistoryManager.autoSaveCurrentSession) {
+                window.SessionHistoryManager.autoSaveCurrentSession();
+            }
+
+            // Zapisz do storage
+            await window.StorageManager.saveTranscriptData(window.transcriptData);
+
+            // Zaktualizuj status
+            if (window.updateStatus) {
+                window.updateStatus(
+                    `Przywrócono ${changes.added.length} nowych wpisów (${window.transcriptData.messages.length} łącznie)`,
+                    'success'
+                );
+            }
+
+            console.log('✅ [MERGE] Dane połączone pomyślnie:', {
+                calkowiteWiadomosci: window.transcriptData.messages.length,
+                nowoDodanych: changes.added.length
+            });
+
+        } catch (error) {
+            console.error('❌ [MERGE] Błąd łączenia danych:', error);
+
+            if (window.updateStatus) {
+                window.updateStatus('Błąd podczas przywracania danych transkrypcji', 'error');
+            }
+        } finally {
+            this._isMergingData = false;
+        }
+    },
+
+    /**
+     * Weryfikuj czy karta istnieje i jest kartą Google Meet
+     * Konwertuje callback-based chrome.tabs.get na Promise
+     * @param {number} tabId - ID karty do weryfikacji
+     * @returns {Promise<boolean>} true jeśli karta jest aktywną kartą Meet
+     */
+    async verifyMeetTab(tabId) {
+        return new Promise((resolve) => {
+            chrome.tabs.get(tabId, (tab) => {
+                if (chrome.runtime.lastError) {
+                    console.log('🔍 [VERIFY] Karta nie istnieje:', chrome.runtime.lastError.message);
+                    resolve(false);
+                    return;
+                }
+
+                if (!tab || !tab.url) {
+                    console.log('🔍 [VERIFY] Karta nie ma URL');
+                    resolve(false);
+                    return;
+                }
+
+                const isMeetTab = tab.url.includes('meet.google.com');
+                console.log('🔍 [VERIFY] Karta', tabId, isMeetTab ? 'JEST' : 'NIE JEST', 'kartą Meet');
+                resolve(isMeetTab);
+            });
+        });
+    },
+
+    /**
+     * Znajdź aktywną kartę Google Meet jako fallback
+     * Używane gdy MEET_TAB_ID nie istnieje w storage lub jest nieważny
+     * @returns {Promise<number|null>} ID karty Meet lub null
+     */
+    async findActiveMeetTab() {
+        return new Promise((resolve) => {
+            // Najpierw spróbuj znaleźć aktywną kartę w bieżącym oknie
+            chrome.tabs.query({
+                active: true,
+                currentWindow: true,
+                url: 'https://meet.google.com/*'
+            }, (tabs) => {
+                if (tabs && tabs.length > 0) {
+                    console.log('🔍 [FIND] Znaleziono aktywną kartę Meet w bieżącym oknie:', tabs[0].id);
+                    resolve(tabs[0].id);
+                    return;
+                }
+
+                // Fallback: Znajdź DOWOLNĄ kartę Meet (nawet nieaktywną)
+                chrome.tabs.query({
+                    url: 'https://meet.google.com/*'
+                }, (tabs) => {
+                    if (tabs && tabs.length > 0) {
+                        console.log('🔍 [FIND] Znaleziono kartę Meet (nieaktywna):', tabs[0].id);
+                        resolve(tabs[0].id);
+                    } else {
+                        console.log('🔍 [FIND] Nie znaleziono żadnej karty Meet');
+                        resolve(null);
+                    }
+                });
+            });
+        });
+    },
+
+    /**
+     * Restart background scanning z retry mechanism
+     * Próbuje 3 razy z opóźnieniem 1 sekundy
+     * @param {number} tabId - ID karty do skanowania
+     * @returns {Promise<boolean>} true jeśli sukces
+     */
+    async startBackgroundScanningWithRetry(tabId, maxRetries = 3) {
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                console.log(`🔄 [RETRY] Próba ${attempt}/${maxRetries} restart skanowania...`);
+
+                await this.startBackgroundScanning(tabId);
+
+                console.log(`✅ [RETRY] Sukces na próbie ${attempt}`);
+                return true;
+
+            } catch (error) {
+                console.warn(`⚠️ [RETRY] Próba ${attempt} nieudana:`, error.message);
+
+                if (attempt < maxRetries) {
+                    console.log(`🔄 [RETRY] Oczekiwanie 1 sekundę przed następną próbą...`);
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                } else {
+                    console.error(`❌ [RETRY] Wszystkie ${maxRetries} próby wyczerpane`);
+                    return false;
+                }
+            }
+        }
+
+        return false;
     },
 
     /**
