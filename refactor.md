@@ -33,25 +33,25 @@
   - [ ] Code review: Clean up, remove console.logs in production
 
 #### ✅ Background Scan Checkpoints & Recovery
-- [ ] **Day 6-7: Checkpoint System**
-  - [ ] Update `background.js:110-145` - add checkpoint mechanism
-  - [ ] Implement `createCheckpoint()` function
-  - [ ] Implement checkpoint cleanup (keep last 3)
-  - [ ] Add checkpoint sequence numbering
-  - [ ] Refactor: Extract checkpoint logic to separate module (if >50 LOC)
+- [x] **Day 6-7: Checkpoint System** (2025-12-16)
+  - [x] Update `background.js:110-145` - add checkpoint mechanism
+  - [x] Implement `createCheckpoint()` function
+  - [x] Implement checkpoint cleanup (keep last 3)
+  - [x] Add checkpoint sequence numbering
+  - [x] Add meeting URL tracking for tab ID verification
 
-- [ ] **Day 8-9: Enhanced Recovery**
-  - [ ] Update `background-scanner.js` - add `retrieveAccumulatedScanData()` v2
-  - [ ] Implement `_tryPrimaryKey()` fallback
-  - [ ] Implement `_tryCheckpoints()` fallback
-  - [ ] Implement `_tryMeetingUrlMatch()` fallback (tab ID reuse protection)
-  - [ ] Add `flushPendingData()` method
-  - [ ] Refactor: Use strategy pattern for recovery attempts
+- [x] **Day 8-9: Enhanced Recovery** (2025-12-16)
+  - [x] Update `background-scanner.js` - add `retrieveAccumulatedScanData()` v2
+  - [x] Implement `_tryPrimaryKey()` fallback
+  - [x] Implement `_tryCheckpoints()` fallback
+  - [x] Implement `_tryMeetingUrlMatch()` fallback (tab ID reuse protection)
+  - [x] Add `flushPendingData()` method
+  - [x] Add `_cleanupBackgroundScanData()` method
 
-- [ ] **Day 10: Popup Close Handling**
-  - [ ] Add `window.beforeunload` handler in `popup.js`
-  - [ ] Integrate with `flushPendingData()`
-  - [ ] Add cleanup for backgroundScan_* keys after successful merge
+- [x] **Day 10: Popup Close Handling** (2025-12-16)
+  - [x] Add `window.beforeunload` handler in `popup.js`
+  - [x] Integrate with `flushPendingData()`
+  - [x] Add cleanup for backgroundScan_* keys after successful merge
   - [ ] Test: Close popup during active recording → verify data persistence
   - [ ] Test: Reopen after 30s/2min/1h → verify recovery
   - [ ] Validation: ZERO data loss across all scenarios

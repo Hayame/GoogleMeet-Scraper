@@ -384,43 +384,39 @@ window.BackgroundScanner = {
      * @param {number} tabId - ID karty która była skanowana
      * @returns {Promise<Object|null>} Zgromadzone dane lub null
      */
+    /**
+     * Retrieve accumulated scan data with multi-path recovery
+     * Tries: Primary → Checkpoints → Meeting URL match
+     *
+     * @param {number} tabId - Meet tab ID
+     * @returns {Promise<Object|null>} Accumulated transcript data or null
+     */
     async retrieveAccumulatedScanData(tabId) {
-        try {
-            console.log('🔄 [RETRIEVE] Sprawdzanie zgromadzonych danych dla tab:', tabId);
+        console.log('🔍 [RETRIEVE] Searching for accumulated data, tabId:', tabId);
 
-            // Pobierz dane ze storage
-            const storageKey = `backgroundScan_${tabId}`;
-            const result = await window.StorageManager.getStorageData([storageKey]);
-
-            const scanData = result[storageKey];
-
-            if (!scanData) {
-                console.log('🔄 [RETRIEVE] Brak zgromadzonych danych');
-                return null;
-            }
-
-            // Sprawdź wiek danych (ignoruj dane starsze niż 1 godzina)
-            const dataAge = Date.now() - scanData.timestamp;
-            const MAX_AGE = 60 * 60 * 1000; // 1 godzina
-
-            if (dataAge > MAX_AGE) {
-                console.warn('⚠️ [RETRIEVE] Dane za stare, ignorowanie:', dataAge / 1000 / 60, 'minut');
-                await window.StorageManager.removeStorageData([storageKey]);
-                return null;
-            }
-
-            console.log('✅ [RETRIEVE] Znaleziono zgromadzone dane:', {
-                liczbaNowych: scanData.data?.messages?.length || 0,
-                wiekSekund: Math.floor(dataAge / 1000),
-                scrapedAt: scanData.data?.scrapedAt
-            });
-
-            return scanData.data;
-
-        } catch (error) {
-            console.error('❌ [RETRIEVE] Błąd pobierania danych:', error);
-            return null;
+        // RECOVERY PATH 1: Primary storage key
+        const primaryData = await this._tryPrimaryKey(tabId);
+        if (primaryData) {
+            console.log('✅ [RETRIEVE] Found data via primary key');
+            return primaryData;
         }
+
+        // RECOVERY PATH 2: Checkpoints (if primary failed or outdated)
+        const checkpointData = await this._tryCheckpoints(tabId);
+        if (checkpointData) {
+            console.log('✅ [RETRIEVE] Found data via checkpoint');
+            return checkpointData;
+        }
+
+        // RECOVERY PATH 3: Meeting URL match (tab ID reuse protection)
+        const urlMatchData = await this._tryMeetingUrlMatch();
+        if (urlMatchData) {
+            console.log('✅ [RETRIEVE] Found data via meeting URL match');
+            return urlMatchData;
+        }
+
+        console.log('⚠️ [RETRIEVE] No accumulated data found');
+        return null;
     },
 
     /**
@@ -539,6 +535,187 @@ window.BackgroundScanner = {
             }
         } finally {
             this._isMergingData = false;
+        }
+    },
+
+    /**
+     * Try primary storage key recovery
+     * @private
+     * @param {number} tabId - Tab ID
+     * @returns {Promise<Object|null>} Data or null
+     */
+    async _tryPrimaryKey(tabId) {
+        try {
+            const storageKey = `backgroundScan_${tabId}`;
+            const result = await window.StorageManager.getStorageData([storageKey]);
+            const scanData = result[storageKey];
+
+            if (!scanData || !scanData.data) {
+                return null;
+            }
+
+            // Check age (1 hour max)
+            const dataAge = Date.now() - scanData.timestamp;
+            const MAX_AGE = 60 * 60 * 1000;
+
+            if (dataAge > MAX_AGE) {
+                console.warn(`⚠️ [RETRIEVE] Primary data too old (${Math.round(dataAge / 60000)} minutes)`);
+                return null;
+            }
+
+            return scanData.data;
+        } catch (error) {
+            console.error('❌ [RETRIEVE] Primary key failed:', error);
+            return null;
+        }
+    },
+
+    /**
+     * Try checkpoint recovery
+     * @private
+     * @param {number} tabId - Tab ID
+     * @returns {Promise<Object|null>} Data or null
+     */
+    async _tryCheckpoints(tabId) {
+        try {
+            const allData = await chrome.storage.local.get(null);
+            const checkpointKeys = Object.keys(allData)
+                .filter(k => k.startsWith(`checkpoint_${tabId}_`))
+                .sort()
+                .reverse(); // Most recent first
+
+            if (checkpointKeys.length === 0) {
+                return null;
+            }
+
+            // Try most recent checkpoint
+            const latestCheckpoint = allData[checkpointKeys[0]];
+
+            // Verify age
+            const checkpointAge = Date.now() - latestCheckpoint.timestamp;
+            const MAX_AGE = 60 * 60 * 1000;
+
+            if (checkpointAge > MAX_AGE) {
+                console.warn(`⚠️ [RETRIEVE] Checkpoint too old (${Math.round(checkpointAge / 60000)} minutes)`);
+
+                // Cleanup old checkpoints
+                await chrome.storage.local.remove(checkpointKeys);
+                return null;
+            }
+
+            console.log(`💾 [RETRIEVE] Using checkpoint (${latestCheckpoint.data.messages.length} messages)`);
+            return latestCheckpoint.data;
+
+        } catch (error) {
+            console.error('❌ [RETRIEVE] Checkpoint recovery failed:', error);
+            return null;
+        }
+    },
+
+    /**
+     * Try meeting URL match recovery (protection against tab ID reuse)
+     * @private
+     * @returns {Promise<Object|null>} Data or null
+     */
+    async _tryMeetingUrlMatch() {
+        try {
+            const currentMeetingUrl = window.transcriptData?.meetingUrl;
+
+            if (!currentMeetingUrl) {
+                console.log('⚠️ [RETRIEVE] No current meeting URL for matching');
+                return null;
+            }
+
+            const allData = await chrome.storage.local.get(null);
+
+            // Search all backgroundScan_* keys for matching URL
+            for (const [key, value] of Object.entries(allData)) {
+                if (key.startsWith('backgroundScan_') && value.meetingUrl === currentMeetingUrl) {
+                    console.log(`🔗 [RETRIEVE] Found data by URL match: ${key}`);
+
+                    // Verify age
+                    const dataAge = Date.now() - value.timestamp;
+                    const MAX_AGE = 60 * 60 * 1000;
+
+                    if (dataAge > MAX_AGE) {
+                        console.warn('⚠️ [RETRIEVE] URL-matched data too old');
+                        return null;
+                    }
+
+                    return value.data;
+                }
+            }
+
+            return null;
+        } catch (error) {
+            console.error('❌ [RETRIEVE] URL match failed:', error);
+            return null;
+        }
+    },
+
+    /**
+     * Flush pending data immediately (called on popup close)
+     * @returns {Promise<void>}
+     */
+    async flushPendingData() {
+        try {
+            console.log('💾 [FLUSH] Flushing pending background scan data');
+
+            const meetTabId = await window.StorageManager.getStorageData([
+                window.AppConstants.STORAGE_KEYS.MEET_TAB_ID
+            ]);
+
+            if (!meetTabId.meetTabId) {
+                console.log('⚠️ [FLUSH] No meet tab ID found');
+                return;
+            }
+
+            const accumulatedData = await this.retrieveAccumulatedScanData(meetTabId.meetTabId);
+
+            if (accumulatedData && accumulatedData.messages?.length > 0) {
+                console.log(`💾 [FLUSH] Found ${accumulatedData.messages.length} messages to merge`);
+
+                // Force merge even if popup closing
+                await this.mergeAccumulatedData(accumulatedData);
+
+                // Cleanup storage after successful merge
+                await this._cleanupBackgroundScanData(meetTabId.meetTabId);
+
+                console.log('✅ [FLUSH] Data flushed successfully');
+            } else {
+                console.log('💾 [FLUSH] No pending data to flush');
+            }
+        } catch (error) {
+            console.error('❌ [FLUSH] Failed to flush data:', error);
+        }
+    },
+
+    /**
+     * Cleanup background scan data after successful merge
+     * @private
+     * @param {number} tabId - Tab ID
+     * @returns {Promise<void>}
+     */
+    async _cleanupBackgroundScanData(tabId) {
+        try {
+            const allData = await chrome.storage.local.get(null);
+            const keysToRemove = [];
+
+            // Remove primary key
+            keysToRemove.push(`backgroundScan_${tabId}`);
+
+            // Remove all checkpoints for this tab
+            const checkpointKeys = Object.keys(allData).filter(k =>
+                k.startsWith(`checkpoint_${tabId}_`)
+            );
+            keysToRemove.push(...checkpointKeys);
+
+            if (keysToRemove.length > 0) {
+                await chrome.storage.local.remove(keysToRemove);
+                console.log(`🧹 [CLEANUP] Removed ${keysToRemove.length} background scan keys`);
+            }
+        } catch (error) {
+            console.error('❌ [CLEANUP] Failed:', error);
         }
     },
 

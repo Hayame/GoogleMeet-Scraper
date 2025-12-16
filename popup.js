@@ -3,6 +3,25 @@
  * Modularized version using extracted components
  */
 
+/**
+ * Handle popup close - flush pending background scan data
+ */
+window.addEventListener('beforeunload', async (event) => {
+    // Only flush if recording is active
+    if (window.realtimeMode && window.BackgroundScanner) {
+        console.log('⚠️ [POPUP] Popup closing during recording, flushing data');
+
+        try {
+            // Force immediate flush of pending data
+            await window.BackgroundScanner.flushPendingData();
+            console.log('✅ [POPUP] Data flushed before close');
+        } catch (error) {
+            console.error('❌ [POPUP] Failed to flush data:', error);
+            // Data will be recovered on next open via checkpoint system
+        }
+    }
+});
+
 // Main initialization function
 document.addEventListener('DOMContentLoaded', async function() {
     try {

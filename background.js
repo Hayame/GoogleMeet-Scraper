@@ -76,9 +76,10 @@ function startBackgroundScanning(tabId) {
     
     isScanning = true;
     scanningTabId = tabId;
-    
+
     let scanCount = 0;
-    
+    let lastMeetingUrl = null;  // Track meeting URL for tab ID verification
+
     // Skanuj co 3 sekundy
     scanInterval = setInterval(async () => {
         scanCount++;
@@ -105,15 +106,27 @@ function startBackgroundScanning(tabId) {
             if (result && result.success && result.data && result.data.messages && result.data.messages.length > 0) {
                 console.log(`🔶 [BACKGROUND DEBUG] Scan #${scanCount} found`, result.data.messages.length, 'messages');
                 console.log('🔶 [BACKGROUND DEBUG] First message:', result.data.messages[0] ? `${result.data.messages[0].speaker}: ${result.data.messages[0].text.substring(0, 30)}...` : 'none');
-                
-                // Zapisz wyniki do storage
+
+                // Store meeting URL for verification
+                if (result.data.meetingUrl) {
+                    lastMeetingUrl = result.data.meetingUrl;
+                }
+
+                // PRIMARY STORAGE: Latest data with sequence tracking
                 await chrome.storage.local.set({
                     [`backgroundScan_${tabId}`]: {
                         data: result.data,
-                        timestamp: Date.now()
+                        timestamp: Date.now(),
+                        sequenceNumber: scanCount,
+                        meetingUrl: result.data.meetingUrl || lastMeetingUrl
                     }
                 });
-                
+
+                // CHECKPOINT SYSTEM: Backup every 10 scans (~30 seconds)
+                if (scanCount % 10 === 0) {
+                    await createCheckpoint(tabId, result.data, scanCount);
+                }
+
                 // Wyślij powiadomienie do popup jeśli jest otwarte
                 try {
                     await chrome.runtime.sendMessage({
@@ -150,6 +163,60 @@ function stopBackgroundScanning() {
     if (scanInterval) {
         clearInterval(scanInterval);
         scanInterval = null;
+    }
+}
+
+/**
+ * Create checkpoint backup of scan data
+ * Keeps last 3 checkpoints for recovery
+ *
+ * @param {number} tabId - Tab ID
+ * @param {Object} data - Transcript data
+ * @param {number} scanCount - Scan sequence number
+ */
+async function createCheckpoint(tabId, data, scanCount) {
+    try {
+        const checkpointKey = `checkpoint_${tabId}_${Date.now()}`;
+
+        await chrome.storage.local.set({
+            [checkpointKey]: {
+                data: data,
+                timestamp: Date.now(),
+                scanCount: scanCount,
+                type: 'CHECKPOINT'
+            }
+        });
+
+        console.log(`💾 [CHECKPOINT] Created: ${checkpointKey} (${data.messages.length} messages)`);
+
+        // Cleanup: Keep only last 3 checkpoints per tab
+        await cleanupOldCheckpoints(tabId);
+
+    } catch (error) {
+        console.error('❌ [CHECKPOINT] Failed to create:', error);
+        // Non-fatal - primary storage still has data
+    }
+}
+
+/**
+ * Remove old checkpoints, keep only last 3
+ * @param {number} tabId - Tab ID
+ */
+async function cleanupOldCheckpoints(tabId) {
+    try {
+        const allData = await chrome.storage.local.get(null);
+        const checkpointKeys = Object.keys(allData)
+            .filter(k => k.startsWith(`checkpoint_${tabId}_`))
+            .sort(); // Chronological order (timestamp in key)
+
+        // Keep last 3, remove older
+        if (checkpointKeys.length > 3) {
+            const toRemove = checkpointKeys.slice(0, -3);
+            await chrome.storage.local.remove(toRemove);
+            console.log(`🧹 [CHECKPOINT] Cleaned up ${toRemove.length} old checkpoints`);
+        }
+    } catch (error) {
+        console.error('❌ [CHECKPOINT] Cleanup failed:', error);
     }
 }
 
