@@ -71,21 +71,49 @@ window.ExportManager = {
     },
 
     /**
+     * Create immutable snapshot of transcript data
+     * Prevents data corruption during export if background scanner updates
+     * @returns {Object} Deep cloned snapshot of transcript data
+     */
+    createDataSnapshot() {
+        if (!window.transcriptData) {
+            return {
+                messages: [],
+                scrapedAt: new Date().toISOString(),
+                meetingUrl: '',
+                exportedAt: new Date().toISOString(),
+                messageCount: 0
+            };
+        }
+
+        // Deep clone to prevent reference sharing
+        return {
+            messages: JSON.parse(JSON.stringify(window.transcriptData.messages || [])),
+            scrapedAt: window.transcriptData.scrapedAt,
+            meetingUrl: window.transcriptData.meetingUrl,
+            exportedAt: new Date().toISOString(),
+            messageCount: window.transcriptData.messages?.length || 0
+        };
+    },
+
+    /**
      * Generate TXT content for export
      * Source: popup.js lines 3272-3292
+     * @param {Object} dataSnapshot - Immutable snapshot of transcript data
      */
-    generateTxtContent() {    
-        if (!window.transcriptData || !window.transcriptData.messages) {
-            console.error('No transcript data available');
+    generateTxtContent(dataSnapshot) {
+        if (!dataSnapshot || !dataSnapshot.messages) {
+            console.error('No transcript data available in snapshot');
             return '';
         }
-        
+
         let txtContent = `Transkrypcja Google Meet\n`;
-        txtContent += `Data eksportu: ${new Date().toLocaleString('pl-PL')}\n`;
-        txtContent += `URL spotkania: ${window.transcriptData.meetingUrl || 'Nieznany'}\n`;
+        txtContent += `Data eksportu: ${new Date(dataSnapshot.exportedAt).toLocaleString('pl-PL')}\n`;
+        txtContent += `URL spotkania: ${dataSnapshot.meetingUrl || 'Nieznany'}\n`;
+        txtContent += `Liczba wiadomości: ${dataSnapshot.messageCount}\n`;
         txtContent += `=====================================\n\n`;
 
-        window.transcriptData.messages.forEach(entry => {
+        dataSnapshot.messages.forEach(entry => {
             txtContent += `${entry.speaker}`;
             if (entry.timestamp) {
                 txtContent += ` [${entry.timestamp}]`;
@@ -98,10 +126,13 @@ window.ExportManager = {
 
     /**
      * Prepare export content based on user preferences
+     * Creates immutable snapshot to prevent corruption during active recording
      */
     async prepareExportContent(shouldWrapInPrompt) {
-        const transcriptContent = this.generateTxtContent();
-        
+        // CREATE IMMUTABLE SNAPSHOT - prevents data corruption if background updates during export
+        const dataSnapshot = this.createDataSnapshot();
+        const transcriptContent = this.generateTxtContent(dataSnapshot);
+
         if (shouldWrapInPrompt) {
             return await this.wrapWithLLMPrompt(transcriptContent);
         } else {

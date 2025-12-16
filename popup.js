@@ -154,7 +154,20 @@ async function initializeApplication() {
         window.SessionUIManager.initialize();
         console.log('✅ Session History initialized');
     }
-    
+
+    // 9.5. Data Integrity Verification (after session history loaded)
+    if (window.DataIntegrity) {
+        window.DataIntegrity.initialize();
+        const integrityIssues = await window.DataIntegrity.verifyStorageIntegrity();
+        if (integrityIssues.length > 0) {
+            console.warn('⚠️ [INTEGRITY] Found issues:', integrityIssues);
+            const fixResults = await window.DataIntegrity.autoFixIssues(integrityIssues);
+            console.log('🔧 [INTEGRITY] Fix results:', fixResults);
+        } else {
+            console.log('✅ [INTEGRITY] No issues found');
+        }
+    }
+
     // 10. Initialize transcript features
     if (window.TranscriptManager) {
         window.TranscriptManager.initialize();

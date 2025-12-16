@@ -57,13 +57,13 @@
   - [ ] Validation: ZERO data loss across all scenarios
 
 #### ✅ Priority Queue Merge Coordination
-- [ ] **Day 11-12: Queue Implementation**
-  - [ ] Add `_mergeQueue` system in `background-scanner.js:8-50`
-  - [ ] Implement `scheduleMerge(data, priority)` method
-  - [ ] Implement `_processMergeQueue()` with mutex
-  - [ ] Refactor `handleBackgroundScanUpdate()` to use queue
-  - [ ] Refactor `mergeAccumulatedData()` to use queue
-  - [ ] Clean up: Remove old `_isMergingData` flag and 100ms timeout logic
+- [x] **Day 11-12: Queue Implementation** (2025-12-16)
+  - [x] Add `_mergeQueue` system in `background-scanner.js:8-50`
+  - [x] Implement `scheduleMerge(data, priority)` method
+  - [x] Implement `_processMergeQueue()` with mutex
+  - [x] Refactor `handleBackgroundScanUpdate()` to use queue
+  - [x] Refactor `mergeAccumulatedData()` to use queue
+  - [x] Clean up: Remove old `_isMergingData` flag and 100ms timeout logic
 
 - [ ] **Testing**
   - [ ] Test: Concurrent merge calls → verify no race conditions
@@ -72,11 +72,11 @@
   - [ ] Validation: NO duplicates, NO data loss
 
 #### ✅ State Restoration Timeout Protection
-- [ ] **Day 13: Timeout Implementation**
-  - [ ] Update `state-manager.js:654-670` - add MAX_WAIT_TIME
-  - [ ] Add timeout counter and force-unlock after 10s
-  - [ ] Add emergency empty array initialization
-  - [ ] Clean up: Remove redundant restoration checks
+- [x] **Day 13: Timeout Implementation** (2025-12-16)
+  - [x] Update `state-manager.js:654-670` - add MAX_WAIT_TIME
+  - [x] Add timeout counter and force-unlock after 10s
+  - [x] Add emergency empty array initialization
+  - [x] Clean up: Remove redundant restoration checks
 
 - [ ] **Testing**
   - [ ] Test: Break SessionHistoryManager → verify auto-recovery
@@ -88,20 +88,20 @@
 ### PHASE 2: Protection Layer (Week 3) - RECOMMENDED
 
 #### ✅ Export Data Snapshot
-- [ ] **Day 14: Snapshot Implementation**
-  - [ ] Add `createDataSnapshot()` in `export.js`
-  - [ ] Update `generateTxtContent()` to use snapshot
-  - [ ] Update `generateJsonContent()` to use snapshot
-  - [ ] Refactor: Extract snapshot logic to utility if reusable
+- [x] **Day 14: Snapshot Implementation** (2025-12-16)
+  - [x] Add `createDataSnapshot()` in `export.js`
+  - [x] Update `generateTxtContent()` to use snapshot
+  - [x] Update `generateJsonContent()` to use snapshot
+  - [x] Refactor: Extract snapshot logic to utility if reusable
   - [ ] Test: Export during active recording → verify consistency
 
 #### ✅ Data Integrity Verification
-- [ ] **Day 15: Integrity System**
-  - [ ] Create `/js/utils/data-integrity.js`
-  - [ ] Implement `verifyStorageIntegrity()` with 3+ checks
-  - [ ] Implement `autoFixIssues()` with safe repairs
-  - [ ] Integrate into `popup.js` initialization
-  - [ ] Add logging for detected/fixed issues
+- [x] **Day 15: Integrity System** (2025-12-16)
+  - [x] Create `/js/utils/data-integrity.js`
+  - [x] Implement `verifyStorageIntegrity()` with 4 checks
+  - [x] Implement `autoFixIssues()` with safe repairs
+  - [x] Integrate into `popup.js` initialization
+  - [x] Add logging for detected/fixed issues
   - [ ] Test: Manually corrupt data → verify auto-fix
 
 ---

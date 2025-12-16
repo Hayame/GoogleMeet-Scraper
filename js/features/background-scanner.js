@@ -5,8 +5,11 @@
 
 // Create background scanner manager with all extracted functions
 window.BackgroundScanner = {
-    // Mutex flag to prevent race conditions during data merge
-    _isMergingData: false,
+    // Priority queue system for merge coordination (replaces simple mutex)
+    _mergeQueue: [],          // Array of {id, data, priority, timestamp, retryCount}
+    _isMerging: false,        // True while processing queue
+    _mergeSequence: 0,        // Unique ID generator
+    _maxQueueSize: 50,        // Prevent memory leak
 
     /**
      * Handle background scan updates from content script
@@ -55,145 +58,196 @@ window.BackgroundScanner = {
             console.log('🟡 [BACKGROUND DEBUG] No messages in background scan update');
             return;
         }
-        
-        const exportTxtBtn = document.getElementById('exportTxtBtn');
-        
-        // Debug: log state before detecting changes
-        console.log('🔍 [DEBUG] handleBackgroundScanUpdate - Before detectChanges:', {
-            hasTranscriptData: !!window.transcriptData,
-            oldMessagesCount: window.transcriptData ? window.transcriptData.messages.length : 0,
-            newMessagesCount: data.messages.length,
-            recordingPaused: window.StateManager?.getRecordingPaused(),
-            recordingStopped: window.StateManager?.getRecordingStopped(),
-            oldHashesSample: window.transcriptData ? window.transcriptData.messages.slice(0,3).map(m => ({ speaker: m.speaker, hash: m.hash, text: m.text.substring(0,30) })) : [],
-            newHashesSample: data.messages.slice(0,3).map(m => ({ speaker: m.speaker, hash: m.hash, text: m.text.substring(0,30) }))
-        });
-        
-        // Detect changes using hash comparison
-        const changes = window.detectChanges ? window.detectChanges(window.transcriptData ? window.transcriptData.messages : [], data.messages) : { added: [], updated: [], removed: [] };
-        
-        // Debug: log changes detected
-        console.log('🔍 [DEBUG] detectChanges result:', {
-            added: changes.added.length,
-            updated: changes.updated.length,
-            removed: changes.removed.length,
-            addedSample: changes.added.slice(0,3).map(m => ({ speaker: m.speaker, hash: m.hash, text: m.text.substring(0,30) }))
-        });
-        
-        if (!window.transcriptData) {
-            // Check if this is a session continuation (has sessionStartTime) or completely new session
-            const isContinuation = window.StateManager?.getSessionStartTime() !== null || window.StateManager?.getRecordingStartTime() !== null;
-            
-            if (isContinuation) {
-                console.log('🔄 [CONTINUATION] Initializing transcript data for continued session');
-                console.log('🔄 [CONTINUATION] SessionStartTime exists:', !!window.StateManager?.getSessionStartTime());
-                console.log('🔄 [CONTINUATION] RecordingStartTime exists:', !!window.StateManager?.getRecordingStartTime());
-            } else {
-                console.log('✅ [NEW] Initializing transcript data for completely new session');
-            }
-            
-            // Initialize with new data structure
-            window.transcriptData = {
-                messages: data.messages,
-                scrapedAt: data.scrapedAt,
-                meetingUrl: data.meetingUrl
-            };
-            
-            // For continuations, treat all messages as "added" for proper incremental display
-            if (isContinuation && data.messages.length > 0) {
-                const continuationChanges = {
-                    added: data.messages,
-                    updated: [],
-                    removed: []
-                };
-                console.log(`🔄 [CONTINUATION] Treating ${data.messages.length} messages as newly added`);
-                if (window.displayTranscript) {
-                    window.displayTranscript(window.transcriptData, continuationChanges);
-                }
-            } else {
-                // New session - use normal display
-                if (window.displayTranscript) {
-                    window.displayTranscript(window.transcriptData, changes);
-                }
-            }
-            
-            if (window.updateStats) {
-                window.updateStats(window.transcriptData);
-            }
-            
-            // Complete pending filter restoration when new data arrives
-            if (window.SearchFilterManager && window.SearchFilterManager.completePendingRestoration) {
-                window.SearchFilterManager.completePendingRestoration();
-            }
-            
-            if (exportTxtBtn) {
-                exportTxtBtn.disabled = false;
-            }
-            
-            // Auto-save session to history
-            if (window.SessionHistoryManager && window.SessionHistoryManager.autoSaveCurrentSession) {
-                window.SessionHistoryManager.autoSaveCurrentSession();
-            }
-            
-            if (window.updateStatus) {
-                window.updateStatus(`Nagrywanie w tle... (${window.transcriptData.messages.length} wpisów)`, 'info');
-            }
-        } else if (changes.added.length > 0 || changes.updated.length > 0) {
-            // Update data with changes
-            window.transcriptData.messages = data.messages;
-            window.transcriptData.scrapedAt = data.scrapedAt;
 
-            // Update display with incremental changes
-            if (window.displayTranscript) {
-                window.displayTranscript(window.transcriptData, changes);
-            }
-            if (window.updateStats) {
-                window.updateStats(window.transcriptData);
-            }
-            
-            // Complete pending filter restoration when new data arrives
-            if (window.SearchFilterManager && window.SearchFilterManager.completePendingRestoration) {
-                window.SearchFilterManager.completePendingRestoration();
-            }
-            
-            if (exportTxtBtn) {
-                exportTxtBtn.disabled = false;
-            }
-            
-            // Scroll to bottom if new messages added
-            if (changes.added.length > 0) {
-                const preview = document.getElementById('transcriptContent');
-                if (preview) {
-                    preview.scrollTop = preview.scrollHeight;
-                }
-            }
-            
-            // Auto-save session to history on every update
-            if (window.SessionHistoryManager && window.SessionHistoryManager.autoSaveCurrentSession) {
-                window.SessionHistoryManager.autoSaveCurrentSession();
-            }
-            
-            if (window.updateStatus) {
-                window.updateStatus(`Nagrywanie w tle... (${window.transcriptData.messages.length} wpisów)`, 'info');
-            }
+        console.log('🟡 [BACKGROUND DEBUG] Scheduling background update (low priority)');
+        // Schedule with priority 1 (background updates are low priority, restoration goes first)
+        await this.scheduleMerge(data, 1);
+    },
+
+    /**
+     * Schedule merge operation with priority
+     * Higher priority = executes first (100 = restoration, 10 = manual, 1 = background)
+     *
+     * @param {Object} data - Transcript data to merge
+     * @param {number} priority - Priority level (default: 0)
+     * @returns {Promise<void>}
+     */
+    async scheduleMerge(data, priority = 0) {
+        const operation = {
+            id: ++this._mergeSequence,
+            data: data,
+            priority: priority,
+            timestamp: Date.now(),
+            retryCount: 0
+        };
+
+        // Queue size protection - prevent memory leak
+        if (this._mergeQueue.length >= this._maxQueueSize) {
+            console.warn('⚠️ [MERGE QUEUE] Queue full, dropping lowest priority operation');
+            this._mergeQueue.sort((a, b) => b.priority - a.priority);
+            this._mergeQueue.pop();
         }
 
-        // Save to storage - use TransactionCoordinator for atomic operations
-        // This ensures transcriptData, sessionHistory, and session state are saved together
-        const saveResult = await window.TransactionCoordinator.saveRecordingState({
-            transcriptData: window.transcriptData,
-            currentSessionId: window.currentSessionId,
-            sessionHistory: window.sessionHistory,
-            realtimeMode: window.realtimeMode
-        });
+        this._mergeQueue.push(operation);
+        this._mergeQueue.sort((a, b) => b.priority - a.priority); // Highest priority first
 
-        if (!saveResult.success) {
-            console.error('❌ [BACKGROUND SCANNER] Failed to save state:', saveResult.error);
-            // Data remains in memory - will retry on next update (3 seconds)
+        console.log(`📋 [MERGE] Scheduled #${operation.id} (priority: ${priority}, queue: ${this._mergeQueue.length})`);
+
+        // Start processing queue
+        await this._processMergeQueue();
+    },
+
+    /**
+     * Process merge queue sequentially
+     * Ensures no concurrent merges, implements retry logic
+     * @private
+     */
+    async _processMergeQueue() {
+        // Already processing
+        if (this._isMerging) {
+            console.log('🔄 [MERGE QUEUE] Already processing');
             return;
         }
 
-        console.log('✅ [BACKGROUND SCANNER] State saved atomically in', saveResult.duration, 'ms');
+        // Process all queued operations
+        while (this._mergeQueue.length > 0) {
+            this._isMerging = true;
+            const operation = this._mergeQueue.shift();
+
+            console.log(`🔄 [MERGE] Processing #${operation.id} (${this._mergeQueue.length} remaining)`);
+
+            try {
+                await this._performMerge(operation.data);
+                console.log(`✅ [MERGE] Completed #${operation.id}`);
+
+            } catch (error) {
+                console.error(`❌ [MERGE] Failed #${operation.id}:`, error);
+
+                // RETRY LOGIC: Re-queue with lower priority
+                const MAX_RETRIES = 3;
+                if (operation.retryCount < MAX_RETRIES) {
+                    operation.retryCount++;
+                    operation.priority = Math.max(0, operation.priority - 10); // Lower priority
+
+                    this._mergeQueue.push(operation);
+                    this._mergeQueue.sort((a, b) => b.priority - a.priority);
+
+                    console.log(`🔄 [MERGE] Re-queued #${operation.id} (retry ${operation.retryCount}/${MAX_RETRIES})`);
+                } else {
+                    console.error(`💀 [MERGE] Dropped #${operation.id} after ${MAX_RETRIES} retries`);
+                }
+            }
+        }
+
+        this._isMerging = false;
+        console.log('✅ [MERGE QUEUE] Queue processing complete');
+    },
+
+    /**
+     * Perform actual merge operation
+     * Extracted from mergeAccumulatedData for queue system
+     * @private
+     * @param {Object} data - Transcript data to merge
+     */
+    async _performMerge(data) {
+        console.log('🔄 [MERGE] Performing merge operation');
+
+        if (!data || !data.messages || data.messages.length === 0) {
+            console.log('🔄 [MERGE] No messages to merge');
+            return;
+        }
+
+        const exportTxtBtn = document.getElementById('exportTxtBtn');
+
+        // Get current transcript state
+        const currentMessages = window.transcriptData?.messages || [];
+        const newMessages = data.messages;
+
+        console.log('🔄 [MERGE] Comparing data:', {
+            currentMessagesCount: currentMessages.length,
+            newMessagesCount: newMessages.length
+        });
+
+        // Detect changes using hash comparison
+        const changes = this.detectChanges(currentMessages, newMessages);
+
+        console.log('🔄 [MERGE] Detected changes:', {
+            added: changes.added.length,
+            updated: changes.updated.length,
+            removed: changes.removed.length
+        });
+
+        // If no changes, skip merge
+        if (changes.added.length === 0 && changes.updated.length === 0) {
+            console.log('✅ [MERGE] No new messages, data up to date');
+            return;
+        }
+
+        // Initialize or update transcriptData
+        if (!window.transcriptData) {
+            console.log('🔄 [MERGE] Initializing transcript data');
+            window.transcriptData = {
+                messages: newMessages,
+                scrapedAt: data.scrapedAt,
+                meetingUrl: data.meetingUrl
+            };
+        } else {
+            console.log('🔄 [MERGE] Updating existing data');
+            window.transcriptData.messages = newMessages;
+            window.transcriptData.scrapedAt = data.scrapedAt;
+            if (data.meetingUrl) {
+                window.transcriptData.meetingUrl = data.meetingUrl;
+            }
+        }
+
+        // Update display with incremental changes
+        if (window.displayTranscript) {
+            window.displayTranscript(window.transcriptData, changes);
+        }
+
+        // Update stats
+        if (window.updateStats) {
+            window.updateStats(window.transcriptData);
+        }
+
+        // Complete pending filter restoration
+        if (window.SearchFilterManager && window.SearchFilterManager.completePendingRestoration) {
+            window.SearchFilterManager.completePendingRestoration();
+        }
+
+        // Enable export button
+        if (exportTxtBtn) {
+            exportTxtBtn.disabled = false;
+        }
+
+        // Save atomically using TransactionCoordinator
+        const saveResult = await window.TransactionCoordinator.saveRecordingState({
+            transcriptData: window.transcriptData,
+            currentSessionId: window.currentSessionId,
+            sessionHistory: window.sessionHistory
+        });
+
+        if (!saveResult.success) {
+            throw new Error(`Save failed: ${saveResult.error}`);
+        }
+
+        // Auto-save session
+        if (window.SessionHistoryManager && window.SessionHistoryManager.autoSaveCurrentSession) {
+            await window.SessionHistoryManager.autoSaveCurrentSession();
+        }
+
+        // Update status
+        if (window.updateStatus) {
+            window.updateStatus(
+                `Restored ${changes.added.length} new entries (${window.transcriptData.messages.length} total)`,
+                'success'
+            );
+        }
+
+        console.log('✅ [MERGE] Merge completed successfully:', {
+            totalMessages: window.transcriptData.messages.length,
+            newlyAdded: changes.added.length
+        });
     },
 
     /**
@@ -420,122 +474,14 @@ window.BackgroundScanner = {
     },
 
     /**
-     * Połączenie zgromadzonych danych z istniejącą transkrypcją
-     * Używa detekcji duplikatów przez hashe do identyfikacji nowych wiadomości
-     * @param {Object} accumulatedData - Zgromadzone dane transkrypcji ze storage
+     * Merge accumulated data with existing transcript
+     * Now uses priority queue system (priority: 100 = restoration is critical)
+     * @param {Object} accumulatedData - Accumulated transcript data from storage
      */
     async mergeAccumulatedData(accumulatedData) {
-        // Prevent race condition with handleBackgroundScanUpdate
-        if (this._isMergingData) {
-            console.log('🔄 [MERGE] Already merging, queuing...');
-            // Wait 100ms and try again
-            await new Promise(resolve => setTimeout(resolve, 100));
-            if (this._isMergingData) {
-                console.warn('⚠️ [MERGE] Still merging, aborting this merge');
-                return;
-            }
-        }
-
-        this._isMergingData = true;
-
-        try {
-            console.log('🔄 [MERGE] Łączenie zgromadzonych danych z istniejącą transkrypcją');
-
-            if (!accumulatedData || !accumulatedData.messages || accumulatedData.messages.length === 0) {
-                console.log('🔄 [MERGE] Brak wiadomości do połączenia');
-                return;
-            }
-
-            const exportTxtBtn = document.getElementById('exportTxtBtn');
-
-            // Pobierz obecny stan transkrypcji
-            const currentMessages = window.transcriptData?.messages || [];
-            const newMessages = accumulatedData.messages;
-
-            console.log('🔄 [MERGE] Porównanie danych:', {
-                obecnychWiadomosci: currentMessages.length,
-                nowychWiadomosci: newMessages.length
-            });
-
-            // Wykryj zmiany używając porównania hashy (istniejąca metoda)
-            const changes = this.detectChanges(currentMessages, newMessages);
-
-            console.log('🔄 [MERGE] Wykryte zmiany:', {
-                dodane: changes.added.length,
-                zaktualizowane: changes.updated.length,
-                usuniete: changes.removed.length
-            });
-
-            // Jeśli brak zmian, nic nie rób
-            if (changes.added.length === 0 && changes.updated.length === 0) {
-                console.log('✅ [MERGE] Brak nowych wiadomości, dane aktualne');
-                return;
-            }
-
-            // Zainicjuj lub zaktualizuj transcriptData
-            if (!window.transcriptData) {
-                console.log('🔄 [MERGE] Inicjalizacja danych transkrypcji');
-                window.transcriptData = {
-                    messages: newMessages,
-                    scrapedAt: accumulatedData.scrapedAt,
-                    meetingUrl: accumulatedData.meetingUrl
-                };
-            } else {
-                console.log('🔄 [MERGE] Aktualizacja istniejących danych');
-                window.transcriptData.messages = newMessages;
-                window.transcriptData.scrapedAt = accumulatedData.scrapedAt;
-            }
-
-            // Zaktualizuj wyświetlanie z przyrostowymi zmianami
-            if (window.displayTranscript) {
-                window.displayTranscript(window.transcriptData, changes);
-            }
-
-            // Zaktualizuj statystyki
-            if (window.updateStats) {
-                window.updateStats(window.transcriptData);
-            }
-
-            // Dokończ przywracanie filtrów
-            if (window.SearchFilterManager && window.SearchFilterManager.completePendingRestoration) {
-                window.SearchFilterManager.completePendingRestoration();
-            }
-
-            // Włącz przycisk eksportu
-            if (exportTxtBtn) {
-                exportTxtBtn.disabled = false;
-            }
-
-            // Auto-zapis sesji
-            if (window.SessionHistoryManager && window.SessionHistoryManager.autoSaveCurrentSession) {
-                window.SessionHistoryManager.autoSaveCurrentSession();
-            }
-
-            // Zapisz do storage
-            await window.StorageManager.saveTranscriptData(window.transcriptData);
-
-            // Zaktualizuj status
-            if (window.updateStatus) {
-                window.updateStatus(
-                    `Przywrócono ${changes.added.length} nowych wpisów (${window.transcriptData.messages.length} łącznie)`,
-                    'success'
-                );
-            }
-
-            console.log('✅ [MERGE] Dane połączone pomyślnie:', {
-                calkowiteWiadomosci: window.transcriptData.messages.length,
-                nowoDodanych: changes.added.length
-            });
-
-        } catch (error) {
-            console.error('❌ [MERGE] Błąd łączenia danych:', error);
-
-            if (window.updateStatus) {
-                window.updateStatus('Błąd podczas przywracania danych transkrypcji', 'error');
-            }
-        } finally {
-            this._isMergingData = false;
-        }
+        console.log('🔄 [MERGE] Scheduling accumulated data merge (high priority)');
+        // Schedule with priority 100 (restoration is critical, goes first)
+        await this.scheduleMerge(accumulatedData, 100);
     },
 
     /**

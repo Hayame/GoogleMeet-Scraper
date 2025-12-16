@@ -651,21 +651,38 @@ async function restoreStateFromStorage() {
     } finally {
         // CRITICAL FIX: Always clear restoration flag after ensuring sessionHistory is loaded
         // Use a polling approach to ensure sessionHistory is loaded before clearing flag
+        const MAX_WAIT_TIME = 10000;   // 10 seconds max
+        const CHECK_INTERVAL = 500;     // Check every 500ms
+        const startTime = Date.now();
+        let checkCount = 0;
+
         const checkSessionHistoryLoaded = () => {
-            // CRITICAL FIX: Check if sessionHistory is actually an array (not undefined/null)
-            // Previous bug: window.sessionHistory.length >= 0 was ALWAYS true (even for empty [])
-            if (window.sessionHistory && Array.isArray(window.sessionHistory)) {
-                // SessionHistory is loaded (could be empty array for new users)
+            checkCount++;
+            const elapsed = Date.now() - startTime;
+
+            // TIMEOUT PROTECTION: Force unlock after 10 seconds
+            if (elapsed > MAX_WAIT_TIME) {
+                console.error(`⚠️ [RESTORE TIMEOUT] Forcing flag clear after ${MAX_WAIT_TIME}ms`);
                 setRestorationInProgress(false);
-                console.log('🔄 [RESTORE] Restoration flag cleared after sessionHistory loaded');
-                console.log('🔄 [RESTORE] Session history length at flag clear:', window.sessionHistory.length);
+
+                // EMERGENCY RECOVERY: Initialize empty sessionHistory if still undefined
+                if (!window.sessionHistory || !Array.isArray(window.sessionHistory)) {
+                    window.sessionHistory = [];
+                    console.warn('⚠️ [EMERGENCY] Initialized empty sessionHistory after timeout');
+                }
+                return;
+            }
+
+            // Normal success path
+            if (window.sessionHistory && Array.isArray(window.sessionHistory)) {
+                setRestorationInProgress(false);
+                console.log(`✅ [RESTORE] Flag cleared after ${elapsed}ms (${window.sessionHistory.length} sessions)`);
             } else {
-                // SessionHistory not yet loaded, check again
-                console.log('🔄 [RESTORE] SessionHistory not loaded yet, checking again in 500ms');
-                setTimeout(checkSessionHistoryLoaded, 500);
+                console.log(`⏳ [RESTORE] Attempt ${checkCount}: sessionHistory not loaded, checking again in ${CHECK_INTERVAL}ms`);
+                setTimeout(checkSessionHistoryLoaded, CHECK_INTERVAL);
             }
         };
-        
+
         // Start checking after initial delay
         setTimeout(checkSessionHistoryLoaded, 1000);
     }
