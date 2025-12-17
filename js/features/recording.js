@@ -126,6 +126,16 @@ window.RecordingManager = {
                     tabId: tab.id
                 }, (response) => {
                     const scanStartTime = new Date().toISOString();
+
+                    // Check for chrome.runtime.lastError
+                    if (chrome.runtime.lastError) {
+                        console.error('🟢 [ACTIVATION DEBUG] Runtime error starting background scanning:', chrome.runtime.lastError);
+                        if (window.updateStatus) {
+                            window.updateStatus('Błąd uruchomienia skanowania w tle', 'error');
+                        }
+                        return;
+                    }
+
                     if (response && response.success) {
                         console.log('🟢 [ACTIVATION DEBUG] Background scanning started at:', scanStartTime);
                         if (window.updateStatus) {

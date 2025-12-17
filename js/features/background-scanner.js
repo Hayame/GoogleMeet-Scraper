@@ -232,8 +232,13 @@ window.BackgroundScanner = {
         }
 
         // Auto-save session
-        if (window.SessionHistoryManager && window.SessionHistoryManager.autoSaveCurrentSession) {
-            await window.SessionHistoryManager.autoSaveCurrentSession();
+        try {
+            if (window.SessionHistoryManager && window.SessionHistoryManager.autoSaveCurrentSession) {
+                await window.SessionHistoryManager.autoSaveCurrentSession();
+            }
+        } catch (error) {
+            console.error('❌ [BACKGROUND] Auto-save failed:', error);
+            // Session data remains in memory - will retry on next update
         }
 
         // Update status
@@ -312,6 +317,145 @@ window.BackgroundScanner = {
     // 30-second auto-save interval removed to prevent duplicate sessions
     // Real-time auto-save in handleBackgroundScanUpdate() handles all saves properly
 
+    // ========================================
+    // REACTIVATION HELPER FUNCTIONS
+    // ========================================
+
+    /**
+     * Find or verify Meet tab for reactivation
+     * @private
+     * @returns {Promise<number|null>} Meet tab ID or null
+     */
+    async _findOrVerifyMeetTab() {
+        let meetTabId = null;
+
+        // Try to get stored MEET_TAB_ID
+        const result = await window.StorageManager.getStorageData([window.AppConstants.STORAGE_KEYS.MEET_TAB_ID]);
+        const storedTabId = result[window.AppConstants.STORAGE_KEYS.MEET_TAB_ID];
+
+        if (storedTabId) {
+            console.log('🔍 [REACTIVATE] Found stored MEET_TAB_ID:', storedTabId);
+
+            // Verify tab still exists and is a Meet tab
+            const tabValid = await this.verifyMeetTab(storedTabId);
+
+            if (tabValid) {
+                meetTabId = storedTabId;
+                console.log('✅ [REACTIVATE] Stored tab is still active');
+            } else {
+                console.warn('⚠️ [REACTIVATE] Stored tab no longer exists or is not a Meet tab');
+            }
+        }
+
+        // FALLBACK: If no stored ID or tab invalid, find active Meet tab
+        if (!meetTabId) {
+            console.log('🔍 [REACTIVATE] Searching for active Meet tab as fallback...');
+            meetTabId = await this.findActiveMeetTab();
+
+            if (meetTabId) {
+                console.log('✅ [REACTIVATE] Found active Meet tab:', meetTabId);
+
+                // Save newly found ID to storage
+                await window.StorageManager.setStorageData({
+                    [window.AppConstants.STORAGE_KEYS.MEET_TAB_ID]: meetTabId
+                });
+                console.log('💾 [REACTIVATE] Saved new MEET_TAB_ID to storage');
+            }
+        }
+
+        return meetTabId;
+    },
+
+    /**
+     * Handle case when no Meet tab is found
+     * @private
+     */
+    _handleNoMeetTab() {
+        console.error('❌ [REACTIVATE] No Google Meet tab found');
+        if (window.updateStatus) {
+            window.updateStatus('Nie znaleziono aktywnej karty Google Meet', 'error');
+        }
+    },
+
+    /**
+     * Recover and merge accumulated scan data
+     * @private
+     * @param {number} tabId - Meet tab ID
+     * @returns {Promise<boolean>} Success status
+     */
+    async _recoverAccumulatedData(tabId) {
+        const accumulatedData = await this.retrieveAccumulatedScanData(tabId);
+
+        if (!accumulatedData) {
+            console.log('📭 [REACTIVATE] No accumulated data to recover');
+            return false;
+        }
+
+        console.log('📦 [REACTIVATE] Found accumulated data, merging...');
+
+        try {
+            await this.mergeAccumulatedData(accumulatedData);
+
+            // Only remove from storage if merge succeeded
+            const storageKey = `backgroundScan_${tabId}`;
+            await window.StorageManager.removeStorageData([storageKey]);
+            console.log('🧹 [REACTIVATE] Data merged and cleaned from storage');
+
+            return true;
+
+        } catch (mergeError) {
+            console.error('❌ [REACTIVATE] Merge failed, keeping data in storage for retry:', mergeError);
+
+            // Keep data in storage - can retry later
+            if (window.updateStatus) {
+                window.updateStatus('Częściowy błąd przywracania danych - dane zachowane', 'warning');
+            }
+
+            return false;
+        }
+    },
+
+    /**
+     * Restart background scanning for tab
+     * @private
+     * @param {number} tabId - Meet tab ID
+     * @returns {Promise<boolean>} Success status
+     */
+    async _restartBackgroundScanning(tabId) {
+        console.log('🔄 [REACTIVATE] Restarting background scanning for tab:', tabId);
+        return await this.startBackgroundScanningWithRetry(tabId);
+    },
+
+    /**
+     * Handle successful reactivation
+     * @private
+     * @param {boolean} success - Reactivation success status
+     */
+    _handleReactivationResult(success) {
+        if (success) {
+            console.log('✅ [REACTIVATE] ===== REACTIVATION COMPLETED SUCCESSFULLY =====');
+            if (window.updateStatus) {
+                window.updateStatus('Skanowanie w tle wznowione pomyślnie', 'success');
+            }
+        } else {
+            console.error('❌ [REACTIVATE] ===== REACTIVATION FAILED =====');
+            if (window.updateStatus) {
+                window.updateStatus('Nie udało się wznowić skanowania w tle', 'error');
+            }
+        }
+    },
+
+    /**
+     * Handle reactivation error
+     * @private
+     * @param {Error} error - Error object
+     */
+    _handleReactivationError(error) {
+        console.error('❌ [REACTIVATE] Critical error during reactivation:', error);
+        if (window.updateStatus) {
+            window.updateStatus('Błąd reaktywacji: ' + error.message, 'error');
+        }
+    },
 
     /**
      * BULLETPROOF Reaktywacja background scannera po otwarciu popup
@@ -324,111 +468,27 @@ window.BackgroundScanner = {
      */
     async reactivateAfterRestore() {
         try {
-            console.log('🔄 [REACTIVATE] ===== ROZPOCZĘCIE BULLETPROOF REAKTYWACJI =====');
+            console.log('🔄 [REACTIVATE] ===== STARTING BULLETPROOF REACTIVATION =====');
 
-            // ============================================
-            // FAZA 0: ZNAJDŹ KARTĘ MEET (z fallback)
-            // ============================================
+            // Phase 0: Find Meet tab (with fallback)
+            const meetTabId = await this._findOrVerifyMeetTab();
 
-            let meetTabId = null;
-
-            // Spróbuj pobrać zapisane MEET_TAB_ID ze storage
-            const result = await window.StorageManager.getStorageData([window.AppConstants.STORAGE_KEYS.MEET_TAB_ID]);
-            const storedTabId = result[window.AppConstants.STORAGE_KEYS.MEET_TAB_ID];
-
-            if (storedTabId) {
-                console.log('🔍 [REACTIVATE] Znaleziono zapisane MEET_TAB_ID:', storedTabId);
-
-                // Zweryfikuj czy karta nadal istnieje i jest kartą Meet
-                const tabValid = await this.verifyMeetTab(storedTabId);
-
-                if (tabValid) {
-                    meetTabId = storedTabId;
-                    console.log('✅ [REACTIVATE] Zapisana karta jest nadal aktywna');
-                } else {
-                    console.warn('⚠️ [REACTIVATE] Zapisana karta nie istnieje lub nie jest kartą Meet');
-                }
-            }
-
-            // FALLBACK: Jeśli brak zapisanego ID lub karta nieważna, znajdź aktywną kartę Meet
             if (!meetTabId) {
-                console.log('🔍 [REACTIVATE] Szukanie aktywnej karty Meet jako fallback...');
-                meetTabId = await this.findActiveMeetTab();
-
-                if (!meetTabId) {
-                    console.error('❌ [REACTIVATE] Nie znaleziono żadnej karty Google Meet');
-                    if (window.updateStatus) {
-                        window.updateStatus('Nie znaleziono aktywnej karty Google Meet', 'error');
-                    }
-                    return;
-                }
-
-                console.log('✅ [REACTIVATE] Znaleziono aktywną kartę Meet:', meetTabId);
-
-                // Zapisz nowo znalezione ID do storage
-                await window.StorageManager.setStorageData({
-                    [window.AppConstants.STORAGE_KEYS.MEET_TAB_ID]: meetTabId
-                });
-                console.log('💾 [REACTIVATE] Zapisano nowe MEET_TAB_ID do storage');
+                this._handleNoMeetTab();
+                return;
             }
 
-            // ============================================
-            // FAZA 1: ODZYSKAJ ZGROMADZONE DANE
-            // ============================================
+            // Phase 1: Recover accumulated data
+            await this._recoverAccumulatedData(meetTabId);
 
-            const accumulatedData = await this.retrieveAccumulatedScanData(meetTabId);
+            // Phase 2: Restart background scanning
+            const restartSuccess = await this._restartBackgroundScanning(meetTabId);
 
-            if (accumulatedData) {
-                console.log('📦 [REACTIVATE] Znaleziono zgromadzone dane, łączenie...');
-
-                try {
-                    await this.mergeAccumulatedData(accumulatedData);
-
-                    // DOPIERO TERAZ usuń ze storage - TYLKO jeśli merge się powiódł!
-                    const storageKey = `backgroundScan_${meetTabId}`;
-                    await window.StorageManager.removeStorageData([storageKey]);
-                    console.log('🧹 [REACTIVATE] Dane połączone i wyczyszczono ze storage');
-
-                } catch (mergeError) {
-                    console.error('❌ [REACTIVATE] Merge failed, keeping data in storage for retry:', mergeError);
-
-                    // ZOSTAW dane w storage - można spróbować ponownie później!
-                    if (window.updateStatus) {
-                        window.updateStatus('Częściowy błąd przywracania danych - dane zachowane', 'warning');
-                    }
-                }
-            } else {
-                console.log('📭 [REACTIVATE] Brak zgromadzonych danych do odzyskania');
-            }
-
-            // ============================================
-            // FAZA 2: RESTART SKANOWANIA W TLE
-            // ============================================
-
-            console.log('🔄 [REACTIVATE] Restartowanie background scanning dla tab:', meetTabId);
-
-            const restartSuccess = await this.startBackgroundScanningWithRetry(meetTabId);
-
-            if (restartSuccess) {
-                console.log('✅ [REACTIVATE] ===== REAKTYWACJA ZAKOŃCZONA SUKCESEM =====');
-
-                if (window.updateStatus) {
-                    window.updateStatus('Skanowanie w tle wznowione pomyślnie', 'success');
-                }
-            } else {
-                console.error('❌ [REACTIVATE] ===== REAKTYWACJA NIEUDANA =====');
-
-                if (window.updateStatus) {
-                    window.updateStatus('Nie udało się wznowić skanowania w tle', 'error');
-                }
-            }
+            // Handle result
+            this._handleReactivationResult(restartSuccess);
 
         } catch (error) {
-            console.error('❌ [REACTIVATE] Krytyczny błąd podczas reaktywacji:', error);
-
-            if (window.updateStatus) {
-                window.updateStatus('Błąd reaktywacji: ' + error.message, 'error');
-            }
+            this._handleReactivationError(error);
         }
     },
 
