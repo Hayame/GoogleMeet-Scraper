@@ -65,17 +65,21 @@ function getRealtimeMode() {
  * Set current session ID with proper persistence
  * @param {string} sessionId - Session identifier
  */
-function setCurrentSessionId(sessionId) {
+async function setCurrentSessionId(sessionId) {
     currentSessionId = sessionId;
     window.currentSessionId = sessionId;
-    
+
     // CRITICAL FIX: Automatically save to storage when currentSessionId changes
     if (sessionId) {
-        const storageUpdate = {};
-        storageUpdate[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID] = sessionId;
-        chrome.storage.local.set(storageUpdate, () => {
+        try {
+            await window.StorageManager.setStorageData({
+                [window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID]: sessionId
+            });
             console.log('🔄 [STATE DEBUG] currentSessionId saved to storage:', sessionId);
-        });
+        } catch (error) {
+            console.error('❌ [STATE] Failed to save currentSessionId:', sessionId, error);
+            // Non-fatal - state is in memory, will retry on next operation
+        }
     }
 }
 
@@ -494,11 +498,15 @@ async function _restoreActiveRecording(result) {
         console.log('🔄 [RESTORE DEBUG] Generated new currentSessionId:', currentSessionId);
 
         // Save generated currentSessionId to storage
-        chrome.storage.local.set({
-            [window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID]: currentSessionId
-        }, () => {
+        try {
+            await window.StorageManager.setStorageData({
+                [window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID]: currentSessionId
+            });
             console.log('🔄 [RESTORE DEBUG] Saved generated currentSessionId to storage');
-        });
+        } catch (error) {
+            console.error('❌ [RESTORE] Failed to save generated currentSessionId:', error);
+            // Continue restoration - ID is in memory
+        }
     }
 
     // Restore session duration
@@ -610,42 +618,6 @@ function _restoreHistoricalSession(result) {
 }
 
 /**
- * Restore legacy session (DEPRECATED - for old sessions without sessionState)
- * @private
- * @param {Object} result - Storage data
- * @returns {Object} Restoration result
- */
-function _restoreLegacySession(result) {
-    if (result[window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA] && result[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID]) {
-        const isActiveRecording = result[window.AppConstants.STORAGE_KEYS.REALTIME_MODE];
-        const isHistoricalSession = window.sessionHistory?.find(s => s.id === result[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID]);
-
-        console.log('🔍 [RESTORE DEBUG] Legacy session lookup:', {
-            sessionId: result[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID],
-            sessionHistoryLength: window.sessionHistory?.length || 0,
-            isActiveRecording,
-            foundHistoricalSession: !!isHistoricalSession
-        });
-
-        if (isActiveRecording || isHistoricalSession) {
-            transcriptData = result[window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA];
-            currentSessionId = result[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID];
-
-            exposeGlobalVariables();
-
-            return {
-                restored: true,
-                realtimeMode: false,
-                transcriptData: transcriptData,
-                currentSessionId: currentSessionId
-            };
-        }
-    }
-
-    return null;
-}
-
-/**
  * Restore state from storage - Main state restoration function
  * This was originally the restoreStateFromStorage function from popup.js (lines ~104-220)
  */
@@ -688,10 +660,6 @@ async function restoreStateFromStorage() {
             if (historicalResult) return historicalResult;
         }
 
-        // Path 4: Legacy session (DEPRECATED - for backward compatibility)
-        const legacyResult = _restoreLegacySession(result);
-        if (legacyResult) return legacyResult;
-
         // No state to restore
         setRestorationInProgress(false);
         console.log('🔄 [RESTORE] Restoration complete - no state to restore');
@@ -708,8 +676,8 @@ async function restoreStateFromStorage() {
     } finally {
         // CRITICAL FIX: Always clear restoration flag after ensuring sessionHistory is loaded
         // Use a polling approach to ensure sessionHistory is loaded before clearing flag
-        const MAX_WAIT_TIME = 10000;   // 10 seconds max
-        const CHECK_INTERVAL = 500;     // Check every 500ms
+        const MAX_WAIT_TIME = window.AppConstants.TIMING.STATE_RESTORATION_MAX_WAIT;
+        const CHECK_INTERVAL = window.AppConstants.TIMING.STATE_RESTORATION_CHECK_INTERVAL;
         const startTime = Date.now();
         let checkCount = 0;
 
@@ -717,7 +685,7 @@ async function restoreStateFromStorage() {
             checkCount++;
             const elapsed = Date.now() - startTime;
 
-            // TIMEOUT PROTECTION: Force unlock after 10 seconds
+            // TIMEOUT PROTECTION: Force unlock after configured max wait time
             if (elapsed > MAX_WAIT_TIME) {
                 console.error(`⚠️ [RESTORE TIMEOUT] Forcing flag clear after ${MAX_WAIT_TIME}ms`);
                 setRestorationInProgress(false);

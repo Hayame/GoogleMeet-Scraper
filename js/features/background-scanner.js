@@ -9,7 +9,9 @@ window.BackgroundScanner = {
     _mergeQueue: [],          // Array of {id, data, priority, timestamp, retryCount}
     _isMerging: false,        // True while processing queue
     _mergeSequence: 0,        // Unique ID generator
-    _maxQueueSize: 50,        // Prevent memory leak
+    get _maxQueueSize() {     // Prevent memory leak
+        return window.AppConstants.TIMING.MERGE_QUEUE_MAX_SIZE;
+    },
 
     /**
      * Handle background scan updates from content script
@@ -17,49 +19,18 @@ window.BackgroundScanner = {
      * @param {Object} data - Transcript data from background scan
      */
     async handleBackgroundScanUpdate(data) {
-        const timestamp = new Date().toISOString();
-        console.log('🟡 [BACKGROUND DEBUG] Handling background scan update at:', timestamp);
-        console.log('🟡 [BACKGROUND DEBUG] Data messages length:', data ? data.messages?.length : 'undefined');
-        console.log('🟡 [BACKGROUND DEBUG] Current state:', {
-            realtimeMode: window.realtimeMode,
-            currentSessionId: window.currentSessionId,
-            currentSessionIdType: typeof window.currentSessionId,
-            hasTranscriptData: !!window.transcriptData,
-            hasSessionHistory: !!window.sessionHistory,
-            sessionHistoryLength: window.sessionHistory?.length || 0,
-            restorationInProgress: window.StateManager?.isRestorationInProgress()
-        });
-        
-        // ENHANCED DEBUG: Show session ID format analysis
-        if (window.currentSessionId && window.sessionHistory && window.sessionHistory.length > 0) {
-            console.log('🟡 [BACKGROUND DEBUG] Session ID analysis:', {
-                currentSessionId: window.currentSessionId,
-                currentSessionIdType: typeof window.currentSessionId,
-                sessionHistoryIds: window.sessionHistory.slice(0, 3).map(s => ({ id: s.id, type: typeof s.id })),
-                exactMatchExists: !!window.sessionHistory.find(s => s.id === window.currentSessionId)
-            });
-        }
-
-        // REMOVED: Problematic session history check that created infinite loop for new users
-        // The check for sessionHistory.length === 0 incorrectly treated empty arrays as "not loaded"
-        // This is now handled by the enhanced session existence verification in the auto-save logic
-        
         if (!window.realtimeMode) {
-            console.log('🟡 [BACKGROUND DEBUG] Ignoring - not in realtime mode');
-            return;
-        }
-        
-        if (window.StateManager?.getRecordingStopped()) {
-            console.log('🟡 [BACKGROUND DEBUG] Ignoring - recording stopped');
-            return;
-        }
-        
-        if (!data || !data.messages || data.messages.length === 0) {
-            console.log('🟡 [BACKGROUND DEBUG] No messages in background scan update');
             return;
         }
 
-        console.log('🟡 [BACKGROUND DEBUG] Scheduling background update (low priority)');
+        if (window.StateManager?.getRecordingStopped()) {
+            return;
+        }
+
+        if (!data || !data.messages || data.messages.length === 0) {
+            return;
+        }
+
         // Schedule with priority 1 (background updates are low priority, restoration goes first)
         await this.scheduleMerge(data, 1);
     },
@@ -759,33 +730,36 @@ window.BackgroundScanner = {
      * @returns {Promise<number|null>} ID karty Meet lub null
      */
     async findActiveMeetTab() {
-        return new Promise((resolve) => {
-            // Najpierw spróbuj znaleźć aktywną kartę w bieżącym oknie
-            chrome.tabs.query({
+        try {
+            // Try 1: Find active tab in current window
+            const activeTabs = await chrome.tabs.query({
                 active: true,
                 currentWindow: true,
                 url: 'https://meet.google.com/*'
-            }, (tabs) => {
-                if (tabs && tabs.length > 0) {
-                    console.log('🔍 [FIND] Znaleziono aktywną kartę Meet w bieżącym oknie:', tabs[0].id);
-                    resolve(tabs[0].id);
-                    return;
-                }
-
-                // Fallback: Znajdź DOWOLNĄ kartę Meet (nawet nieaktywną)
-                chrome.tabs.query({
-                    url: 'https://meet.google.com/*'
-                }, (tabs) => {
-                    if (tabs && tabs.length > 0) {
-                        console.log('🔍 [FIND] Znaleziono kartę Meet (nieaktywna):', tabs[0].id);
-                        resolve(tabs[0].id);
-                    } else {
-                        console.log('🔍 [FIND] Nie znaleziono żadnej karty Meet');
-                        resolve(null);
-                    }
-                });
             });
-        });
+
+            if (activeTabs && activeTabs.length > 0) {
+                console.log('🔍 [FIND] Znaleziono aktywną kartę Meet w bieżącym oknie:', activeTabs[0].id);
+                return activeTabs[0].id;
+            }
+
+            // Try 2: Find ANY Meet tab (even inactive)
+            const anyMeetTabs = await chrome.tabs.query({
+                url: 'https://meet.google.com/*'
+            });
+
+            if (anyMeetTabs && anyMeetTabs.length > 0) {
+                console.log('🔍 [FIND] Znaleziono kartę Meet (nieaktywna):', anyMeetTabs[0].id);
+                return anyMeetTabs[0].id;
+            }
+
+            console.log('🔍 [FIND] Nie znaleziono żadnej karty Meet');
+            return null;
+
+        } catch (error) {
+            console.error('❌ [FIND] Error finding Meet tab:', error);
+            return null;
+        }
     },
 
     /**

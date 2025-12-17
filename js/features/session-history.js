@@ -10,66 +10,61 @@ window.SessionHistoryManager = {
      * Initialize session history from storage
      * Source: popup.js lines 1714-1742
      */
-    initializeSessionHistory() {
-        return new Promise((resolve) => {
-            // Load session history from storage
-            chrome.storage.local.get(['sessionHistory'], (result) => {
-                try {
-                    window.sessionHistory = result.sessionHistory || [];
-                    console.log('📁 [HISTORY] Loaded session history:', window.sessionHistory.length, 'sessions');
-                    
-                    // CRITICAL DEBUG: Log session details for debugging ID format issues
-                    if (window.sessionHistory.length > 0) {
-                        console.log('📁 [HISTORY DEBUG] Session IDs and types:', 
-                            window.sessionHistory.slice(0, 5).map(s => ({
-                                id: s.id,
-                                idType: typeof s.id,
-                                title: s.title,
-                                date: s.date,
-                                entryCount: s.entryCount
-                            }))
-                        );
-                        
-                        // CRITICAL DEBUG: Log current session context for duplicate prevention
-                        if (window.currentSessionId) {
-                            const currentSessionExists = window.sessionHistory.find(s => s.id === window.currentSessionId);
-                            console.log('📁 [HISTORY DEBUG] Current session context:', {
-                                currentSessionId: window.currentSessionId,
-                                existsInLoadedHistory: !!currentSessionExists,
-                                realtimeMode: window.realtimeMode,
-                                hasTranscriptData: !!window.transcriptData,
-                                restorationInProgress: window.StateManager?.isRestorationInProgress()
-                            });
-                        }
-                    }
-                    
-                    // Render the session history UI
-                    if (window.SessionUIManager && window.SessionUIManager.renderSessionHistory) {
-                        window.SessionUIManager.renderSessionHistory();
-                    }
-                    
-                    // Add event listeners for history UI INSIDE the Promise
-                    const newSessionBtn = document.getElementById('newSessionBtn');
-                    if (newSessionBtn) {
-                        // Remove existing event listeners to prevent duplicates
-                        newSessionBtn.removeEventListener('click', window.createNewSession);
-                        newSessionBtn.addEventListener('click', window.createNewSession);
-                        console.log('📁 [HISTORY] New session button event listener added');
-                    } else {
-                        console.error('New session button not found');
-                    }
-                    
-                    resolve();
-                } catch (error) {
-                    console.error('Error loading session history:', error);
-                    window.sessionHistory = [];
-                    if (window.SessionUIManager && window.SessionUIManager.renderSessionHistory) {
-                        window.SessionUIManager.renderSessionHistory();
-                    }
-                    resolve();
+    async initializeSessionHistory() {
+        try {
+            // Load session history from storage using StorageManager
+            const result = await window.StorageManager.getStorageData(['sessionHistory']);
+            window.sessionHistory = result.sessionHistory || [];
+            console.log('📁 [HISTORY] Loaded session history:', window.sessionHistory.length, 'sessions');
+
+            // CRITICAL DEBUG: Log session details for debugging ID format issues
+            if (window.sessionHistory.length > 0) {
+                console.log('📁 [HISTORY DEBUG] Session IDs and types:',
+                    window.sessionHistory.slice(0, 5).map(s => ({
+                        id: s.id,
+                        idType: typeof s.id,
+                        title: s.title,
+                        date: s.date,
+                        entryCount: s.entryCount
+                    }))
+                );
+
+                // CRITICAL DEBUG: Log current session context for duplicate prevention
+                if (window.currentSessionId) {
+                    const currentSessionExists = window.sessionHistory.find(s => s.id === window.currentSessionId);
+                    console.log('📁 [HISTORY DEBUG] Current session context:', {
+                        currentSessionId: window.currentSessionId,
+                        existsInLoadedHistory: !!currentSessionExists,
+                        realtimeMode: window.realtimeMode,
+                        hasTranscriptData: !!window.transcriptData,
+                        restorationInProgress: window.StateManager?.isRestorationInProgress()
+                    });
                 }
-            });
-        });
+            }
+
+            // Render the session history UI
+            if (window.SessionUIManager && window.SessionUIManager.renderSessionHistory) {
+                window.SessionUIManager.renderSessionHistory();
+            }
+
+            // Add event listeners for history UI
+            const newSessionBtn = document.getElementById('newSessionBtn');
+            if (newSessionBtn) {
+                // Remove existing event listeners to prevent duplicates
+                newSessionBtn.removeEventListener('click', window.createNewSession);
+                newSessionBtn.addEventListener('click', window.createNewSession);
+                console.log('📁 [HISTORY] New session button event listener added');
+            } else {
+                console.error('New session button not found');
+            }
+
+        } catch (error) {
+            console.error('❌ [HISTORY] Error loading session history:', error);
+            window.sessionHistory = [];
+            if (window.SessionUIManager && window.SessionUIManager.renderSessionHistory) {
+                window.SessionUIManager.renderSessionHistory();
+            }
+        }
     },
 
     /**
@@ -254,7 +249,7 @@ window.SessionHistoryManager = {
      * Perform the actual session loading
      * Source: popup.js lines 1985-2030
      */
-    performLoadSession(session, shouldResetFilters = false) {
+    async performLoadSession(session, shouldResetFilters = false) {
         // Load the session
         window.transcriptData = session.transcript;
         window.currentSessionId = session.id;
@@ -284,16 +279,22 @@ window.SessionHistoryManager = {
         if (exportTxtBtn) {
             exportTxtBtn.disabled = false;
         }
-        
+
         // Update storage (historic sessions are never recording)
-        chrome.storage.local.set({ 
-            transcriptData: window.transcriptData,
-            currentSessionId: window.currentSessionId,
-            recordingStartTime: null,
-            realtimeMode: false,
-            sessionState: window.AppConstants.SESSION_STATES.HISTORICAL_SESSION  // Mark as historical
-        });
-        
+        try {
+            await window.StorageManager.setStorageData({
+                [window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA]: window.transcriptData,
+                [window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID]: window.currentSessionId,
+                [window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME]: null,
+                [window.AppConstants.STORAGE_KEYS.REALTIME_MODE]: false,
+                [window.AppConstants.STORAGE_KEYS.SESSION_STATE]: window.AppConstants.SESSION_STATES.HISTORICAL_SESSION  // Mark as historical
+            });
+            console.log('✅ [SESSION] Historical session state saved to storage');
+        } catch (error) {
+            console.error('❌ [SESSION] Failed to save historical session state:', error);
+            // Non-fatal - UI already updated
+        }
+
         // Show meeting name instead of status for historical sessions
         window.showMeetingName(session.title, session.id);
         
@@ -375,7 +376,7 @@ window.SessionHistoryManager = {
      * Actually perform the session deletion
      * Source: popup.js lines 3007-3058
      */
-    performDeleteSession(sessionId) {
+    async performDeleteSession(sessionId) {
         window.sessionHistory = window.sessionHistory.filter(s => s.id !== sessionId);
         
         // If deleting current session, clear it and show empty session
@@ -411,23 +412,45 @@ window.SessionHistoryManager = {
             // Update UI for new session state
             window.updateButtonVisibility('NEW');
             window.hideMeetingName();
-            
-            chrome.storage.local.remove(['transcriptData', 'currentSessionId', 'recordingStartTime', 'sessionStartTime', 'sessionTotalDuration', 'currentSessionDuration', 'meetTabId']);
+
+            // Remove current session from storage
+            try {
+                await window.StorageManager.removeStorageData([
+                    window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA,
+                    window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID,
+                    window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME,
+                    window.AppConstants.STORAGE_KEYS.SESSION_START_TIME,
+                    window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION,
+                    window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_DURATION,
+                    window.AppConstants.STORAGE_KEYS.MEET_TAB_ID
+                ]);
+                console.log('✅ [DELETE] Removed current session from storage');
+            } catch (error) {
+                console.error('❌ [DELETE] Failed to remove session keys:', error);
+                // Non-fatal - continue with deletion
+            }
         }
-        
+
         // Save updated history
-        chrome.storage.local.set({ sessionHistory: window.sessionHistory }, () => {
+        try {
+            await window.StorageManager.saveSessionHistory(window.sessionHistory);
+
+            // Update UI after successful save
             if (window.SessionUIManager && window.SessionUIManager.renderSessionHistory) {
                 window.SessionUIManager.renderSessionHistory();
             }
-            
+
             // Update clear button state after deletion
             if (window.updateClearButtonState) {
                 window.updateClearButtonState();
             }
-            
+
             window.updateStatus('Sesja usunięta', 'success');
-        });
+            console.log('✅ [DELETE] Session deleted and history updated');
+        } catch (error) {
+            console.error('❌ [DELETE] Failed to save updated history:', error);
+            window.updateStatus('Błąd podczas usuwania sesji', 'error');
+        }
     },
 
     /**
@@ -521,7 +544,7 @@ window.SessionHistoryManager = {
     /**
      * Perform new session creation (from old popup.js performNewSessionCreation function)
      */
-    performNewSessionCreation() {
+    async performNewSessionCreation() {
         // Clear current data
         window.transcriptData = null;
         window.currentSessionId = window.generateSessionId ? window.generateSessionId() : 'session_' + Date.now();
@@ -578,10 +601,23 @@ window.SessionHistoryManager = {
         if (window.updateButtonVisibility) {
             window.updateButtonVisibility('NEW');
         }
-        
+
         // Clear storage for new session
-        chrome.storage.local.remove(['transcriptData', 'currentSessionId', 'recordingStartTime', 'sessionStartTime', 'sessionTotalDuration', 'currentSessionDuration']);
-        
+        try {
+            await window.StorageManager.removeStorageData([
+                window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA,
+                window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID,
+                window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME,
+                window.AppConstants.STORAGE_KEYS.SESSION_START_TIME,
+                window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION,
+                window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_DURATION
+            ]);
+            console.log('✅ [NEW SESSION] Cleared storage for new session');
+        } catch (error) {
+            console.error('❌ [NEW SESSION] Failed to clear storage:', error);
+            // Non-fatal - UI already reset
+        }
+
         console.log('🆕 [NEW SESSION] New session created successfully');
     },
 
@@ -607,7 +643,7 @@ window.SessionHistoryManager = {
      * Clear current transcript data
      * Source: popup-old.js lines 595-629
      */
-    clearCurrentTranscript() {
+    async clearCurrentTranscript() {
         console.log('🧹 [CLEAR] Clearing current transcript');
         
         // Stop recording if active
@@ -655,9 +691,21 @@ window.SessionHistoryManager = {
         if (window.UIManager) {
             window.UIManager.updateButtonVisibility('NEW');
         }
-        
+
         // Clear from storage
-        chrome.storage.local.remove(['transcriptData', 'currentSessionId', 'recordingStartTime', 'sessionStartTime', 'meetTabId']);
+        try {
+            await window.StorageManager.removeStorageData([
+                window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA,
+                window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID,
+                window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME,
+                window.AppConstants.STORAGE_KEYS.SESSION_START_TIME,
+                window.AppConstants.STORAGE_KEYS.MEET_TAB_ID
+            ]);
+            console.log('✅ [CLEAR] Transcript data cleared from storage');
+        } catch (error) {
+            console.error('❌ [CLEAR] Failed to clear storage:', error);
+            // UI already cleared, storage cleanup is best-effort
+        }
     },
 
     /**
@@ -846,26 +894,23 @@ window.SessionHistoryManager = {
      */
     async _clearStorageData() {
         const keysToRemove = [
-            'sessionHistory',
-            'transcriptData',
-            'currentSessionId',
-            'recordingStartTime',
-            'sessionStartTime',
-            'sessionTotalDuration',
-            'currentSessionDuration',
-            'meetTabId'
+            window.AppConstants.STORAGE_KEYS.SESSION_HISTORY,
+            window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA,
+            window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID,
+            window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME,
+            window.AppConstants.STORAGE_KEYS.SESSION_START_TIME,
+            window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION,
+            window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_DURATION,
+            window.AppConstants.STORAGE_KEYS.MEET_TAB_ID
         ];
 
-        return new Promise((resolve, reject) => {
-            chrome.storage.local.remove(keysToRemove, () => {
-                if (chrome.runtime.lastError) {
-                    console.error('❌ [HISTORY] Error clearing storage:', chrome.runtime.lastError);
-                    reject(chrome.runtime.lastError);
-                } else {
-                    resolve();
-                }
-            });
-        });
+        try {
+            await window.StorageManager.removeStorageData(keysToRemove);
+            console.log(`✅ [CLEANUP] Removed ${keysToRemove.length} storage keys`);
+        } catch (error) {
+            console.error('❌ [CLEANUP] Failed to remove storage keys:', error);
+            throw error; // Re-throw to maintain error propagation
+        }
     },
 
     /**

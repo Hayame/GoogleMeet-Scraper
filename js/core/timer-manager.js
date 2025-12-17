@@ -82,18 +82,18 @@ window.TimerManager = {
             // Save timer state to storage periodically (every 10 seconds) for popup restoration
             if (totalDuration % 10 === 0) {
                 // Use StorageManager for consistent storage operations
-                if (window.StorageManager) {
-                    window.StorageManager.saveSessionState({
-                        sessionTotalDuration: sessionTotalDuration,
-                        recordingStartTime: recordingStartTime.toISOString()
-                    });
-                } else {
-                    // Fallback to direct storage
-                    chrome.storage.local.set({ 
-                        sessionTotalDuration: sessionTotalDuration,
-                        recordingStartTime: recordingStartTime.toISOString()
-                    });
-                }
+                // Save duration to storage (non-blocking)
+                (async () => {
+                    try {
+                        await window.StorageManager.saveSessionState({
+                            sessionTotalDuration: sessionTotalDuration,
+                            recordingStartTime: recordingStartTime
+                        });
+                    } catch (error) {
+                        console.error('❌ [TIMER] Failed to save duration:', error);
+                        // Non-fatal - timer continues updating in UI
+                    }
+                })();
             }
         } else {
             // No active recording - show total accumulated duration

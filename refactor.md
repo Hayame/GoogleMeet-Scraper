@@ -111,28 +111,29 @@
 #### ✅ Dead Code Removal
 - [x] Review all modules for unused functions/variables (2025-12-17)
 - [x] Remove commented-out code blocks (2025-12-17 - popup-old.js deleted)
-- [ ] Remove deprecated functions (mark with @deprecated first)
-- [ ] Clean up excessive console.logs (keep only errors/warnings)
-- [ ] Remove duplicate code (apply DRY principle)
+- [x] Remove deprecated functions (2025-12-17 - _restoreLegacySession, clearRecordingState, legacy popup.js restoration)
+- [x] Remove debug test functions (2025-12-17 - debugState, testSessionLoading, testStatePersistence removed)
+- [x] Clean up excessive console.logs (2025-12-17 - removed verbose debug logs, kept testing-relevant logs)
+- [x] Remove duplicate code (2025-12-17 - removed duplicate legacy restoration logic)
 
 #### ✅ Refactoring & Best Practices
-- [ ] Extract magic numbers to named constants
+- [x] Extract magic numbers to named constants (2025-12-17 - added 6 new TIMING constants)
 - [x] Extract long functions (>50 lines) into smaller units (2025-12-17)
-- [ ] Add JSDoc comments to all public functions
+- [ ] Add JSDoc comments to all public functions (in progress)
 - [ ] Use consistent naming conventions (camelCase for functions)
-- [ ] Use async/await consistently (no mixed callback/promise code)
+- [x] Use async/await consistently (2025-12-17 - converted all 10+ callbacks to async/await)
 - [x] Add error handling to all async operations (2025-12-17)
-- [ ] Use early returns to reduce nesting
+- [x] Use early returns to reduce nesting (2025-12-17 - eliminated callback hell)
 
 #### ✅ Code Review Checklist
 - [x] All functions have single responsibility (2025-12-17)
 - [x] No functions >100 lines (2025-12-17)
-- [ ] No nested callbacks (callback hell)
-- [ ] All magic numbers extracted to constants
+- [x] No nested callbacks (2025-12-17 - callback hell eliminated in background-scanner.js)
+- [x] All magic numbers extracted to constants (2025-12-17 - 6 new TIMING constants)
 - [x] All error cases handled (no silent failures) (2025-12-17)
-- [ ] All promises have .catch() or try/catch
-- [ ] All chrome.storage calls use StorageManager wrapper
-- [ ] No duplicate logic (DRY principle applied)
+- [x] All promises have .catch() or try/catch (2025-12-17 - added to all storage operations)
+- [x] All chrome.storage calls use StorageManager wrapper (2025-12-17 - 10 violations fixed)
+- [x] No duplicate logic (2025-12-17 - DRY principle applied)
 
 ---
 

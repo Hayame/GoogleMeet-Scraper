@@ -241,24 +241,31 @@ window.UIManager = {
                 }
             });
         } else {
-            // Fallback to direct storage
-            chrome.storage.local.get(['sessionHistory'], (result) => {
-                const sessionHistory = result.sessionHistory || [];
-                const sessionIndex = sessionHistory.findIndex(s => s.id === sessionId);
-                
-                if (sessionIndex !== -1) {
-                    sessionHistory[sessionIndex].title = newName;
-                    
-                    // CRITICAL FIX: Update global sessionHistory variable
-                    window.sessionHistory = sessionHistory;
-                    
-                    chrome.storage.local.set({ sessionHistory }, () => {
+            // Fallback: Use StorageManager directly
+            (async () => {
+                try {
+                    const result = await window.StorageManager.getStorageData(['sessionHistory']);
+                    const sessionHistory = result.sessionHistory || [];
+                    const sessionIndex = sessionHistory.findIndex(s => s.id === sessionId);
+
+                    if (sessionIndex !== -1) {
+                        sessionHistory[sessionIndex].title = newName;
+
+                        // Update global sessionHistory variable
+                        window.sessionHistory = sessionHistory;
+
+                        await window.StorageManager.saveSessionHistory(sessionHistory);
+
                         if (window.renderSessionHistory) {
                             window.renderSessionHistory();
                         }
-                    });
+
+                        console.log('✅ [UI] Meeting name updated (fallback path):', newName);
+                    }
+                } catch (error) {
+                    console.error('❌ [UI] Failed to update meeting name (fallback):', error);
                 }
-            });
+            })();
         }
         
         // Update display text and switch back to display mode

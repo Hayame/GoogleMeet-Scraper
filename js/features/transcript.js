@@ -77,16 +77,19 @@ window.TranscriptManager = {
 
         // Full render - show all entries
         const entriesToShow = messagesToDisplay;
+        const transitionDuration = window.AppConstants.TIMING.ANIMATION_TRANSITION_DURATION;
+        const staggerDelay = window.AppConstants.TIMING.ANIMATION_STAGGER_DELAY;
+
         entriesToShow.forEach((entry, index) => {
             const entryDiv = this.createMessageElement(entry, speakerColors);
             previewDiv.appendChild(entryDiv);
-            
+
             // Animate entry appearance
             setTimeout(() => {
-                entryDiv.style.transition = 'all 0.3s ease';
+                entryDiv.style.transition = `all ${transitionDuration}ms ease`;
                 entryDiv.style.opacity = '1';
                 entryDiv.style.transform = 'translateY(0)';
-            }, index * 50); // Stagger animation
+            }, index * staggerDelay); // Stagger animation
         });
 
         // Reinitialize enhanced interactions for new elements
@@ -560,10 +563,15 @@ window.TranscriptManager = {
      * Save expanded state to chrome.storage
      * Source: popup.js lines 1663-1666
      */
-    _saveExpandedState() {
-        if (window.expandedEntries && typeof chrome !== 'undefined' && chrome.storage) {
-            const expandedArray = Array.from(window.expandedEntries);
-            chrome.storage.local.set({ expandedEntries: expandedArray });
+    async _saveExpandedState() {
+        if (!window.expandedEntries) return;
+
+        try {
+            await window.StorageManager.saveExpandedEntries(window.expandedEntries);
+            console.log('✅ [TRANSCRIPT] Saved expanded entries state');
+        } catch (error) {
+            console.error('❌ [TRANSCRIPT] Failed to save expanded state:', error);
+            // Non-fatal - UI state preserved in memory
         }
     },
 
