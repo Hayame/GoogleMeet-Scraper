@@ -170,24 +170,6 @@ async function setPausedSessionState() {
     console.log('⏸️ [STORAGE] Set session to paused state - preserved transcript data and paused/stopped flags');
 }
 
-/**
- * Clear all recording-related storage keys when recording stops (legacy function)
- * DEPRECATED: Use setPausedSessionState() instead
- */
-async function clearRecordingState() {
-    await removeStorageData([
-        window.AppConstants.STORAGE_KEYS.REALTIME_MODE,
-        window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME,
-        window.AppConstants.STORAGE_KEYS.SESSION_START_TIME,
-        window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION,
-        window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_DURATION,
-        window.AppConstants.STORAGE_KEYS.MEET_TAB_ID,
-        window.AppConstants.STORAGE_KEYS.RECORDING_PAUSED,
-        window.AppConstants.STORAGE_KEYS.RECORDING_STOPPED
-    ]);
-    console.log('🧹 [STORAGE] Cleared all recording state keys including paused/stopped flags');
-}
-
 // Export all storage functions
 window.StorageManager = {
     // Core operations
@@ -202,7 +184,6 @@ window.StorageManager = {
     saveSessionHistory,
     saveExpandedEntries,
     clearCurrentSessionDuration,
-    clearRecordingState,
     setPausedSessionState,
     saveRecordingStateForPopupClose,
 

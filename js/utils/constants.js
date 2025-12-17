@@ -7,7 +7,13 @@ const TIMING = {
     DURATION_UPDATE_INTERVAL: 1000, // Update duration display every second
     SESSION_SAVE_DELAY: 2000, // Delay before saving session to prevent rapid saves
     URL_REVOKE_DELAY: 1000, // Delay before revoking object URL after download
-    DEBOUNCE_DELAY: 300 // General debounce delay for user interactions
+    DEBOUNCE_DELAY: 300, // General debounce delay for user interactions
+    TRANSACTION_TIMEOUT: 5000, // 5 seconds - TransactionCoordinator timeout
+    MERGE_QUEUE_MAX_SIZE: 50, // Max merge operations in queue
+    STATE_RESTORATION_MAX_WAIT: 10000, // 10 seconds - max wait for sessionHistory load
+    STATE_RESTORATION_CHECK_INTERVAL: 500, // 500ms - check interval for restoration
+    ANIMATION_STAGGER_DELAY: 50, // 50ms - transcript entry animation stagger
+    ANIMATION_TRANSITION_DURATION: 300 // 300ms - transcript entry transition
 };
 
 // Storage keys used throughout the application

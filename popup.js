@@ -91,7 +91,6 @@ async function initializeApplication() {
     // 1. Initialize transaction coordinator first (required by StorageManager)
     if (window.TransactionCoordinator) {
         window.TransactionCoordinator.initialize();
-        console.log('✅ Transaction Coordinator initialized');
     } else {
         throw new Error('TransactionCoordinator not found');
     }
@@ -99,7 +98,6 @@ async function initializeApplication() {
     // 2. Initialize storage management
     if (window.StorageManager) {
         window.StorageManager.initialize();
-        console.log('✅ Storage Manager initialized');
     } else {
         throw new Error('StorageManager not found');
     }
@@ -107,52 +105,44 @@ async function initializeApplication() {
     // 3. Initialize core state management
     if (window.StateManager) {
         window.StateManager.initialize();
-        console.log('✅ State Manager initialized');
     } else {
         throw new Error('StateManager not found');
     }
-    
-    // 3. Initialize UI management
+
+    // 4. Initialize UI management
     if (window.UIManager) {
         window.UIManager.initialize();
-        console.log('✅ UI Manager initialized');
     }
-    
-    // 4. Initialize timer management
+
+    // 5. Initialize timer management
     if (window.TimerManager) {
         window.TimerManager.initialize();
-        console.log('✅ Timer Manager initialized');
     }
-    
-    // 5. Initialize modal system
+
+    // 6. Initialize modal system
     if (window.ModalManager) {
         window.ModalManager.initialize();
-        console.log('✅ Modal Manager initialized');
     }
-    
-    // 6. Initialize settings manager
+
+    // 7. Initialize settings manager
     if (window.SettingsManager) {
         await window.SettingsManager.initialize();
-        console.log('✅ Settings Manager initialized');
     }
-    
-    // 7. Initialize background scanner
+
+    // 8. Initialize background scanner
     if (window.BackgroundScanner) {
         window.BackgroundScanner.initialize();
-        console.log('✅ Background Scanner initialized');
     }
-    
-    // 8. Initialize recording management
+
+    // 9. Initialize recording management
     if (window.RecordingManager) {
         window.RecordingManager.initialize();
-        console.log('✅ Recording Manager initialized');
     }
-    
-    // 9. Initialize session history (CRITICAL: Must await before state restoration)
+
+    // 10. Initialize session history (CRITICAL: Must await before state restoration)
     if (window.SessionHistoryManager && window.SessionUIManager) {
         await window.SessionHistoryManager.initialize();
         window.SessionUIManager.initialize();
-        console.log('✅ Session History initialized');
     }
 
     // 9.5. Data Integrity Verification (after session history loaded)
@@ -168,40 +158,35 @@ async function initializeApplication() {
         }
     }
 
-    // 10. Initialize transcript features
+    // 11. Initialize transcript features
     if (window.TranscriptManager) {
         window.TranscriptManager.initialize();
-        console.log('✅ Transcript Manager initialized');
     }
-    
-    // 11. Initialize search and filter
+
+    // 12. Initialize search and filter
     if (window.SearchFilterManager) {
         window.SearchFilterManager.initialize();
-        console.log('✅ Search Filter Manager initialized');
     }
-    
-    // 12. Initialize export functionality
+
+    // 13. Initialize export functionality
     if (window.ExportManager) {
         window.ExportManager.initialize();
-        console.log('✅ Export Manager initialized');
     }
-    
-    // 13. Setup main event listeners
+
+    // 14. Setup main event listeners
     setupMainEventListeners();
-    
-    // 13.5. Setup message listener for background communication
+
+    // 15. Setup message listener for background communication
     setupMessageListener();
-    
-    // 14. Initialize theme system
+
+    // 16. Initialize theme system
     if (window.ThemeManager) {
         window.ThemeManager.initialize();
-        console.log('✅ Theme Manager initialized');
     }
-    
-    // 15. Initialize debug manager  
+
+    // 17. Initialize debug manager
     if (window.DebugManager) {
         window.DebugManager.initialize();
-        console.log('✅ Debug Manager initialized');
     }
     
     // 16. Validate critical global functions before state restoration
@@ -385,43 +370,6 @@ async function applySessionStateRestoration(sessionState) {
         
         // Update stats
         if (sessionState.transcriptData && window.updateStats) {
-            window.updateStats(sessionState.transcriptData);
-        }
-        
-        // CRITICAL FIX: Update participant count clickability after stats update
-        if (sessionState.transcriptData && window.TranscriptManager && window.TranscriptManager.updateParticipantCountClickability) {
-            const uniqueParticipants = new Set(sessionState.transcriptData.messages?.map(m => m.speaker) || []).size;
-            window.TranscriptManager.updateParticipantCountClickability(uniqueParticipants);
-        }
-        
-        // Update UI for historical session
-        if (window.UIManager) {
-            window.UIManager.updateButtonVisibility('HISTORICAL');
-            
-            // Show meeting name if session exists in history
-            const session = window.sessionHistory?.find(s => s.id === sessionState.currentSessionId);
-            if (session) {
-                window.UIManager.showMeetingName(session.title, sessionState.currentSessionId);
-            }
-        }
-        
-        // Highlight restored session in sidebar
-        if (window.SessionUIManager && window.SessionUIManager.highlightActiveSession) {
-            window.SessionUIManager.highlightActiveSession(sessionState.currentSessionId);
-        }
-        
-    } else if (sessionState.transcriptData && sessionState.currentSessionId) {
-        // DEPRECATED: Legacy historical session restoration for backward compatibility
-        // Restore historical session
-        console.log('📜 [POPUP] Restoring historical session');
-        
-        // Display transcript data
-        if (window.displayTranscript) {
-            window.displayTranscript(sessionState.transcriptData);
-        }
-        
-        // Update stats
-        if (window.updateStats) {
             window.updateStats(sessionState.transcriptData);
         }
         
@@ -654,170 +602,6 @@ window.generateSessionTitle = function() {
     const date = now.toLocaleDateString('pl-PL');
     const time = now.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
     return `Spotkanie o ${time}`;
-};
-
-/**
- * Debug helper function for testing state persistence
- * PHASE 6: Comprehensive state verification and testing
- * Usage: Call window.debugState() from browser console
- */
-window.debugState = function() {
-    console.log('🔍 [DEBUG] === COMPLETE STATE DEBUG ===');
-    
-    // Global variables
-    console.log('📊 [DEBUG] Global Variables:', {
-        transcriptData: !!window.transcriptData,
-        transcriptDataMessages: window.transcriptData?.messages?.length || 0,
-        realtimeMode: window.realtimeMode,
-        currentSessionId: window.currentSessionId,
-        sessionHistory: window.sessionHistory?.length || 0,
-        expandedEntries: window.expandedEntries?.size || 0,
-        currentSearchQuery: window.currentSearchQuery || '',
-        activeParticipantFilters: window.activeParticipantFilters?.size || 0
-    });
-    
-    // UI state
-    const sidebar = document.querySelector('.sidebar');
-    console.log('🎨 [DEBUG] UI State:', {
-        sidebarExists: !!sidebar,
-        sidebarCollapsed: sidebar?.classList.contains('collapsed') || false,
-        theme: document.documentElement.getAttribute('data-theme') || 'light',
-        recordButtonExists: !!document.getElementById('recordBtn'),
-        recordButtonActive: document.getElementById('recordBtn')?.classList.contains('active') || false
-    });
-    
-    // Module availability
-    console.log('🧩 [DEBUG] Modules:', {
-        StateManager: !!window.StateManager,
-        UIManager: !!window.UIManager,
-        SessionHistoryManager: !!window.SessionHistoryManager,
-        BackgroundScanner: !!window.BackgroundScanner,
-        TranscriptManager: !!window.TranscriptManager
-    });
-    
-    // Critical functions
-    console.log('⚙️ [DEBUG] Global Functions:', {
-        displayTranscript: typeof window.displayTranscript,
-        updateStats: typeof window.updateStats,
-        detectChanges: typeof window.detectChanges,
-        showEmptySession: typeof window.showEmptySession,
-        createNewSession: typeof window.createNewSession
-    });
-    
-    console.log('🔍 [DEBUG] === END STATE DEBUG ===');
-    
-    return {
-        globalVars: window.transcriptData !== undefined,
-        uiState: !!sidebar,
-        modules: !!window.StateManager,
-        functions: typeof window.displayTranscript === 'function'
-    };
-};
-
-/**
- * Test session loading manually
- * PHASE 5: Debug helper for session loading issues
- * Usage: Call window.testSessionLoading('sessionId') from browser console
- */
-window.testSessionLoading = function(sessionId) {
-    console.log('🧪 [TEST] === TESTING SESSION LOADING ===');
-    console.log('🔍 [TEST] Testing session ID:', sessionId);
-    
-    if (!window.sessionHistory) {
-        console.error('❌ [TEST] window.sessionHistory is not available');
-        return false;
-    }
-    
-    console.log('📊 [TEST] Available sessions:', 
-        window.sessionHistory.map(s => ({ id: s.id, title: s.title }))
-    );
-    
-    // Test session loading
-    try {
-        if (window.SessionHistoryManager && window.SessionHistoryManager.loadSessionFromHistory) {
-            window.SessionHistoryManager.loadSessionFromHistory(sessionId);
-            console.log('✅ [TEST] Session loading function called successfully');
-            return true;
-        } else {
-            console.error('❌ [TEST] SessionHistoryManager.loadSessionFromHistory not available');
-            return false;
-        }
-    } catch (error) {
-        console.error('❌ [TEST] Session loading failed:', error);
-        return false;
-    }
-};
-
-/**
- * Test state persistence manually
- * PHASE 6: Testing helper for state persistence
- * Usage: Call window.testStatePersistence() from browser console
- */
-window.testStatePersistence = async function() {
-    console.log('🧪 [TEST] === TESTING STATE PERSISTENCE ===');
-    
-    // 1. Save current state snapshot
-    const beforeState = {
-        transcriptData: !!window.transcriptData,
-        realtimeMode: window.realtimeMode,
-        currentSessionId: window.currentSessionId,
-        sessionHistoryLength: window.sessionHistory?.length || 0,
-        sidebarCollapsed: document.querySelector('.sidebar')?.classList.contains('collapsed') || false
-    };
-    
-    console.log('📸 [TEST] State BEFORE persistence test:', beforeState);
-    
-    // 2. Force save current state
-    try {
-        if (window.StateManager && window.UIManager) {
-            await window.StateManager.saveUIState({
-                sidebarCollapsed: beforeState.sidebarCollapsed,
-                theme: document.documentElement.getAttribute('data-theme') || 'light'
-            });
-            console.log('✅ [TEST] State saved successfully');
-        }
-    } catch (error) {
-        console.error('❌ [TEST] Failed to save state:', error);
-        return false;
-    }
-    
-    // 3. Simulate restoration
-    try {
-        await restoreCompleteApplicationState();
-        console.log('✅ [TEST] State restoration completed');
-    } catch (error) {
-        console.error('❌ [TEST] Failed to restore state:', error);
-        return false;
-    }
-    
-    // 4. Check state after restoration
-    const afterState = {
-        transcriptData: !!window.transcriptData,
-        realtimeMode: window.realtimeMode,
-        currentSessionId: window.currentSessionId,
-        sessionHistoryLength: window.sessionHistory?.length || 0,
-        sidebarCollapsed: document.querySelector('.sidebar')?.classList.contains('collapsed') || false
-    };
-    
-    console.log('📸 [TEST] State AFTER persistence test:', afterState);
-    
-    // 5. Compare states
-    const stateMatches = {
-        transcriptData: beforeState.transcriptData === afterState.transcriptData,
-        realtimeMode: beforeState.realtimeMode === afterState.realtimeMode,
-        currentSessionId: beforeState.currentSessionId === afterState.currentSessionId,
-        sessionHistoryLength: beforeState.sessionHistoryLength === afterState.sessionHistoryLength,
-        sidebarCollapsed: beforeState.sidebarCollapsed === afterState.sidebarCollapsed
-    };
-    
-    const allMatch = Object.values(stateMatches).every(match => match);
-    
-    console.log('🔍 [TEST] State comparison:', stateMatches);
-    console.log(allMatch ? '✅ [TEST] STATE PERSISTENCE WORKING!' : '❌ [TEST] STATE PERSISTENCE FAILED!');
-    
-    console.log('🧪 [TEST] === END PERSISTENCE TEST ===');
-    
-    return allMatch;
 };
 
 // Global error handler

@@ -24,7 +24,9 @@ window.TransactionCoordinator = {
      * Transaction timeout (5 seconds max per transaction)
      * @private
      */
-    _transactionTimeout: 5000,
+    get _transactionTimeout() {
+        return window.AppConstants.TIMING.TRANSACTION_TIMEOUT;
+    },
 
     /**
      * Execute atomic storage transaction with rollback support
