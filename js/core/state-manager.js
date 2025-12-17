@@ -487,8 +487,31 @@ async function _restoreActiveRecording(result) {
             console.log('🔄 [RESTORE] Restored recording start time:', date.toISOString());
         } else {
             console.error('❌ [RESTORE] Invalid recordingStartTime timestamp:', timestamp);
-            console.error('❌ [RESTORE] This will cause timer NaN - skipping restoration');
-            // Don't set recordingStartTime - leave it undefined instead of Invalid Date
+            console.error('❌ [RESTORE] Attempting to regenerate from sessionTotalDuration or sessionStartTime');
+
+            // REGENERATE TIMESTAMP - Try sessionTotalDuration first, then sessionStartTime
+            const sessionTotalDuration = result[window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION];
+
+            if (sessionTotalDuration !== undefined && sessionTotalDuration > 0) {
+                // Option A: now - sessionTotalDuration
+                const regeneratedTime = new Date(Date.now() - (sessionTotalDuration * 1000));
+                sessionState.recordingStartTime = regeneratedTime;
+                console.warn('⚠️ [RESTORE] Regenerated recordingStartTime from sessionTotalDuration (' + sessionTotalDuration + 's):', regeneratedTime.toISOString());
+            } else {
+                // Option B: Fallback to sessionStartTime (if valid)
+                const sessionStartTimestamp = result[window.AppConstants.STORAGE_KEYS.SESSION_START_TIME];
+                if (sessionStartTimestamp) {
+                    const sessionStartDate = new Date(sessionStartTimestamp);
+                    if (!isNaN(sessionStartDate.getTime())) {
+                        sessionState.recordingStartTime = sessionStartDate;
+                        console.warn('⚠️ [RESTORE] Regenerated recordingStartTime from sessionStartTime:', sessionStartDate.toISOString());
+                    } else {
+                        console.error('❌ [RESTORE] Cannot regenerate - sessionStartTime is also invalid');
+                    }
+                } else {
+                    console.error('❌ [RESTORE] Cannot regenerate - no sessionStartTime available');
+                }
+            }
         }
     } else {
         console.log('ℹ️ [RESTORE] No recordingStartTime in storage (likely paused session)');

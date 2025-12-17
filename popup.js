@@ -329,14 +329,17 @@ async function applySessionStateRestoration(sessionState) {
         }
 
         // PHASE 7: Restart duration timer
-        if (window.TimerManager && window.TimerManager.startDurationTimer) {
-            // FIX: Validate recordingStartTime is set before starting timer
-            const recordingStartTime = window.StateManager?.getRecordingStartTime();
-            if (recordingStartTime) {
-                window.TimerManager.startDurationTimer();
-                console.log('⏰ [POPUP] Timer started with recordingStartTime:', recordingStartTime);
-            } else {
-                console.warn('⚠️ [POPUP] Cannot start timer - recordingStartTime not set');
+        const recordingStartTime = window.StateManager?.getRecordingStartTime();
+        if (recordingStartTime && window.TimerManager?.startDurationTimer) {
+            // recordingStartTime is valid (either restored or regenerated) - start live timer
+            window.TimerManager.startDurationTimer();
+            console.log('⏰ [POPUP] Timer started with recordingStartTime:', recordingStartTime);
+        } else {
+            // No recordingStartTime - display accumulated duration (static)
+            console.warn('⚠️ [POPUP] Cannot start timer - recordingStartTime not available');
+            if (window.TimerManager?.updateDurationDisplay) {
+                window.TimerManager.updateDurationDisplay();
+                console.log('⏰ [POPUP] Fallback: Displaying accumulated duration (static)');
             }
         }
         
