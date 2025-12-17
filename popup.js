@@ -134,6 +134,11 @@ async function initializeApplication() {
         window.BackgroundScanner.initialize();
     }
 
+    // 8.5. Initialize transcript refresh manager
+    if (window.TranscriptRefreshManager) {
+        window.TranscriptRefreshManager.initialize();
+    }
+
     // 9. Initialize recording management
     if (window.RecordingManager) {
         window.RecordingManager.initialize();
@@ -429,7 +434,13 @@ function setupMainEventListeners() {
     if (recordBtn && window.RecordingManager) {
         recordBtn.addEventListener('click', window.RecordingManager.handleRecordButtonClick.bind(window.RecordingManager));
     }
-    
+
+    // Refresh transcript button handler
+    const refreshBtn = document.getElementById('refreshTranscriptBtn');
+    if (refreshBtn && window.TranscriptRefreshManager) {
+        refreshBtn.addEventListener('click', window.TranscriptRefreshManager.handleRefreshClick.bind(window.TranscriptRefreshManager));
+    }
+
     // Close session button handler
     const closeSessionBtn = document.getElementById('closeSessionBtn');
     if (closeSessionBtn && window.showEmptySession) {

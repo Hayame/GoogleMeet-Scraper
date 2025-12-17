@@ -13,38 +13,47 @@ window.UIManager = {
     updateButtonVisibility(sessionState) {
         const recordBtn = document.getElementById('recordBtn');
         const closeSessionBtn = document.getElementById('closeSessionBtn');
-        
+        const refreshBtn = document.getElementById('refreshTranscriptBtn');
+
         if (!recordBtn || !closeSessionBtn) {
             console.error('Required buttons not found for visibility update');
             return;
         }
-        
+
         switch (sessionState) {
             case 'RECORDING':
-                // During recording: show stop button, hide close button  
+                // During recording: show stop button, hide close button
                 recordBtn.style.display = 'flex';
                 recordBtn.classList.add('active');
                 closeSessionBtn.style.display = 'none';
-                
+                if (refreshBtn) {
+                    refreshBtn.style.display = 'flex';
+                    refreshBtn.style.alignItems = 'center';
+                    refreshBtn.style.gap = '6px';
+                    refreshBtn.style.marginLeft = 'auto';
+                }
+
                 // CRITICAL FIX: Set proper button text for recording mode
                 const recordTextRecording = document.querySelector('.record-text');
                 if (recordTextRecording) {
                     recordTextRecording.textContent = 'Zatrzymaj nagrywanie';
                 }
                 break;
-                
+
             case 'HISTORICAL':
                 // Historical session: hide record button, show close button
                 recordBtn.style.display = 'none';
                 closeSessionBtn.style.display = 'block';
+                if (refreshBtn) refreshBtn.style.display = 'none';
                 break;
-                
+
             case 'NEW':
             default:
                 // New session: show record button (inactive), hide close button
                 recordBtn.style.display = 'flex';
                 recordBtn.classList.remove('active');
                 closeSessionBtn.style.display = 'none';
+                if (refreshBtn) refreshBtn.style.display = 'none';
                 const recordText = document.querySelector('.record-text');
                 if (recordText) {
                     recordText.textContent = 'Rozpocznij nagrywanie';

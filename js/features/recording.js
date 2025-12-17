@@ -161,7 +161,7 @@ window.RecordingManager = {
      * Deactivate realtime recording mode
      * Source: popup.js lines 1532-1579
      */
-    deactivateRealtimeMode() {
+    async deactivateRealtimeMode() {
         // CRITICAL DEBUG: Log who is calling deactivateRealtimeMode
         console.log('🔴 [RECORDING DEBUG] deactivateRealtimeMode() called');
         console.log('🔴 [RECORDING DEBUG] Call stack:', new Error().stack);
@@ -171,13 +171,43 @@ window.RecordingManager = {
             hasTranscriptData: !!window.transcriptData,
             messageCount: window.transcriptData?.messages?.length || 0
         });
-        
+
         const realtimeBtn = document.getElementById('recordBtn');
         if (!realtimeBtn) {
             console.error('Record button not found!');
             return;
         }
-        
+
+        // NEW: Load latest state from storage to prevent data loss from worker failures
+        try {
+            console.log('🔄 [RECORDING] Loading latest state from storage before stop');
+            const storageData = await window.StorageManager.getStorageData([
+                window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA,
+                window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION
+            ]);
+
+            // Restore transcript if storage has newer/more complete version
+            if (storageData[window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA]) {
+                const storedTranscript = storageData[window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA];
+                if (!window.transcriptData ||
+                    storedTranscript.messages.length > (window.transcriptData.messages?.length || 0)) {
+                    window.transcriptData = storedTranscript;
+                    console.log('✅ [RECORDING] Restored transcript from storage:', storedTranscript.messages.length, 'messages');
+                }
+            }
+
+            // Restore session duration if storage has larger value
+            if (storageData[window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION] !== undefined) {
+                const storedDuration = storageData[window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION];
+                if (storedDuration > (window.StateManager?.getSessionTotalDuration() || 0)) {
+                    window.StateManager?.setSessionTotalDuration(storedDuration);
+                }
+            }
+        } catch (error) {
+            console.warn('⚠️ [RECORDING] Failed to restore state from storage:', error);
+            // Continue - error is non-fatal
+        }
+
         window.realtimeMode = false;
         realtimeBtn.classList.remove('active');
         document.querySelector('.record-text').textContent = 'Rozpocznij nagrywanie';
