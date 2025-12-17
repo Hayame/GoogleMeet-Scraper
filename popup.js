@@ -330,7 +330,14 @@ async function applySessionStateRestoration(sessionState) {
 
         // PHASE 7: Restart duration timer
         if (window.TimerManager && window.TimerManager.startDurationTimer) {
-            window.TimerManager.startDurationTimer();
+            // FIX: Validate recordingStartTime is set before starting timer
+            const recordingStartTime = window.StateManager?.getRecordingStartTime();
+            if (recordingStartTime) {
+                window.TimerManager.startDurationTimer();
+                console.log('⏰ [POPUP] Timer started with recordingStartTime:', recordingStartTime);
+            } else {
+                console.warn('⚠️ [POPUP] Cannot start timer - recordingStartTime not set');
+            }
         }
         
     } else if (sessionState.sessionState === window.AppConstants.SESSION_STATES.PAUSED_SESSION) {
@@ -360,7 +367,8 @@ async function applySessionStateRestoration(sessionState) {
         }
         
         // Restore session duration display if available
-        if (sessionState.sessionTotalDuration && window.TimerManager) {
+        // FIX: Check !== undefined instead of truthy (0 duration is valid!)
+        if (sessionState.sessionTotalDuration !== undefined && window.TimerManager) {
             // Set the accumulated duration
             window.StateManager?.setSessionTotalDuration(sessionState.sessionTotalDuration);
             if (window.TimerManager.updateDurationDisplay) {

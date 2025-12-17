@@ -136,8 +136,8 @@ window.BackgroundScanner = {
     async _performMerge(data) {
         console.log('🔄 [MERGE] Performing merge operation');
 
-        if (!data || !data.messages || data.messages.length === 0) {
-            console.log('🔄 [MERGE] No messages to merge');
+        if (!data || !data.messages) {
+            console.log('🔄 [MERGE] Invalid data structure');
             return;
         }
 
@@ -146,6 +146,14 @@ window.BackgroundScanner = {
         // Get current transcript state
         const currentMessages = window.transcriptData?.messages || [];
         const newMessages = data.messages;
+
+        // CRITICAL FIX: Protect against data loss from CC close/reopen
+        // If new data is empty but we have existing data, it means CC was closed - IGNORE
+        if (newMessages.length === 0 && currentMessages.length > 0) {
+            console.warn('⚠️ [MERGE] Ignoring empty scan - likely CC was closed. Preserving existing data.');
+            console.warn('⚠️ [MERGE] Current data preserved:', currentMessages.length, 'messages');
+            return; // Skip merge - keep existing data
+        }
 
         console.log('🔄 [MERGE] Comparing data:', {
             currentMessagesCount: currentMessages.length,
