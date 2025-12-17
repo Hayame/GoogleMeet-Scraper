@@ -12,13 +12,20 @@ window.TimerManager = {
     startDurationTimer() {
         // Get recordingStartTime from state manager
         const recordingStartTime = window.StateManager?.getRecordingStartTime();
-        
+
+        // Validate recordingStartTime exists and is a valid Date
         if (!recordingStartTime) {
-            console.error('Cannot start timer: recordingStartTime not set');
+            console.error('❌ [TIMER] Cannot start timer: recordingStartTime not set');
             return;
         }
-        
-        console.log('🕐 Starting duration timer with recordingStartTime:', recordingStartTime);
+
+        if (!recordingStartTime.getTime || isNaN(recordingStartTime.getTime())) {
+            console.error('❌ [TIMER] Cannot start timer: recordingStartTime is Invalid Date:', recordingStartTime);
+            console.error('❌ [TIMER] This usually means storage corruption during pause/stop');
+            return;
+        }
+
+        console.log('🕐 Starting duration timer with recordingStartTime:', recordingStartTime.toISOString());
         
         // Clear any existing timer first
         const durationTimer = window.StateManager?.getDurationTimer();
@@ -55,11 +62,18 @@ window.TimerManager = {
     updateDurationDisplay() {
         const durationSpan = document.getElementById('duration');
         if (!durationSpan) return;
-        
+
         const recordingStartTime = window.StateManager?.getRecordingStartTime();
         const sessionTotalDuration = window.StateManager?.getSessionTotalDuration() || 0;
-        
+
         if (recordingStartTime) {
+            // Validate it's a valid date before calculating duration
+            if (isNaN(recordingStartTime.getTime())) {
+                console.error('❌ [TIMER] Invalid recordingStartTime in updateDurationDisplay - showing accumulated duration only');
+                durationSpan.textContent = this.formatDuration(sessionTotalDuration);
+                return;
+            }
+
             // Always calculate duration in real-time from the actual start time
             const now = new Date();
             const currentSessionDuration = Math.floor((now - recordingStartTime) / 1000);

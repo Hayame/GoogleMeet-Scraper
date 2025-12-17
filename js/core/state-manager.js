@@ -476,16 +476,37 @@ async function _restoreActiveRecording(result) {
         console.log('🔄 [RESTORE] Restored transcript data:', transcriptData?.messages?.length || 0, 'messages');
     }
 
-    // Restore recording start time
+    // Restore recording start time with validation
     if (result[window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME]) {
-        sessionState.recordingStartTime = new Date(result[window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME]);
-        console.log('🔄 [RESTORE] Restored recording start time:', sessionState.recordingStartTime);
+        const timestamp = result[window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME];
+        const date = new Date(timestamp);
+
+        // Validate the date is valid
+        if (!isNaN(date.getTime())) {
+            sessionState.recordingStartTime = date;
+            console.log('🔄 [RESTORE] Restored recording start time:', date.toISOString());
+        } else {
+            console.error('❌ [RESTORE] Invalid recordingStartTime timestamp:', timestamp);
+            console.error('❌ [RESTORE] This will cause timer NaN - skipping restoration');
+            // Don't set recordingStartTime - leave it undefined instead of Invalid Date
+        }
+    } else {
+        console.log('ℹ️ [RESTORE] No recordingStartTime in storage (likely paused session)');
     }
 
-    // Restore session start time
+    // Restore session start time with validation
     if (result[window.AppConstants.STORAGE_KEYS.SESSION_START_TIME]) {
-        sessionState.sessionStartTime = new Date(result[window.AppConstants.STORAGE_KEYS.SESSION_START_TIME]);
-        console.log('🔄 [RESTORE] Restored session start time:', sessionState.sessionStartTime);
+        const timestamp = result[window.AppConstants.STORAGE_KEYS.SESSION_START_TIME];
+        const date = new Date(timestamp);
+
+        // Validate the date is valid
+        if (!isNaN(date.getTime())) {
+            sessionState.sessionStartTime = date;
+            console.log('🔄 [RESTORE] Restored session start time:', date.toISOString());
+        } else {
+            console.error('❌ [RESTORE] Invalid sessionStartTime timestamp:', timestamp);
+            // Don't set sessionStartTime - leave it undefined instead of Invalid Date
+        }
     }
 
     // Restore or generate session ID
