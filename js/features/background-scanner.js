@@ -41,15 +41,17 @@ window.BackgroundScanner = {
      *
      * @param {Object} data - Transcript data to merge
      * @param {number} priority - Priority level (default: 0)
+     * @param {Function|null} onComplete - Optional callback fired after merge completes (default: null)
      * @returns {Promise<void>}
      */
-    async scheduleMerge(data, priority = 0) {
+    async scheduleMerge(data, priority = 0, onComplete = null) {
         const operation = {
             id: ++this._mergeSequence,
             data: data,
             priority: priority,
             timestamp: Date.now(),
-            retryCount: 0
+            retryCount: 0,
+            onComplete: onComplete  // NEW: Callback for completion notification
         };
 
         // Queue size protection - prevent memory leak
@@ -90,6 +92,17 @@ window.BackgroundScanner = {
             try {
                 await this._performMerge(operation.data);
                 console.log(`✅ [MERGE] Completed #${operation.id}`);
+
+                // NEW: Notify completion callback if provided
+                if (operation.onComplete && typeof operation.onComplete === 'function') {
+                    try {
+                        await operation.onComplete();
+                        console.log(`📢 [MERGE] Callback executed for #${operation.id}`);
+                    } catch (callbackError) {
+                        console.error(`❌ [MERGE] Callback failed for #${operation.id}:`, callbackError);
+                        // Continue - merge succeeded even if callback fails
+                    }
+                }
 
             } catch (error) {
                 console.error(`❌ [MERGE] Failed #${operation.id}:`, error);
@@ -436,6 +449,8 @@ window.BackgroundScanner = {
      * - Konwertuje chrome.tabs.get na Promise
      * - Dodaje retry mechanism
      * - Odzyskuje zgromadzone dane ze storage
+     *
+     * @returns {Promise<Object>} Result object with success status and details
      */
     async reactivateAfterRestore() {
         try {
@@ -446,11 +461,12 @@ window.BackgroundScanner = {
 
             if (!meetTabId) {
                 this._handleNoMeetTab();
-                return;
+                return { success: false, reason: 'NO_MEET_TAB' };  // NEW: Return result
             }
 
-            // Phase 1: Recover accumulated data
-            await this._recoverAccumulatedData(meetTabId);
+            // Phase 1: Recover accumulated data (BLOCKS until merge complete)
+            const mergeSuccess = await this._recoverAccumulatedData(meetTabId);
+            console.log(`✅ [REACTIVATE] Merge phase complete (success: ${mergeSuccess})`);
 
             // Phase 2: Restart background scanning
             const restartSuccess = await this._restartBackgroundScanning(meetTabId);
@@ -458,8 +474,15 @@ window.BackgroundScanner = {
             // Handle result
             this._handleReactivationResult(restartSuccess);
 
+            return {  // NEW: Return detailed result
+                success: true,
+                mergeSuccess: mergeSuccess,
+                restartSuccess: restartSuccess
+            };
+
         } catch (error) {
             this._handleReactivationError(error);
+            return { success: false, error: error.message };  // NEW: Return error result
         }
     },
 
@@ -508,11 +531,26 @@ window.BackgroundScanner = {
      * Merge accumulated data with existing transcript
      * Now uses priority queue system (priority: 100 = restoration is critical)
      * @param {Object} accumulatedData - Accumulated transcript data from storage
+     * @param {Function|null} onComplete - Optional callback fired after merge completes
+     * @returns {Promise<void>} Promise that resolves when merge completes
      */
-    async mergeAccumulatedData(accumulatedData) {
+    async mergeAccumulatedData(accumulatedData, onComplete = null) {
         console.log('🔄 [MERGE] Scheduling accumulated data merge (high priority)');
-        // Schedule with priority 100 (restoration is critical, goes first)
-        await this.scheduleMerge(accumulatedData, 100);
+
+        return new Promise((resolve) => {
+            const completionCallback = async () => {
+                if (onComplete) {
+                    try {
+                        await onComplete();
+                    } catch (error) {
+                        console.error('❌ [MERGE] Custom callback failed:', error);
+                    }
+                }
+                resolve(); // Always resolve Promise after merge
+            };
+
+            this.scheduleMerge(accumulatedData, 100, completionCallback);
+        });
     },
 
     /**

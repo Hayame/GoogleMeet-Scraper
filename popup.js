@@ -287,37 +287,48 @@ async function applySessionStateRestoration(sessionState) {
     if (sessionState.realtimeMode) {
         // Restore active recording state
         console.log('🔴 [POPUP] Restoring active recording state');
-        
-        // CRITICAL FIX: Display transcript data for active recording
-        // This was missing and caused empty chat during recording restoration
-        if (sessionState.transcriptData && window.displayTranscript) {
-            window.displayTranscript(sessionState.transcriptData);
-            console.log('🔴 [POPUP] Restored transcript data for recording:', sessionState.transcriptData.messages?.length || 0, 'messages');
+
+        // PHASE 1: Reactivate background scanner FIRST (includes merge of accumulated data)
+        let reactivationResult = null;
+        if (window.BackgroundScanner && window.BackgroundScanner.reactivateAfterRestore) {
+            reactivationResult = await window.BackgroundScanner.reactivateAfterRestore();
+            console.log('✅ [POPUP] Background scanner reactivation completed:', reactivationResult);
         }
-        
-        // Update stats for recording session
-        if (sessionState.transcriptData && window.updateStats) {
-            window.updateStats(sessionState.transcriptData);
+
+        // PHASE 2: Display transcript AFTER merge completes
+        // Use window.transcriptData (updated by merge) instead of sessionState.transcriptData (stale)
+        const transcriptToDisplay = window.transcriptData || sessionState.transcriptData;
+
+        if (transcriptToDisplay && window.displayTranscript) {
+            window.displayTranscript(transcriptToDisplay);
+            console.log('🔴 [POPUP] Displayed transcript after merge:', transcriptToDisplay.messages?.length || 0, 'messages');
         }
-        
-        // CRITICAL FIX: Update participant count clickability after stats update
-        if (sessionState.transcriptData && window.TranscriptManager && window.TranscriptManager.updateParticipantCountClickability) {
-            const uniqueParticipants = new Set(sessionState.transcriptData.messages?.map(m => m.speaker) || []).size;
+
+        // PHASE 3: Update stats with merged data
+        if (transcriptToDisplay && window.updateStats) {
+            window.updateStats(transcriptToDisplay);
+        }
+
+        // PHASE 4: Update participant count clickability
+        if (transcriptToDisplay && window.TranscriptManager && window.TranscriptManager.updateParticipantCountClickability) {
+            const uniqueParticipants = new Set(transcriptToDisplay.messages?.map(m => m.speaker) || []).size;
             window.TranscriptManager.updateParticipantCountClickability(uniqueParticipants);
         }
-        
-        // Update UI for recording state
+
+        // PHASE 5: Check for merge failure and show warning
+        if (reactivationResult && !reactivationResult.mergeSuccess) {
+            console.warn('⚠️ [POPUP] Merge failed, displaying stored data instead');
+            if (window.updateStatus) {
+                window.updateStatus('Przywrócono zapisane dane (częściowo)', 'warning');
+            }
+        }
+
+        // PHASE 6: Update UI state
         if (window.UIManager) {
             window.UIManager.updateButtonVisibility('RECORDING');
         }
-        
-        // Restart background scanner communication
-        if (window.BackgroundScanner && window.BackgroundScanner.reactivateAfterRestore) {
-            await window.BackgroundScanner.reactivateAfterRestore();
-            console.log('✅ [POPUP] Background scanner reactivation completed');
-        }
 
-        // Restart duration timer if TimerManager exists
+        // PHASE 7: Restart duration timer
         if (window.TimerManager && window.TimerManager.startDurationTimer) {
             window.TimerManager.startDurationTimer();
         }
@@ -353,7 +364,8 @@ async function applySessionStateRestoration(sessionState) {
             // Set the accumulated duration
             window.StateManager?.setSessionTotalDuration(sessionState.sessionTotalDuration);
             if (window.TimerManager.updateDurationDisplay) {
-                window.TimerManager.updateDurationDisplay(sessionState.sessionTotalDuration);
+                // FIX: updateDurationDisplay() takes no parameters - reads from StateManager
+                window.TimerManager.updateDurationDisplay();
             }
         }
         
