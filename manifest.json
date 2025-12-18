@@ -38,7 +38,7 @@
   "web_accessible_resources": [
     {
       "resources": ["prompt.md"],
-      "matches": ["<all_urls>"]
+      "matches": ["https://meet.google.com/*"]
     }
   ]
 }
