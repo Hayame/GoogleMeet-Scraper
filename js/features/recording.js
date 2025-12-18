@@ -85,6 +85,14 @@ window.RecordingManager = {
             if (tab && tab.url.includes('meet.google.com')) {
                 console.log('🟢 [ACTIVATION DEBUG] Starting background scanning for tab:', tab.id);
 
+                // NEW: Auto-enable captions for NEW recordings only (not continuations)
+                if (!isContinuation) {
+                    console.log('🎬 [ACTIVATION] New recording - auto-enabling captions');
+                    this.autoEnableCaptions(); // Fire and forget - don't await
+                } else {
+                    console.log('🎬 [ACTIVATION] Continuation - skipping caption auto-enable');
+                }
+
                 // Save complete recording state atomically using TransactionCoordinator
                 // This ensures all related data is saved together (no partial states)
                 const saveResult = await window.TransactionCoordinator.executeTransaction([
@@ -306,6 +314,46 @@ window.RecordingManager = {
 
     // autoSaveCurrentSession() method removed - use SessionHistoryManager.autoSaveCurrentSession() instead
 
+    /**
+     * Automatically enable captions on Google Meet
+     * Only triggers for NEW recordings (not continuations)
+     * Silently fails if captions cannot be enabled
+     */
+    async autoEnableCaptions() {
+        console.log('🎬 [RECORDING] Auto-enabling captions...');
+
+        try {
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+            if (!tab || !tab.url.includes('meet.google.com')) {
+                console.log('⚠️ [RECORDING] Not on Google Meet tab, skipping auto-enable');
+                return;
+            }
+
+            // Send message to content script to enable captions
+            chrome.tabs.sendMessage(tab.id, { action: 'enableCaptions' }, (response) => {
+                // Check for chrome.runtime.lastError
+                if (chrome.runtime.lastError) {
+                    console.log('⚠️ [RECORDING] Could not send enableCaptions message:', chrome.runtime.lastError.message);
+                    return;
+                }
+
+                if (response && response.success) {
+                    if (response.alreadyEnabled) {
+                        console.log('✅ [RECORDING] Captions were already enabled');
+                    } else if (response.toggled) {
+                        console.log('✅ [RECORDING] Captions enabled automatically');
+                    }
+                } else {
+                    // Silent failure - continue recording anyway
+                    console.log('⚠️ [RECORDING] Could not enable captions:', response?.error || 'Unknown error');
+                }
+            });
+        } catch (error) {
+            // Silent failure - continue recording anyway
+            console.log('⚠️ [RECORDING] Exception during auto-enable:', error.message);
+        }
+    },
 
     /**
      * Get current recording status

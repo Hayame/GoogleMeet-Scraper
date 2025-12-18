@@ -399,6 +399,125 @@ function cleanUserNameFallback(name) {
     return null;
 }
 
+// ============================================================================
+// AUTO-ENABLE CAPTIONS FEATURE
+// ============================================================================
+
+/**
+ * Detect if captions are currently enabled
+ * @returns {boolean} true if captions are ON, false if OFF
+ */
+function areCaptionsEnabled() {
+    // Element [jsname="dsyhDe"] exists ONLY when captions are enabled
+    const captionsElement = document.querySelector('[jsname="dsyhDe"]');
+    const isEnabled = captionsElement !== null;
+    console.log('🔍 [CC DETECT] Captions enabled:', isEnabled);
+    return isEnabled;
+}
+
+/**
+ * Toggle captions using keyboard shortcut
+ * Google Meet responds to 'c' key to toggle captions on/off
+ */
+function toggleCaptionsViaKeyboard() {
+    console.log('⌨️ [CC TOGGLE] Dispatching keyboard event: c');
+
+    // Send 'c' key events to toggle captions
+    const keydownEvent = new KeyboardEvent('keydown', {
+        key: 'c',
+        code: 'KeyC',
+        keyCode: 67,
+        bubbles: true,
+        cancelable: true,
+        composed: true  // Crosses shadow DOM boundaries
+    });
+
+    const keyupEvent = new KeyboardEvent('keyup', {
+        key: 'c',
+        code: 'KeyC',
+        keyCode: 67,
+        bubbles: true,
+        cancelable: true,
+        composed: true
+    });
+
+    document.dispatchEvent(keydownEvent);
+    document.dispatchEvent(keyupEvent);
+
+    console.log('✅ [CC TOGGLE] Keyboard events dispatched');
+}
+
+/**
+ * Enable captions if they are currently disabled
+ * @returns {Promise<Object>} Result object with success status and message
+ */
+async function enableCaptionsIfNeeded() {
+    console.log('🎬 [CC ENABLE] Starting auto-enable captions...');
+
+    try {
+        // Check current state
+        const alreadyEnabled = areCaptionsEnabled();
+
+        if (alreadyEnabled) {
+            console.log('✅ [CC ENABLE] Captions already enabled, skipping');
+            return {
+                success: true,
+                alreadyEnabled: true,
+                message: 'Captions already enabled'
+            };
+        }
+
+        // Captions are OFF, need to toggle them ON
+        console.log('🔄 [CC ENABLE] Captions disabled, toggling...');
+        toggleCaptionsViaKeyboard();
+
+        // Wait for UI to update (Google Meet needs ~250ms to process)
+        await new Promise(resolve => setTimeout(resolve, 250));
+
+        // Verify that captions turned ON
+        const nowEnabled = areCaptionsEnabled();
+
+        if (nowEnabled) {
+            console.log('✅ [CC ENABLE] Captions successfully enabled');
+            return {
+                success: true,
+                toggled: true,
+                message: 'Captions enabled successfully'
+            };
+        } else {
+            // Retry once
+            console.log('⚠️ [CC ENABLE] First attempt failed, retrying...');
+            toggleCaptionsViaKeyboard();
+            await new Promise(resolve => setTimeout(resolve, 250));
+
+            const retryEnabled = areCaptionsEnabled();
+            if (retryEnabled) {
+                console.log('✅ [CC ENABLE] Captions enabled on retry');
+                return {
+                    success: true,
+                    toggled: true,
+                    retriedOnce: true,
+                    message: 'Captions enabled on retry'
+                };
+            } else {
+                console.log('❌ [CC ENABLE] Failed to enable captions after retry');
+                return {
+                    success: false,
+                    error: 'Failed to enable captions',
+                    message: 'Keyboard shortcut did not toggle captions'
+                };
+            }
+        }
+    } catch (error) {
+        console.error('❌ [CC ENABLE] Error:', error);
+        return {
+            success: false,
+            error: error.message,
+            message: 'Exception during caption enable'
+        };
+    }
+}
+
 // Initialize user settings
 loadUserSettings();
 
@@ -477,12 +596,30 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             console.error('❌ [CONTENT] Manual detection error:', error);
             console.error('❌ [CONTENT] Error stack:', error.stack);
             
-            sendResponse({ 
-                success: false, 
+            sendResponse({
+                success: false,
                 error: error.message,
                 stack: error.stack
             });
         }
+    } else if (request.action === 'enableCaptions') {
+        // NEW: Auto-enable captions handler
+        console.log('🎬 [CONTENT] Received enableCaptions request');
+
+        enableCaptionsIfNeeded()
+            .then(result => {
+                console.log('🎬 [CONTENT] Caption enable result:', result);
+                sendResponse(result);
+            })
+            .catch(error => {
+                console.error('❌ [CONTENT] Caption enable error:', error);
+                sendResponse({
+                    success: false,
+                    error: error.message
+                });
+            });
+
+        return true; // Keep message channel open for async response
     }
     return true; // Wskazuje, że odpowiedź będzie asynchroniczna
 });
