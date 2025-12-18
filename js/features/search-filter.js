@@ -1,7 +1,6 @@
 /**
  * Search and Filter Functionality Module
- * 
- * Extracted from popup.js lines 3364-3758
+ *
  * Handles search functionality and participant filtering
  */
 
@@ -18,7 +17,6 @@ window.SearchFilterManager = {
 
     /**
      * Initialize search functionality
-     * Source: popup.js lines 3364-3385
      */
     initializeSearch() {
         const searchBtn = document.getElementById("searchBtn");
@@ -78,7 +76,6 @@ window.SearchFilterManager = {
 
     /**
      * Toggle search panel visibility
-     * Source: popup.js lines 3387-3403
      */
     toggleSearchPanel() {
         const searchPanel = document.getElementById("searchPanel");
@@ -111,15 +108,16 @@ window.SearchFilterManager = {
 
     /**
      * Handle search input with debouncing
-     * Source: popup.js lines 3405-3415
+     * Debounces search input by 300ms to avoid excessive filtering
      */
     handleSearchInput(e) {
         const query = e.target.value.trim();
-        
+
         if (this._searchDebounceTimer) {
             clearTimeout(this._searchDebounceTimer);
         }
-        
+
+        // Debounce search by 300ms to reduce performance impact
         this._searchDebounceTimer = setTimeout(() => {
             this.performSearch(query);
         }, 300);
@@ -127,7 +125,6 @@ window.SearchFilterManager = {
 
     /**
      * Perform search and update display
-     * Source: popup.js lines 3417-3423
      */
     performSearch(query) {
         this._currentSearchQuery = query;
@@ -148,7 +145,6 @@ window.SearchFilterManager = {
 
     /**
      * Clear search and hide search panel
-     * Source: popup.js lines 3432-3454
      */
     clearSearch() {
         const searchInput = document.getElementById("searchInput");
@@ -192,7 +188,6 @@ window.SearchFilterManager = {
 
     /**
      * Reset search state
-     * Source: popup.js lines 3456-3475
      */
     resetSearch() {
         const searchInput = document.getElementById("searchInput");
@@ -227,7 +222,6 @@ window.SearchFilterManager = {
 
     /**
      * Initialize participant filters
-     * Source: popup.js lines 3478-3508
      */
     initializeFilters() {
         const filterBtn = document.getElementById('filterBtn');
@@ -263,7 +257,6 @@ window.SearchFilterManager = {
 
     /**
      * Toggle filter dropdown visibility
-     * Source: popup.js lines 3510-3536
      */
     toggleFilterDropdown() {
         const filterBtn = document.getElementById('filterBtn');
@@ -295,7 +288,7 @@ window.SearchFilterManager = {
 
     /**
      * Update participant filters list
-     * Source: popup.js lines 3538-3638
+     * Extracts unique participants from transcript and updates the filter UI
      */
     updateParticipantFiltersList() {
         const filterParticipantsList = document.getElementById('filterParticipantsList');
@@ -411,7 +404,6 @@ window.SearchFilterManager = {
 
     /**
      * Handle "All participants" checkbox change
-     * Source: popup.js lines 3640-3663
      */
     handleAllParticipantsChange(event) {
         const isChecked = event.target.checked;
@@ -443,7 +435,6 @@ window.SearchFilterManager = {
 
     /**
      * Handle individual participant filter change
-     * Source: popup.js lines 3665-3685
      */
     handleParticipantFilterChange(event) {
         const participant = event.target.value;
@@ -472,7 +463,6 @@ window.SearchFilterManager = {
 
     /**
      * Update filter badge display
-     * Source: popup.js lines 3687-3724
      */
     updateFilterBadge() {
         const filterBtn = document.getElementById('filterBtn');
@@ -515,7 +505,6 @@ window.SearchFilterManager = {
 
     /**
      * Apply participant filters to transcript display
-     * Source: popup.js lines 3726-3730
      */
     applyParticipantFilters() {
         if (window.transcriptData && window.transcriptData.messages) {
@@ -527,7 +516,6 @@ window.SearchFilterManager = {
 
     /**
      * Reset participant filters
-     * Source: popup.js lines 3732-3758
      */
     resetParticipantFilters() {
         this._activeParticipantFilters.clear();
@@ -561,29 +549,36 @@ window.SearchFilterManager = {
     /**
      * Apply all filters (participant and search) to messages
      * Used by TranscriptManager.displayTranscript()
+     *
+     * Filtering logic:
+     * 1. Apply participant filters first
+     *    - If recording with no participants yet: show all messages
+     *    - If no participants selected (but participants exist): show nothing
+     *    - If some participants selected: show only their messages
+     *    - If all participants selected: show all messages
+     * 2. Then apply search filter to remaining messages
      */
     applyFilters(messages) {
         let filteredMessages = messages;
-        
+
         // Apply participant filters first
         const isRealtimeMode = window.realtimeMode || false;
         if (isRealtimeMode && this._allParticipants.length === 0) {
             // Active recording with no participants yet - show all messages
-            // (no filtering needed, let new messages appear)
         } else if (this._activeParticipantFilters.size === 0 && this._allParticipants.length > 0) {
             // No participants selected (but participants exist) - show no messages
             filteredMessages = [];
         } else if (this._activeParticipantFilters.size < this._allParticipants.length) {
             // Some participants selected - show only their messages
-            filteredMessages = filteredMessages.filter(entry => 
+            filteredMessages = filteredMessages.filter(entry =>
                 this._activeParticipantFilters.has(entry.speaker)
             );
         }
-        // If activeParticipantFilters.size === allParticipants.length, show all messages (no filtering needed)
-        
-        // Then apply search filter
+
+        // Apply search filter to remaining messages
+        // Searches both text content and speaker names (case-insensitive)
         if (this._currentSearchQuery) {
-            filteredMessages = filteredMessages.filter(entry => 
+            filteredMessages = filteredMessages.filter(entry =>
                 entry.text.toLowerCase().includes(this._currentSearchQuery.toLowerCase()) ||
                 entry.speaker.toLowerCase().includes(this._currentSearchQuery.toLowerCase())
             );
@@ -595,12 +590,14 @@ window.SearchFilterManager = {
     /**
      * Check if a message should be shown based on current filters
      * Used by TranscriptManager for incremental updates
+     *
+     * Applies the same filtering logic as applyFilters() but for a single message
      */
     shouldShowMessage(message) {
-        // Apply participant filter
         const isRealtimeMode = window.realtimeMode || false;
         let shouldShow = true;
-        
+
+        // Apply participant filter
         if (isRealtimeMode && this._allParticipants.length === 0) {
             // Active recording with no participants yet - show all messages
         } else if (this._activeParticipantFilters.size === 0 && this._allParticipants.length > 0) {
@@ -608,13 +605,13 @@ window.SearchFilterManager = {
         } else if (this._activeParticipantFilters.size < this._allParticipants.length) {
             shouldShow = this._activeParticipantFilters.has(message.speaker);
         }
-        
+
         // Apply search filter
         if (shouldShow && this._currentSearchQuery) {
             shouldShow = message.text.toLowerCase().includes(this._currentSearchQuery.toLowerCase()) ||
                         message.speaker.toLowerCase().includes(this._currentSearchQuery.toLowerCase());
         }
-        
+
         return shouldShow;
     },
 
@@ -718,25 +715,26 @@ window.SearchFilterManager = {
 
     /**
      * Save current filter state to storage
+     * Debounced by 500ms to avoid excessive storage writes
      */
     async saveFilterState() {
         try {
             if (this._saveTimeout) {
                 clearTimeout(this._saveTimeout);
             }
-            
-            // Debounce saves to avoid too frequent storage writes
+
+            // Debounce saves by 500ms to reduce storage write frequency
             this._saveTimeout = setTimeout(async () => {
                 const filterState = {
                     searchQuery: this._currentSearchQuery,
                     activeParticipantFilters: Array.from(this._activeParticipantFilters)
                 };
-                
+
                 if (window.StateManager && window.StateManager.saveUIState) {
                     await window.StateManager.saveUIState(filterState);
                     console.log('💾 [SEARCH] Filter state saved:', filterState);
                 }
-            }, 500); // 500ms debounce
+            }, 500);
         } catch (error) {
             console.error('💾 [SEARCH ERROR] Failed to save filter state:', error);
         }
@@ -827,13 +825,11 @@ window.SearchFilterManager = {
 
     /**
      * Set up global function aliases for backward compatibility
-     * This fixes the critical bug where other modules expect global functions
      */
     setupGlobalAliases() {
-        // Critical fix: Expose search/filter functions globally as expected by other modules
         window.resetSearch = this.resetSearch.bind(this);
         window.resetParticipantFilters = this.resetParticipantFilters.bind(this);
-        
+
         console.log('🔗 [SEARCH] Global search function aliases created for backward compatibility');
     }
 };

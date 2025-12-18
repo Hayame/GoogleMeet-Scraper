@@ -1,13 +1,11 @@
 /**
  * Timer Manager - Handles duration tracking and timer functionality
- * Extracted from popup.js for better modularity
  */
 
 window.TimerManager = {
     /**
-     * Start duration timer (from popup.js lines 2572-2595)
-     * Timer is based on recordingStartTime timestamp, not local setInterval
-     * This way it works even when popup is closed
+     * Start duration timer
+     * Timer is based on recordingStartTime timestamp, not local setInterval so it works even when popup is closed
      */
     startDurationTimer() {
         // Get recordingStartTime from state manager
@@ -44,7 +42,7 @@ window.TimerManager = {
     },
 
     /**
-     * Stop duration timer (from popup.js lines 2597-2603)
+     * Stop duration timer
      */
     stopDurationTimer() {
         const durationTimer = window.StateManager?.getDurationTimer();
@@ -56,7 +54,7 @@ window.TimerManager = {
     },
 
     /**
-     * Update duration display (from popup.js lines 1494-1530)
+     * Update duration display
      * Always calculate duration in real-time from the actual start time
      */
     updateDurationDisplay() {
@@ -116,7 +114,7 @@ window.TimerManager = {
     },
 
     /**
-     * Format duration in seconds to display format (from popup.js lines 2606-2616)
+     * Format duration in seconds to display format
      * @param {number} seconds - Duration in seconds
      * @returns {string} Formatted duration string (H:MM:SS or M:SS)
      */
@@ -158,7 +156,7 @@ window.TimerManager = {
 
     /**
      * Add current session duration to total and reset recording start time
-     * Used when pausing/stopping recording (from deactivateRealtimeMode)
+     * Used when pausing/stopping recording
      */
     accumulateSessionDuration() {
         const recordingStartTime = window.StateManager?.getRecordingStartTime();
@@ -182,10 +180,9 @@ window.TimerManager = {
 
     /**
      * Set up global function aliases for backward compatibility
-     * This fixes timer function access issues in other modules
      */
     setupGlobalAliases() {
-        // Critical fix: Expose timer functions globally as expected by other modules
+        // Expose timer functions globally
         window.startDurationTimer = this.startDurationTimer.bind(this);
         window.stopDurationTimer = this.stopDurationTimer.bind(this);
         window.updateDurationDisplay = this.updateDurationDisplay.bind(this);

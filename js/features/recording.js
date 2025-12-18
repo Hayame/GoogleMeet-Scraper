@@ -1,19 +1,17 @@
 /**
  * Recording Management Module
- * Extracted from popup.js - handles recording start/stop logic and state management
+ * Handles recording start/stop logic and state management
  */
 
-// Create recording manager with all extracted functions
 window.RecordingManager = {
     /**
      * Activate realtime recording mode
-     * Source: popup.js lines 481-572
      * @param {boolean} isContinuation - Whether this is continuing an existing session
      */
     async activateRealtimeMode(isContinuation = false) {
         const activationTime = new Date().toISOString();
-        console.log('🟢 [ACTIVATION DEBUG] Starting realtime mode at:', activationTime);
-        console.log('🟢 [ACTIVATION DEBUG] Is continuation:', isContinuation);
+        console.log('🟢 [ACTIVATION] Starting realtime mode at:', activationTime);
+        console.log('🟢 [ACTIVATION] Is continuation:', isContinuation);
         
         const realtimeBtn = document.getElementById('recordBtn');
         if (!realtimeBtn) {
@@ -24,7 +22,7 @@ window.RecordingManager = {
         // Reset recording stopped and paused flags
         window.StateManager?.setRecordingStopped(false);
         window.StateManager?.setRecordingPaused(false);
-        console.log('🟢 [ACTIVATION DEBUG] recordingStopped reset to:', window.StateManager?.getRecordingStopped());
+        console.log('🟢 [ACTIVATION] recordingStopped reset to:', window.StateManager?.getRecordingStopped());
         
         // Reset search when starting new recording (not continuation)
         if (!isContinuation && window.SearchFilterManager) {
@@ -51,14 +49,14 @@ window.RecordingManager = {
             const startTime = new Date();
             window.StateManager?.setRecordingStartTime(startTime);
             window.StateManager?.setSessionStartTime(startTime); // Also set session start time for new sessions
-            console.log('🟢 [ACTIVATION DEBUG] New session - setting recordingStartTime:', startTime);
+            console.log('🟢 [ACTIVATION] New session - setting recordingStartTime:', startTime);
         } else {
             // For continuation, set new recordingStartTime to track current recording segment
             const startTime = new Date();
             window.StateManager?.setRecordingStartTime(startTime);
             // Keep existing sessionStartTime for consistent session naming
-            console.log('🟢 [ACTIVATION DEBUG] Continuation - setting new recordingStartTime:', startTime);
-            console.log('🟢 [ACTIVATION DEBUG] Continuation - keeping existing sessionStartTime:', window.StateManager?.getSessionStartTime());
+            console.log('🟢 [ACTIVATION] Continuation - setting new recordingStartTime:', startTime);
+            console.log('🟢 [ACTIVATION] Continuation - keeping existing sessionStartTime:', window.StateManager?.getSessionStartTime());
         }
         
         // Start duration timer
@@ -74,18 +72,18 @@ window.RecordingManager = {
         // Create new session ID if none exists
         if (!window.currentSessionId) {
             window.currentSessionId = window.generateSessionId ? window.generateSessionId() : 'session_' + Date.now();
-            console.log('🔄 [RECORDING DEBUG] Recording activation - Generated new currentSessionId:', window.currentSessionId);
+            console.log('🔄 [RECORDING] Recording activation - Generated new currentSessionId:', window.currentSessionId);
         } else {
-            console.log('🔄 [RECORDING DEBUG] Recording activation - Using existing currentSessionId:', window.currentSessionId);
+            console.log('🔄 [RECORDING] Recording activation - Using existing currentSessionId:', window.currentSessionId);
         }
 
         // Start background scanning
         try {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             if (tab && tab.url.includes('meet.google.com')) {
-                console.log('🟢 [ACTIVATION DEBUG] Starting background scanning for tab:', tab.id);
+                console.log('🟢 [ACTIVATION] Starting background scanning for tab:', tab.id);
 
-                // NEW: Auto-enable captions for NEW recordings only (not continuations)
+                // Auto-enable captions for NEW recordings only (not continuations)
                 if (!isContinuation) {
                     console.log('🎬 [ACTIVATION] New recording - auto-enabling captions');
                     this.autoEnableCaptions(); // Fire and forget - don't await
@@ -137,7 +135,7 @@ window.RecordingManager = {
 
                     // Check for chrome.runtime.lastError
                     if (chrome.runtime.lastError) {
-                        console.error('🟢 [ACTIVATION DEBUG] Runtime error starting background scanning:', chrome.runtime.lastError);
+                        console.error('🟢 [ACTIVATION] Runtime error starting background scanning:', chrome.runtime.lastError);
                         if (window.updateStatus) {
                             window.updateStatus('Błąd uruchomienia skanowania w tle', 'error');
                         }
@@ -145,12 +143,12 @@ window.RecordingManager = {
                     }
 
                     if (response && response.success) {
-                        console.log('🟢 [ACTIVATION DEBUG] Background scanning started at:', scanStartTime);
+                        console.log('🟢 [ACTIVATION] Background scanning started at:', scanStartTime);
                         if (window.updateStatus) {
                             window.updateStatus('Nagrywanie aktywne - skanowanie w tle', 'success');
                         }
                     } else {
-                        console.error('🟢 [ACTIVATION DEBUG] Failed to start background scanning at:', scanStartTime);
+                        console.error('🟢 [ACTIVATION] Failed to start background scanning at:', scanStartTime);
                         if (window.updateStatus) {
                             window.updateStatus('Błąd uruchomienia skanowania w tle', 'error');
                         }
@@ -167,13 +165,11 @@ window.RecordingManager = {
 
     /**
      * Deactivate realtime recording mode
-     * Source: popup.js lines 1532-1579
      */
     async deactivateRealtimeMode() {
-        // CRITICAL DEBUG: Log who is calling deactivateRealtimeMode
-        console.log('🔴 [RECORDING DEBUG] deactivateRealtimeMode() called');
-        console.log('🔴 [RECORDING DEBUG] Call stack:', new Error().stack);
-        console.log('🔴 [RECORDING DEBUG] Current recording state:', {
+        console.log('🔴 [RECORDING] deactivateRealtimeMode() called');
+        console.log('🔴 [RECORDING] Call stack:', new Error().stack);
+        console.log('🔴 [RECORDING] Current recording state:', {
             realtimeMode: window.realtimeMode,
             currentSessionId: window.currentSessionId,
             hasTranscriptData: !!window.transcriptData,
@@ -186,7 +182,7 @@ window.RecordingManager = {
             return;
         }
 
-        // NEW: Load latest state from storage to prevent data loss from worker failures
+        // Load latest state from storage to prevent data loss from worker failures
         try {
             console.log('🔄 [RECORDING] Loading latest state from storage before stop');
             const storageData = await window.StorageManager.getStorageData([
@@ -227,7 +223,7 @@ window.RecordingManager = {
             window.updateButtonVisibility('NEW');
         }
         
-        // CRITICAL FIX: Set session to paused state when user manually stops recording
+        // Set session to paused state when user manually stops recording
         // This preserves session data and duration while stopping active recording
         if (window.StorageManager) {
             window.StorageManager.setPausedSessionState();
@@ -251,8 +247,8 @@ window.RecordingManager = {
         // Set flags to ignore background updates and mark as paused
         window.StateManager?.setRecordingStopped(true);
         window.StateManager?.setRecordingPaused(true);
-        
-        // Zatrzymaj skanowanie w tle PRZED zapisem sesji
+
+        // Stop background scanning before saving session
         chrome.runtime.sendMessage({
             action: 'stopBackgroundScanning'
         }, (response) => {
@@ -271,7 +267,6 @@ window.RecordingManager = {
 
     /**
      * Continue current recording session
-     * Source: popup.js lines 469-479
      */
     async continueCurrentSession() {
         console.log('Continuing current session');
@@ -287,7 +282,6 @@ window.RecordingManager = {
 
     /**
      * Handle recording button click logic
-     * Source: popup.js lines 448-467
      */
     handleRecordButtonClick() {
         if (window.realtimeMode) {
@@ -311,8 +305,6 @@ window.RecordingManager = {
             }
         }
     },
-
-    // autoSaveCurrentSession() method removed - use SessionHistoryManager.autoSaveCurrentSession() instead
 
     /**
      * Automatically enable captions on Google Meet
@@ -357,7 +349,6 @@ window.RecordingManager = {
 
     /**
      * Get current recording status
-     * Source: popup.js lines 635-644
      */
     getRecordingStatus() {
         const isRecording = window.realtimeMode;
@@ -386,13 +377,12 @@ window.RecordingManager = {
 
     /**
      * Set up global function aliases for backward compatibility
-     * This fixes the critical bug where other modules expect global functions
      */
     setupGlobalAliases() {
-        // Critical fix: Expose recording functions globally as expected by other modules
+        // Expose recording functions globally as expected by other modules
         window.deactivateRealtimeMode = this.deactivateRealtimeMode.bind(this);
         window.activateRealtimeMode = this.activateRealtimeMode.bind(this);
-        
+
         console.log('🔗 [RECORDING] Global recording function aliases created for backward compatibility');
     }
 };

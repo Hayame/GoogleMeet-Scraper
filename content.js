@@ -603,7 +603,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             });
         }
     } else if (request.action === 'enableCaptions') {
-        // NEW: Auto-enable captions handler
+        // Auto-enable captions handler
         console.log('🎬 [CONTENT] Received enableCaptions request');
 
         enableCaptionsIfNeeded()

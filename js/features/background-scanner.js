@@ -1,9 +1,8 @@
 /**
  * Background Scanner Module
- * Extracted from popup.js - handles background scanning functionality and message processing
+ * Handles background scanning functionality and message processing
  */
 
-// Create background scanner manager with all extracted functions
 window.BackgroundScanner = {
     // Priority queue system for merge coordination (replaces simple mutex)
     _mergeQueue: [],          // Array of {id, data, priority, timestamp, retryCount}
@@ -15,7 +14,6 @@ window.BackgroundScanner = {
 
     /**
      * Handle background scan updates from content script
-     * Source: popup.js lines 283-399
      * @param {Object} data - Transcript data from background scan
      */
     async handleBackgroundScanUpdate(data) {
@@ -51,7 +49,7 @@ window.BackgroundScanner = {
             priority: priority,
             timestamp: Date.now(),
             retryCount: 0,
-            onComplete: onComplete  // NEW: Callback for completion notification
+            onComplete: onComplete
         };
 
         // Queue size protection - prevent memory leak
@@ -93,21 +91,20 @@ window.BackgroundScanner = {
                 await this._performMerge(operation.data);
                 console.log(`✅ [MERGE] Completed #${operation.id}`);
 
-                // NEW: Notify completion callback if provided
+                // Notify completion callback if provided
                 if (operation.onComplete && typeof operation.onComplete === 'function') {
                     try {
                         await operation.onComplete();
                         console.log(`📢 [MERGE] Callback executed for #${operation.id}`);
                     } catch (callbackError) {
                         console.error(`❌ [MERGE] Callback failed for #${operation.id}:`, callbackError);
-                        // Continue - merge succeeded even if callback fails
                     }
                 }
 
             } catch (error) {
                 console.error(`❌ [MERGE] Failed #${operation.id}:`, error);
 
-                // RETRY LOGIC: Re-queue with lower priority
+                // Retry logic: Re-queue with lower priority
                 const MAX_RETRIES = 3;
                 if (operation.retryCount < MAX_RETRIES) {
                     operation.retryCount++;
@@ -129,7 +126,6 @@ window.BackgroundScanner = {
 
     /**
      * Perform actual merge operation
-     * Extracted from mergeAccumulatedData for queue system
      * @private
      * @param {Object} data - Transcript data to merge
      */
@@ -147,12 +143,12 @@ window.BackgroundScanner = {
         const currentMessages = window.transcriptData?.messages || [];
         const newMessages = data.messages;
 
-        // CRITICAL FIX: Protect against data loss from CC close/reopen
-        // If new data is empty but we have existing data, it means CC was closed - IGNORE
+        // Protect against data loss from CC close/reopen
+        // If new data is empty but we have existing data, it means CC was closed - ignore
         if (newMessages.length === 0 && currentMessages.length > 0) {
             console.warn('⚠️ [MERGE] Ignoring empty scan - likely CC was closed. Preserving existing data.');
             console.warn('⚠️ [MERGE] Current data preserved:', currentMessages.length, 'messages');
-            return; // Skip merge - keep existing data
+            return;
         }
 
         console.log('🔄 [MERGE] Comparing data:', {
@@ -249,7 +245,6 @@ window.BackgroundScanner = {
 
     /**
      * Initialize background scan message listener
-     * Source: popup.js lines 402-409
      */
     initializeMessageListener() {
         // Listen for background scan updates
@@ -305,10 +300,6 @@ window.BackgroundScanner = {
         });
     },
 
-
-    // 30-second auto-save interval removed to prevent duplicate sessions
-    // Real-time auto-save in handleBackgroundScanUpdate() handles all saves properly
-
     // ========================================
     // REACTIVATION HELPER FUNCTIONS
     // ========================================
@@ -339,7 +330,7 @@ window.BackgroundScanner = {
             }
         }
 
-        // FALLBACK: If no stored ID or tab invalid, find active Meet tab
+        // Fallback: If no stored ID or tab invalid, find active Meet tab
         if (!meetTabId) {
             console.log('🔍 [REACTIVATE] Searching for active Meet tab as fallback...');
             meetTabId = await this.findActiveMeetTab();
@@ -450,29 +441,24 @@ window.BackgroundScanner = {
     },
 
     /**
-     * BULLETPROOF Reaktywacja background scannera po otwarciu popup
-     * Naprawia wszystkie 9 failure modes:
-     * - Usuwa check restoration flag
-     * - Dodaje fallback dla brakującego MEET_TAB_ID
-     * - Konwertuje chrome.tabs.get na Promise
-     * - Dodaje retry mechanism
-     * - Odzyskuje zgromadzone dane ze storage
+     * Reactivate background scanner after popup opens
+     * Handles multiple failure modes with proper fallbacks and retry logic
      *
      * @returns {Promise<Object>} Result object with success status and details
      */
     async reactivateAfterRestore() {
         try {
-            console.log('🔄 [REACTIVATE] ===== STARTING BULLETPROOF REACTIVATION =====');
+            console.log('🔄 [REACTIVATE] ===== STARTING REACTIVATION =====');
 
             // Phase 0: Find Meet tab (with fallback)
             const meetTabId = await this._findOrVerifyMeetTab();
 
             if (!meetTabId) {
                 this._handleNoMeetTab();
-                return { success: false, reason: 'NO_MEET_TAB' };  // NEW: Return result
+                return { success: false, reason: 'NO_MEET_TAB' };
             }
 
-            // Phase 1: Recover accumulated data (BLOCKS until merge complete)
+            // Phase 1: Recover accumulated data (blocks until merge complete)
             const mergeSuccess = await this._recoverAccumulatedData(meetTabId);
             console.log(`✅ [REACTIVATE] Merge phase complete (success: ${mergeSuccess})`);
 
@@ -482,7 +468,7 @@ window.BackgroundScanner = {
             // Handle result
             this._handleReactivationResult(restartSuccess);
 
-            return {  // NEW: Return detailed result
+            return {
                 success: true,
                 mergeSuccess: mergeSuccess,
                 restartSuccess: restartSuccess
@@ -490,16 +476,10 @@ window.BackgroundScanner = {
 
         } catch (error) {
             this._handleReactivationError(error);
-            return { success: false, error: error.message };  // NEW: Return error result
+            return { success: false, error: error.message };
         }
     },
 
-    /**
-     * Pobranie zgromadzonych danych ze skanowania w tle
-     * Wywoływane gdy popup otwiera się ponownie podczas aktywnego nagrywania
-     * @param {number} tabId - ID karty która była skanowana
-     * @returns {Promise<Object|null>} Zgromadzone dane lub null
-     */
     /**
      * Retrieve accumulated scan data with multi-path recovery
      * Tries: Primary → Checkpoints → Meeting URL match
@@ -510,21 +490,21 @@ window.BackgroundScanner = {
     async retrieveAccumulatedScanData(tabId) {
         console.log('🔍 [RETRIEVE] Searching for accumulated data, tabId:', tabId);
 
-        // RECOVERY PATH 1: Primary storage key
+        // Recovery path 1: Primary storage key
         const primaryData = await this._tryPrimaryKey(tabId);
         if (primaryData) {
             console.log('✅ [RETRIEVE] Found data via primary key');
             return primaryData;
         }
 
-        // RECOVERY PATH 2: Checkpoints (if primary failed or outdated)
+        // Recovery path 2: Checkpoints (if primary failed or outdated)
         const checkpointData = await this._tryCheckpoints(tabId);
         if (checkpointData) {
             console.log('✅ [RETRIEVE] Found data via checkpoint');
             return checkpointData;
         }
 
-        // RECOVERY PATH 3: Meeting URL match (tab ID reuse protection)
+        // Recovery path 3: Meeting URL match (tab ID reuse protection)
         const urlMatchData = await this._tryMeetingUrlMatch();
         if (urlMatchData) {
             console.log('✅ [RETRIEVE] Found data via meeting URL match');
@@ -611,17 +591,14 @@ window.BackgroundScanner = {
                 return null;
             }
 
-            // Try most recent checkpoint
             const latestCheckpoint = allData[checkpointKeys[0]];
 
-            // Verify age
+            // Verify checkpoint age
             const checkpointAge = Date.now() - latestCheckpoint.timestamp;
             const MAX_AGE = 60 * 60 * 1000;
 
             if (checkpointAge > MAX_AGE) {
                 console.warn(`⚠️ [RETRIEVE] Checkpoint too old (${Math.round(checkpointAge / 60000)} minutes)`);
-
-                // Cleanup old checkpoints
                 await chrome.storage.local.remove(checkpointKeys);
                 return null;
             }
@@ -743,10 +720,9 @@ window.BackgroundScanner = {
     },
 
     /**
-     * Weryfikuj czy karta istnieje i jest kartą Google Meet
-     * Konwertuje callback-based chrome.tabs.get na Promise
-     * @param {number} tabId - ID karty do weryfikacji
-     * @returns {Promise<boolean>} true jeśli karta jest aktywną kartą Meet
+     * Verify that tab exists and is a Google Meet tab
+     * @param {number} tabId - Tab ID to verify
+     * @returns {Promise<boolean>} true if tab is an active Meet tab
      */
     async verifyMeetTab(tabId) {
         return new Promise((resolve) => {
@@ -771,9 +747,9 @@ window.BackgroundScanner = {
     },
 
     /**
-     * Znajdź aktywną kartę Google Meet jako fallback
-     * Używane gdy MEET_TAB_ID nie istnieje w storage lub jest nieważny
-     * @returns {Promise<number|null>} ID karty Meet lub null
+     * Find active Google Meet tab as fallback
+     * Used when MEET_TAB_ID doesn't exist in storage or is invalid
+     * @returns {Promise<number|null>} Meet tab ID or null
      */
     async findActiveMeetTab() {
         try {
@@ -809,10 +785,10 @@ window.BackgroundScanner = {
     },
 
     /**
-     * Restart background scanning z retry mechanism
-     * Próbuje 3 razy z opóźnieniem 1 sekundy
-     * @param {number} tabId - ID karty do skanowania
-     * @returns {Promise<boolean>} true jeśli sukces
+     * Restart background scanning with retry mechanism
+     * Tries 3 times with 1 second delay between attempts
+     * @param {number} tabId - Tab ID to scan
+     * @returns {Promise<boolean>} true if successful
      */
     async startBackgroundScanningWithRetry(tabId, maxRetries = 3) {
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -842,7 +818,6 @@ window.BackgroundScanner = {
 
     /**
      * Detect changes between old and new transcript messages
-     * Source: popup-old.js lines 2239-2348
      * @param {Array} oldMessages - Previous transcript messages
      * @param {Array} newMessages - New transcript messages
      * @returns {Object} Object with added, updated, and removed arrays
@@ -963,11 +938,8 @@ window.BackgroundScanner = {
      */
     initialize() {
         this.initializeMessageListener();
-        // 30-second auto-save interval removed - real-time auto-save handles all saves
-        
-        // CRITICAL FIX: Expose detectChanges globally for backward compatibility
+        // Expose detectChanges globally for backward compatibility
         window.detectChanges = this.detectChanges.bind(this);
-        console.log('🔗 [BACKGROUND] detectChanges exposed globally');
         
         console.log('🔄 Background Scanner initialized');
     }

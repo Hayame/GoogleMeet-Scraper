@@ -1,15 +1,13 @@
 /**
  * Transcript Display and Management Module
- * 
- * Extracted from popup.js lines 1051-1468
+ *
  * Handles transcript display, message creation, and transcript statistics
  */
 
 window.TranscriptManager = {
-    
+
     /**
      * Display transcript with optional incremental updates
-     * Source: popup.js lines 1051-1178
      */
     displayTranscript(data, changes = null) {
         const previewDiv = document.getElementById('transcriptContent');
@@ -98,7 +96,6 @@ window.TranscriptManager = {
 
     /**
      * Handle incremental updates for better performance with long conversations
-     * Source: popup.js lines 1181-1272
      */
     handleIncrementalUpdate(changes, messagesToDisplay, speakerColors, previewDiv) {
         console.log('🔄 Incremental update:', {
@@ -183,8 +180,7 @@ window.TranscriptManager = {
     },
 
     /**
-     * Create a message element (extracted from displayTranscript for reuse)
-     * Source: popup.js lines 1275-1393
+     * Create a message element for the transcript display
      */
     createMessageElement(entry, speakerColors) {
         const entryDiv = document.createElement('div');
@@ -250,8 +246,7 @@ window.TranscriptManager = {
     },
 
     /**
-     * Create expandable text with show more/less functionality
-     * Source: popup.js lines 1317-1375
+     * Create expandable text with show more/less functionality for long messages
      */
     _createExpandableText(textP, bubbleDiv, entry) {
         // Generate unique entry ID
@@ -315,8 +310,7 @@ window.TranscriptManager = {
     },
 
     /**
-     * Update existing message element
-     * Source: popup.js lines 1396-1429
+     * Update existing message element with new content
      */
     updateMessageElement(element, message, speakerColors) {
         const textP = element.querySelector('.transcript-text');
@@ -355,8 +349,7 @@ window.TranscriptManager = {
     },
 
     /**
-     * Update transcript statistics
-     * Source: popup.js lines 1435-1468
+     * Update transcript statistics (entry count, participant count, duration)
      */
     updateStats(data) {
         const statsDiv = document.getElementById('transcriptStats');
@@ -396,8 +389,7 @@ window.TranscriptManager = {
     },
 
     /**
-     * Update participant count clickability
-     * Source: popup.js lines 1470-1491
+     * Update participant count clickability based on whether there are participants
      */
     updateParticipantCountClickability(participantCount) {
         const participantCountSpan = document.getElementById('participantCount');
@@ -423,8 +415,7 @@ window.TranscriptManager = {
     },
 
     /**
-     * Show appropriate empty state message
-     * Source: popup.js lines 1117-1148
+     * Show appropriate empty state message based on current context
      */
     _showEmptyState(previewDiv) {
         const isRealtimeMode = window.realtimeMode || false;
@@ -466,8 +457,7 @@ window.TranscriptManager = {
     },
 
     /**
-     * Get speaker color mapping for consistent avatar colors
-     * Source: popup.js lines 1037-1049
+     * Get speaker color mapping for consistent avatar colors across messages
      */
     getSpeakerColorMap(messages) {
         const speakerColors = new Map();
@@ -485,7 +475,6 @@ window.TranscriptManager = {
 
     /**
      * Generate unique entry ID for expand/collapse state tracking
-     * Source: popup.js lines 1651-1661
      */
     generateEntryId(entry) {
         // Generate a simple hash based on speaker and first 100 chars of text
@@ -501,7 +490,6 @@ window.TranscriptManager = {
 
     /**
      * Highlight text for search functionality
-     * Source: popup.js lines 3425-3430
      */
     highlightText(text, query) {
         if (!query) return text;
@@ -511,8 +499,7 @@ window.TranscriptManager = {
     },
 
     /**
-     * Reinitialize enhanced interactions for new elements
-     * Source: popup.js lines 3343-3361
+     * Reinitialize enhanced interactions (ripple effects, hover) for newly created elements
      */
     reinitializeEnhancedInteractions() {
         // Re-add ripple effects to newly created buttons
@@ -561,7 +548,6 @@ window.TranscriptManager = {
 
     /**
      * Save expanded state to chrome.storage
-     * Source: popup.js lines 1663-1666
      */
     async _saveExpandedState() {
         if (!window.expandedEntries) return;
@@ -580,26 +566,24 @@ window.TranscriptManager = {
      */
     initialize() {
         console.log('📄 [TRANSCRIPT] TranscriptManager initialized');
-        
-        // CRITICAL FIX: Initialize participant count clickability for empty session (0 participants = non-clickable)
-        // This ensures proper styling from the start, regardless of session state
+
+        // Initialize participant count as non-clickable for empty session
         this.updateParticipantCountClickability(0);
         console.log('📄 [TRANSCRIPT] Initialized participant count as non-clickable for empty session');
-        
+
         // Set up global aliases for backward compatibility
         this.setupGlobalAliases();
     },
 
     /**
-     * Set up global function aliases for backward compatibility
-     * This fixes the critical bug where other modules expect global functions
+     * Set up global function aliases for backward compatibility with other modules
      */
     setupGlobalAliases() {
-        // Critical fix: Expose transcript functions globally as expected by other modules
+        // Expose transcript functions globally as expected by other modules
         window.displayTranscript = this.displayTranscript.bind(this);
         window.updateStats = this.updateStats.bind(this);
         window.getSpeakerColorMap = this.getSpeakerColorMap.bind(this);
-        
+
         console.log('🔗 [TRANSCRIPT] Global transcript function aliases created for backward compatibility');
     }
 };

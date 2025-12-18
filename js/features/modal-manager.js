@@ -1,13 +1,11 @@
 /**
  * Modal Manager Module
  * Handles modal display, hiding, and management functionality
- * Extracted from popup.js lines: 2903-3271
  */
 
 window.ModalManager = {
     /**
      * Initialize modal system with global event handlers
-     * Extracted from popup.js lines 2903-2919
      */
     initializeModalSystem() {    
         // ESC key handler
@@ -41,7 +39,6 @@ window.ModalManager = {
 
     /**
      * Show modal with optional data
-     * Extracted from popup.js lines 2921-2944
      * @param {string} modalId - ID of modal to show
      * @param {Object} data - Optional data to populate modal with
      */
@@ -81,7 +78,6 @@ window.ModalManager = {
 
     /**
      * Hide modal by ID
-     * Extracted from popup.js lines 2946-2959
      * @param {string} modalId - ID of modal to hide
      */
     hideModal(modalId) {
@@ -108,7 +104,6 @@ window.ModalManager = {
 
     /**
      * Show delete confirmation modal
-     * Extracted from popup.js lines 2961-3005
      * @param {string} sessionId - ID of session to delete
      */
     showDeleteConfirmation(sessionId) {
@@ -154,7 +149,6 @@ window.ModalManager = {
 
     /**
      * Show stop recording confirmation modal
-     * Extracted from popup.js lines 3060-3075
      * @param {string} sessionId - ID of session to load after stopping recording
      */
     showStopRecordingConfirmation(sessionId) {
@@ -182,7 +176,6 @@ window.ModalManager = {
 
     /**
      * Populate stop recording modal with current session information
-     * CRITICAL FIX: Add formatted session info to modal for better UX
      */
     populateStopRecordingModalContent() {
         const modal = document.getElementById('stopRecordingModal');
@@ -266,7 +259,6 @@ window.ModalManager = {
 
     /**
      * Initialize stop recording modal event listeners
-     * Extracted from popup.js lines 3077-3100
      */
     initializeStopRecordingModalEventListeners() {
         const stopOk = document.getElementById('stopRecordingConfirm');
@@ -295,7 +287,6 @@ window.ModalManager = {
 
     /**
      * Handle stop recording confirmation response
-     * Extracted from popup.js lines 3102-3123
      * @param {boolean} confirmed - Whether user confirmed stopping recording
      */
     handleStopRecordingConfirmation(confirmed) {
@@ -327,7 +318,6 @@ window.ModalManager = {
 
     /**
      * Show resume recording options modal
-     * Extracted from popup.js lines 3125-3147
      */
     showResumeOptions() {    
         // Check if there's an active session to resume
@@ -349,7 +339,6 @@ window.ModalManager = {
 
     /**
      * Hide resume recording modal
-     * Extracted from popup.js lines 3149-3151
      */
     hideResumeModal() {
         this.hideModal('resumeRecordingModal');
@@ -357,7 +346,6 @@ window.ModalManager = {
 
     /**
      * Initialize resume modal event listeners
-     * Extracted from popup.js lines 3153-3207
      */
     initializeResumeModalEventListeners() {    
         const resumeOptions = document.querySelectorAll('#resumeRecordingModal .resume-option');
@@ -397,7 +385,6 @@ window.ModalManager = {
 
     /**
      * Initialize confirm modal
-     * Extracted from popup.js lines 3209-3220
      */
     initializeConfirmModal() {    
         const confirmCancel = document.getElementById('confirmCancel');
@@ -413,7 +400,6 @@ window.ModalManager = {
 
     /**
      * Initialize export modal with button handlers
-     * Extracted from popup.js lines 3222-3270
      */
     initializeExportModal() {    
         this.setupExportButtonHandlers();
@@ -421,7 +407,6 @@ window.ModalManager = {
 
     /**
      * Setup export button event handlers
-     * Extracted from popup.js lines 3227-3270
      */
     setupExportButtonHandlers() {    
         const exportTxtBtn = document.getElementById('exportTxtBtn');
@@ -513,10 +498,9 @@ window.ModalManager = {
      * Set up global function aliases for backward compatibility
      */
     setupGlobalAliases() {
-        // Critical fix: Expose modal functions globally as expected by other modules
         window.showModal = this.showModal.bind(this);
         window.hideModal = this.hideModal.bind(this);
-        
+
         console.log('🔗 [MODAL] Global modal function aliases created for backward compatibility');
     }
 };

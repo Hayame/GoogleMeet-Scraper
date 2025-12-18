@@ -43,7 +43,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 /**
  * Validate that critical global functions are available
- * CRITICAL FIX: Ensure all required functions exist before state restoration
  */
 function validateGlobalFunctions() {
     const requiredFunctions = [
@@ -144,7 +143,7 @@ async function initializeApplication() {
         window.RecordingManager.initialize();
     }
 
-    // 10. Initialize session history (CRITICAL: Must await before state restoration)
+    // 10. Initialize session history
     if (window.SessionHistoryManager && window.SessionUIManager) {
         await window.SessionHistoryManager.initialize();
         window.SessionUIManager.initialize();
@@ -293,14 +292,14 @@ async function applySessionStateRestoration(sessionState) {
         // Restore active recording state
         console.log('🔴 [POPUP] Restoring active recording state');
 
-        // PHASE 1: Reactivate background scanner FIRST (includes merge of accumulated data)
+        // Reactivate background scanner (includes merge of accumulated data)
         let reactivationResult = null;
         if (window.BackgroundScanner && window.BackgroundScanner.reactivateAfterRestore) {
             reactivationResult = await window.BackgroundScanner.reactivateAfterRestore();
             console.log('✅ [POPUP] Background scanner reactivation completed:', reactivationResult);
         }
 
-        // PHASE 2: Display transcript AFTER merge completes
+        // Display transcript after merge completes
         // Use window.transcriptData (updated by merge) instead of sessionState.transcriptData (stale)
         const transcriptToDisplay = window.transcriptData || sessionState.transcriptData;
 
@@ -309,18 +308,18 @@ async function applySessionStateRestoration(sessionState) {
             console.log('🔴 [POPUP] Displayed transcript after merge:', transcriptToDisplay.messages?.length || 0, 'messages');
         }
 
-        // PHASE 3: Update stats with merged data
+        // Update stats with merged data
         if (transcriptToDisplay && window.updateStats) {
             window.updateStats(transcriptToDisplay);
         }
 
-        // PHASE 4: Update participant count clickability
+        // Update participant count clickability
         if (transcriptToDisplay && window.TranscriptManager && window.TranscriptManager.updateParticipantCountClickability) {
             const uniqueParticipants = new Set(transcriptToDisplay.messages?.map(m => m.speaker) || []).size;
             window.TranscriptManager.updateParticipantCountClickability(uniqueParticipants);
         }
 
-        // PHASE 5: Check for merge failure and show warning
+        // Check for merge failure and show warning
         if (reactivationResult && !reactivationResult.mergeSuccess) {
             console.warn('⚠️ [POPUP] Merge failed, displaying stored data instead');
             if (window.updateStatus) {
@@ -328,19 +327,17 @@ async function applySessionStateRestoration(sessionState) {
             }
         }
 
-        // PHASE 6: Update UI state
+        // Update UI state
         if (window.UIManager) {
             window.UIManager.updateButtonVisibility('RECORDING');
         }
 
-        // PHASE 7: Restart duration timer
+        // Restart duration timer
         const recordingStartTime = window.StateManager?.getRecordingStartTime();
         if (recordingStartTime && window.TimerManager?.startDurationTimer) {
-            // recordingStartTime is valid (either restored or regenerated) - start live timer
             window.TimerManager.startDurationTimer();
             console.log('⏰ [POPUP] Timer started with recordingStartTime:', recordingStartTime);
         } else {
-            // No recordingStartTime - display accumulated duration (static)
             console.warn('⚠️ [POPUP] Cannot start timer - recordingStartTime not available');
             if (window.TimerManager?.updateDurationDisplay) {
                 window.TimerManager.updateDurationDisplay();
@@ -349,75 +346,72 @@ async function applySessionStateRestoration(sessionState) {
         }
         
     } else if (sessionState.sessionState === window.AppConstants.SESSION_STATES.PAUSED_SESSION) {
-        // CRITICAL FIX: Restore paused session - show transcript + "Rozpocznij nagrywanie" button
+        // Restore paused session
         console.log('⏸️ [POPUP] Restoring paused session');
-        
+
         // Display transcript data for paused session
         if (sessionState.transcriptData && window.displayTranscript) {
             window.displayTranscript(sessionState.transcriptData);
             console.log('⏸️ [POPUP] Restored transcript data for paused session:', sessionState.transcriptData.messages?.length || 0, 'messages');
         }
-        
+
         // Update stats for paused session
         if (sessionState.transcriptData && window.updateStats) {
             window.updateStats(sessionState.transcriptData);
         }
-        
-        // CRITICAL FIX: Update participant count clickability after stats update
+
+        // Update participant count clickability
         if (sessionState.transcriptData && window.TranscriptManager && window.TranscriptManager.updateParticipantCountClickability) {
             const uniqueParticipants = new Set(sessionState.transcriptData.messages?.map(m => m.speaker) || []).size;
             window.TranscriptManager.updateParticipantCountClickability(uniqueParticipants);
         }
-        
-        // CRITICAL: Update UI for paused session (show "Rozpocznij nagrywanie" button)
+
+        // Update UI for paused session
         if (window.UIManager) {
             window.UIManager.updateButtonVisibility('NEW');
         }
-        
+
         // Restore session duration display if available
-        // FIX: Check !== undefined instead of truthy (0 duration is valid!)
         if (sessionState.sessionTotalDuration !== undefined && window.TimerManager) {
-            // Set the accumulated duration
             window.StateManager?.setSessionTotalDuration(sessionState.sessionTotalDuration);
             if (window.TimerManager.updateDurationDisplay) {
-                // FIX: updateDurationDisplay() takes no parameters - reads from StateManager
                 window.TimerManager.updateDurationDisplay();
             }
         }
-        
+
         console.log('⏸️ [POPUP] Paused session restored with "Rozpocznij nagrywanie" button');
-        
+
     } else if (sessionState.sessionState === window.AppConstants.SESSION_STATES.HISTORICAL_SESSION) {
-        // CRITICAL FIX: Restore historical session (should show meeting title, not record button)
+        // Restore historical session
         console.log('📜 [POPUP] Restoring historical session');
-        
+
         // Display transcript data
         if (sessionState.transcriptData && window.displayTranscript) {
             window.displayTranscript(sessionState.transcriptData);
         }
-        
+
         // Update stats
         if (sessionState.transcriptData && window.updateStats) {
             window.updateStats(sessionState.transcriptData);
         }
-        
-        // CRITICAL FIX: Update participant count clickability after stats update
+
+        // Update participant count clickability
         if (sessionState.transcriptData && window.TranscriptManager && window.TranscriptManager.updateParticipantCountClickability) {
             const uniqueParticipants = new Set(sessionState.transcriptData.messages?.map(m => m.speaker) || []).size;
             window.TranscriptManager.updateParticipantCountClickability(uniqueParticipants);
         }
-        
+
         // Update UI for historical session
         if (window.UIManager) {
             window.UIManager.updateButtonVisibility('HISTORICAL');
-            
+
             // Show meeting name if session exists in history
             const session = window.sessionHistory?.find(s => s.id === sessionState.currentSessionId);
             if (session) {
                 window.UIManager.showMeetingName(session.title, sessionState.currentSessionId);
             }
         }
-        
+
         // Highlight restored session in sidebar
         if (window.SessionUIManager && window.SessionUIManager.highlightActiveSession) {
             window.SessionUIManager.highlightActiveSession(sessionState.currentSessionId);
@@ -530,15 +524,14 @@ function setupMessageListener() {
 }
 
 /**
- * Handle clear button click - same as delete button from session list (DRY principle)
+ * Handle clear button click
  */
 function handleClearButtonClick(event) {
     if (window.realtimeMode) {
         console.log('🔍 [CLEAR BTN] Disabled - recording active');
         return;
     }
-    
-    // Use the same function as delete buttons in session list to avoid code duplication
+
     if (window.currentSessionId && window.SessionHistoryManager && window.SessionHistoryManager.deleteSessionFromHistory) {
         window.SessionHistoryManager.deleteSessionFromHistory(window.currentSessionId, event || new Event('click'));
     } else {

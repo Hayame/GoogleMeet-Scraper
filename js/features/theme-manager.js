@@ -1,6 +1,5 @@
 /**
  * Theme Manager - Handles light/dark theme switching functionality
- * Extracted from popup.js for better modularity
  */
 
 window.ThemeManager = {

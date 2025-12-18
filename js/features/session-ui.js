@@ -1,14 +1,11 @@
 /**
  * Session History UI Management Module
  * Handles UI rendering and interactions for session history
- * 
- * Extracted from popup.js lines: 2038-2114, 2820-2905, 2117-2133
  */
 
 window.SessionUIManager = {
     /**
      * Render the session history list
-     * Source: popup.js lines 2038-2114
      */
     renderSessionHistory() {
         const historyContainer = document.getElementById('sessionList');
@@ -47,8 +44,8 @@ window.SessionUIManager = {
             // Create participants section - clickable only if count > 0
             const participantsSpan = document.createElement('span');
             participantsSpan.textContent = `${session.participantCount} uczestników`;
-            
-            // CRITICAL FIX: Only make clickable when there are participants
+
+            // Only make clickable when there are participants
             if (session.participantCount > 0) {
                 participantsSpan.className = 'participants-clickable';
                 participantsSpan.title = 'Kliknij aby zobaczyć listę uczestników';
@@ -110,7 +107,6 @@ window.SessionUIManager = {
 
     /**
      * Show participants list modal for a session
-     * Source: popup.js lines 2820-2905
      */
     showParticipantsList(session) {
         // Extract unique participants from session transcript
@@ -202,7 +198,6 @@ window.SessionUIManager = {
 
     /**
      * Update session tooltips for collapsed sidebar
-     * Extracted from popup-old.js lines 2735-2781
      */
     updateSessionTooltips() {
         const sidebar = document.querySelector('.sidebar');
@@ -303,10 +298,9 @@ window.SessionUIManager = {
      * Set up global function aliases for backward compatibility
      */
     setupGlobalAliases() {
-        // Critical fix: Expose session UI functions globally as expected by other modules
         window.renderSessionHistory = this.renderSessionHistory.bind(this);
         window.updateSessionTooltips = this.updateSessionTooltips.bind(this);
-        
+
         console.log('🔗 [SESSION UI] Global session UI function aliases created for backward compatibility');
     }
 

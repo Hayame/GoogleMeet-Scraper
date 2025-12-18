@@ -60,11 +60,11 @@ window.TransactionCoordinator = {
                 operations: operations.map(op => op.key)
             });
 
-            // PHASE 1: Read current state for rollback capability
+            // Read current state for rollback capability
             const keysToRead = operations.map(op => op.key);
             const currentState = await window.StorageManager.getStorageData(keysToRead);
 
-            // PHASE 2: Prepare atomic update object
+            // Prepare atomic update object
             const updates = {};
             const rollbackData = {};
 
@@ -77,7 +77,7 @@ window.TransactionCoordinator = {
                 updates[operation.key] = operation.value;
             }
 
-            // PHASE 3: Add transaction marker for crash recovery
+            // Add transaction marker for crash recovery
             const markerKey = `__transaction_${transactionId}`;
             updates[markerKey] = {
                 id: transactionId,
@@ -86,20 +86,19 @@ window.TransactionCoordinator = {
                 status: 'IN_PROGRESS'
             };
 
-            // PHASE 4: ATOMIC WRITE (single chrome.storage.local.set call)
-            // This is the critical operation - either all data saves or none
+            // Atomic write - single chrome.storage.local.set call ensures all-or-nothing operation
             await this._executeWithTimeout(
                 window.StorageManager.setStorageData(updates),
                 this._transactionTimeout
             );
 
-            // PHASE 5: Verify write succeeded
+            // Verify write succeeded
             const verifyResult = await this._verifyTransaction(updates);
             if (!verifyResult.success) {
                 throw new Error(`Transaction verification failed: ${verifyResult.error}`);
             }
 
-            // PHASE 6: Cleanup transaction marker
+            // Cleanup transaction marker
             await window.StorageManager.removeStorageData([markerKey]);
 
             // Mark transaction complete
@@ -118,7 +117,7 @@ window.TransactionCoordinator = {
                 duration: Date.now() - startTime
             });
 
-            // ROLLBACK: Attempt to restore previous state
+            // Attempt to restore previous state via rollback
             try {
                 await this._rollback(transactionId, rollbackData);
             } catch (rollbackError) {

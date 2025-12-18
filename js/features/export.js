@@ -1,15 +1,13 @@
 /**
  * Export Functionality Module
- * 
- * Extracted from popup.js lines 3222-3313
+ *
  * Handles TXT export functionality
  */
 
 window.ExportManager = {
-    
+
     /**
      * Initialize export modal and setup event handlers
-     * Source: popup.js lines 3222-3225
      */
     initializeExportModal() {    
         // Set up export button handlers directly on existing buttons
@@ -18,7 +16,6 @@ window.ExportManager = {
 
     /**
      * Setup export button event handlers
-     * Source: popup.js lines 3227-3270
      */
     setupExportButtonHandlers() {    
         const exportTxtBtn = document.getElementById('exportTxtBtn');
@@ -98,7 +95,6 @@ window.ExportManager = {
 
     /**
      * Generate TXT content for export
-     * Source: popup.js lines 3272-3292
      * @param {Object} dataSnapshot - Immutable snapshot of transcript data
      */
     generateTxtContent(dataSnapshot) {
@@ -295,7 +291,6 @@ Na podstawie poniższej transkrypcji stwórz szczegółowe podsumowanie w formac
 
     /**
      * Download file using Chrome downloads API
-     * Source: popup.js lines 1676-1696
      */
     downloadFile(content, filename, mimeType) {    
         try {

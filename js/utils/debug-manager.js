@@ -26,7 +26,7 @@ window.DebugManager = {
     
     /**
      * Debug helper function for testing state persistence
-     * PHASE 6: Comprehensive state verification and testing
+     * Provides comprehensive state verification and testing
      * Usage: Call window.debugState() from browser console
      */
     debugState() {
@@ -87,7 +87,7 @@ window.DebugManager = {
     
     /**
      * Test session loading manually
-     * PHASE 5: Debug helper for session loading issues
+     * Debug helper for diagnosing session loading issues
      * Usage: Call window.testSessionLoading('sessionId') from browser console
      */
     testSessionLoading(sessionId) {
@@ -121,7 +121,7 @@ window.DebugManager = {
     
     /**
      * Test state persistence manually
-     * PHASE 6: Testing helper for state persistence
+     * Testing helper for verifying state save/restore functionality
      * Usage: Call window.testStatePersistence() from browser console
      */
     async testStatePersistence() {

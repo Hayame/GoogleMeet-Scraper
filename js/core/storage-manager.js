@@ -135,24 +135,20 @@ async function clearCurrentSessionDuration() {
 
 /**
  * Save recording state for popup close without stopping recording
- * CRITICAL FIX: Keep REALTIME_MODE in storage when popup is just minimized
  */
 async function saveRecordingStateForPopupClose() {
-    // Just ensure all current recording data is saved, but keep REALTIME_MODE active
-    // This will allow proper restoration when popup reopens
+    // Keep REALTIME_MODE in storage when popup is minimized to allow proper restoration
     console.log('💾 [STORAGE] Saving recording state for popup close - keeping recording active');
-    
-    // We don't need to do anything special here - the recording state should already be in storage
-    // The key difference is we DON'T remove REALTIME_MODE
+
+    // Recording state should already be in storage - we don't remove REALTIME_MODE
 }
 
 /**
  * Set session to paused state when recording stops
- * CRITICAL FIX: Preserve session data but mark as paused for proper restoration
  */
 async function setPausedSessionState() {
     // Remove only active recording keys, preserve session data
-    // CRITICAL FIX: MEET_TAB_ID is now preserved to enable background scanning restart
+    // MEET_TAB_ID is preserved to enable background scanning restart
     await removeStorageData([
         window.AppConstants.STORAGE_KEYS.REALTIME_MODE,
         window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME,

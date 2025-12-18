@@ -1,13 +1,11 @@
 /**
  * UI Manager Module
  * Handles button visibility, UI state management, and status updates
- * Extracted from popup.js lines: 690-741, 988-1036, 1494-1531
  */
 
 window.UIManager = {
     /**
      * Centralized UI state management for button visibility
-     * Extracted from popup.js lines 690-722
      * @param {string} sessionState - 'RECORDING', 'HISTORICAL', or 'NEW'
      */
     updateButtonVisibility(sessionState) {
@@ -33,7 +31,7 @@ window.UIManager = {
                     refreshBtn.style.marginLeft = 'auto';
                 }
 
-                // CRITICAL FIX: Set proper button text for recording mode
+                // Set proper button text for recording mode
                 const recordTextRecording = document.querySelector('.record-text');
                 if (recordTextRecording) {
                     recordTextRecording.textContent = 'Zatrzymaj nagrywanie';
@@ -64,7 +62,6 @@ window.UIManager = {
 
     /**
      * Initialize status visibility (hide by default)
-     * Extracted from popup.js lines 724-735
      */
     initializeStatusVisibility() {
         const statusDiv = document.getElementById('recordingStatus');
@@ -81,12 +78,11 @@ window.UIManager = {
 
     /**
      * Show meeting name for historical sessions
-     * Extracted from popup.js lines 744-771
      * @param {string} meetingTitle - The meeting title to display
      * @param {string} sessionId - The session ID
      */
     showMeetingName(meetingTitle, sessionId) {
-        // CRITICAL FIX: Cancel any ongoing title editing before showing new meeting name
+        // Cancel any ongoing title editing before showing new meeting name
         this.cancelMeetingNameEdit();
         
         const statusDiv = document.getElementById('recordingStatus');
@@ -125,7 +121,6 @@ window.UIManager = {
 
     /**
      * Hide meeting name display
-     * Extracted from popup.js lines 773-791
      */
     hideMeetingName() {
         const statusDiv = document.getElementById('recordingStatus');
@@ -145,7 +140,6 @@ window.UIManager = {
 
     /**
      * Initialize meeting name editing functionality
-     * Extracted from popup.js lines 802-851
      */
     initializeMeetingNameEditing() {
         const editBtn = document.querySelector('.edit-meeting-name');
@@ -159,7 +153,6 @@ window.UIManager = {
 
     /**
      * Start meeting name editing mode
-     * Extracted from popup.js lines 852-875
      */
     startMeetingNameEdit() {
         const meetingNameDisplay = document.querySelector('.meeting-name-display');
@@ -198,7 +191,6 @@ window.UIManager = {
 
     /**
      * Cancel meeting name editing
-     * Extracted from popup.js lines 876-888
      */
     cancelMeetingNameEdit() {
         const meetingNameDisplay = document.querySelector('.meeting-name-display');
@@ -213,7 +205,6 @@ window.UIManager = {
 
     /**
      * Save meeting name edit
-     * Extracted from popup.js lines 889-933
      */
     saveMeetingNameEdit() {
         const meetingTitle = document.querySelector('.meeting-name-text');
@@ -237,8 +228,8 @@ window.UIManager = {
                 
                 if (sessionIndex !== -1) {
                     sessionHistory[sessionIndex].title = newName;
-                    
-                    // CRITICAL FIX: Update global sessionHistory variable
+
+                    // Update global sessionHistory variable
                     window.sessionHistory = sessionHistory;
                     
                     window.StorageManager.saveSessionHistory(sessionHistory).then(() => {
@@ -298,7 +289,6 @@ window.UIManager = {
 
     /**
      * Update status message and appearance
-     * Extracted from popup.js lines 988-1036
      * @param {string} message - Status message to display
      * @param {string} type - Status type: 'success', 'error', 'info', or ''
      */
@@ -350,7 +340,6 @@ window.UIManager = {
 
     /**
      * Format duration in seconds to HH:MM:SS or MM:SS format
-     * Extracted from popup.js lines 2606-2616
      * @param {number} seconds - Duration in seconds
      * @returns {string} Formatted duration string
      */
@@ -379,10 +368,9 @@ window.UIManager = {
 
     /**
      * Set up global function aliases for backward compatibility
-     * This fixes the critical bug where other modules expect global functions
      */
     setupGlobalAliases() {
-        // Critical fix: Expose UI functions globally as expected by other modules
+        // Expose UI functions globally as expected by other modules
         window.updateButtonVisibility = this.updateButtonVisibility.bind(this);
         window.updateStatus = this.updateStatus.bind(this);
         window.showMeetingName = this.showMeetingName.bind(this);
@@ -409,9 +397,8 @@ window.UIManager = {
         await window.StateManager.saveUIState({
             sidebarCollapsed: isNowCollapsed
         });
-        
-        // CRITICAL FIX: Update tooltips after sidebar state change
-        // When sidebar is collapsed, show tooltips; when expanded, hide them
+
+        // Update tooltips after sidebar state change (collapsed: show tooltips, expanded: hide them)
         if (window.SessionUIManager && window.SessionUIManager.updateSessionTooltips) {
             window.SessionUIManager.updateSessionTooltips();
             console.log('🔍 [UI] Session tooltips updated after sidebar toggle');
@@ -433,8 +420,8 @@ window.UIManager = {
             searchPanelOpen: false, // TODO: implement when search panel state tracking is added
             filterPanelOpen: false  // TODO: implement when filter panel state tracking is added
         };
-        
-        // CRITICAL FIX: Include filter state to prevent overwriting
+
+        // Include filter state to prevent overwriting
         if (window.SearchFilterManager) {
             uiState.searchQuery = window.SearchFilterManager.getCurrentSearchQuery() || '';
             uiState.activeParticipantFilters = Array.from(window.SearchFilterManager.getActiveParticipantFilters() || []);
@@ -450,9 +437,8 @@ window.UIManager = {
      */
     restoreUIState(uiState) {
         console.log('🎨 [UI] Restoring UI state through UIManager:', uiState);
-        
-        // CRITICAL FIX: Restore sidebar collapsed state properly
-        // Previous code only ADDED collapsed class, never REMOVED it
+
+        // Restore sidebar collapsed state properly
         const sidebar = document.querySelector('.sidebar');
         if (sidebar) {
             if (uiState.sidebarCollapsed) {
@@ -475,16 +461,14 @@ window.UIManager = {
             window.SearchFilterManager.restoreFilterState(uiState);
             console.log('🔍 [UI] Filter state restoration triggered');
         }
-        
-        // CRITICAL FIX: Save the restored UI state back to storage
-        // This ensures the restored state persists for next popup open
+
+        // Save the restored UI state back to storage to ensure persistence
         this.saveCurrentUIState();
         console.log('💾 [UI] Restored UI state saved to storage');
     },
 
     /**
      * Show initialization error to user
-     * Extracted from popup.js for better modularity
      * @param {Error} error - The error that occurred during initialization
      */
     showInitializationError(error) {
