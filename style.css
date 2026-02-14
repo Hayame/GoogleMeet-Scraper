@@ -2480,6 +2480,15 @@ input[type="checkbox"] {
     display: block;
 }
 
+.export-format-group {
+    margin-bottom: var(--space-4, 12px);
+}
+
+.export-format-group .input-label {
+    margin-bottom: 6px;
+    display: block;
+}
+
 .export-options {
     display: grid;
     grid-template-columns: 1fr 1fr;

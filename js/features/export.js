@@ -18,6 +18,24 @@ window.ExportManager = {
     },
 
     /**
+     * Format-specific configuration for exports.
+     */
+    FORMAT_CONFIG: {
+        md: {
+            prepareFn: 'prepareExportContentMd',
+            mimeType: 'text/markdown',
+            filename: 'transkrypcja.md',
+            filenameWithPrompt: 'transkrypcja-z-promptem.md',
+        },
+        txt: {
+            prepareFn: 'prepareExportContent',
+            mimeType: 'text/plain',
+            filename: 'transkrypcja-google-meet.txt',
+            filenameWithPrompt: 'transkrypcja-z-promptem.txt',
+        },
+    },
+
+    /**
      * Prepare export content with data validation for a given format.
      * Returns null and shows error if no transcript data is available.
      * @param {'txt'|'md'} format - Export format
@@ -28,9 +46,17 @@ window.ExportManager = {
             return null;
         }
         const shouldWrapInPrompt = document.getElementById('exportAsLLMPrompt')?.checked ?? true;
-        const prepareFn = format === 'md' ? this.prepareExportContentMd : this.prepareExportContent;
-        const content = await prepareFn.call(this, shouldWrapInPrompt);
-        return { content, shouldWrapInPrompt };
+        const config = this.FORMAT_CONFIG[format] || this.FORMAT_CONFIG.md;
+        const content = await this[config.prepareFn](shouldWrapInPrompt);
+        return { content, shouldWrapInPrompt, config };
+    },
+
+    /**
+     * Get the currently selected export format from the dropdown.
+     * @returns {'txt'|'md'}
+     */
+    _getSelectedFormat() {
+        return document.getElementById('exportFormatSelect')?.value || 'md';
     },
 
     /**
@@ -40,63 +66,31 @@ window.ExportManager = {
         document.getElementById('exportAsLLMPrompt')
             ?.addEventListener('change', () => this.updatePromptSelectorVisibility());
 
-        this._setupExportButton('exportTxtBtn', 'txt', {
-            getFilename: (withPrompt) => withPrompt ? 'transkrypcja-z-promptem.txt' : 'transkrypcja-google-meet.txt',
-            mimeType: 'text/plain',
-            successMessage: 'Wyeksportowano do pliku!'
-        });
+        const fileBtn = this._replaceWithClone('exportFileBtn');
+        if (fileBtn) {
+            fileBtn.addEventListener('click', async () => {
+                const result = await this._getValidatedExportContent(this._getSelectedFormat());
+                if (!result) return;
 
-        this._setupClipboardButton('exportClipboardBtn', 'txt');
+                const { config } = result;
+                const filename = result.shouldWrapInPrompt ? config.filenameWithPrompt : config.filename;
 
-        this._setupExportButton('exportMdBtn', 'md', {
-            getFilename: (withPrompt) => withPrompt ? 'transkrypcja-z-promptem.md' : 'transkrypcja.md',
-            mimeType: 'text/markdown',
-            successMessage: 'Wyeksportowano do pliku Markdown!'
-        });
-
-        this._setupClipboardButton('exportMdClipboardBtn', 'md');
-    },
-
-    /**
-     * Wire up a download-to-file export button.
-     * @param {string} buttonId - DOM element ID
-     * @param {'txt'|'md'} format - Export format
-     * @param {Object} opts - { getFilename, mimeType, successMessage }
-     */
-    _setupExportButton(buttonId, format, { getFilename, mimeType, successMessage }) {
-        const btn = this._replaceWithClone(buttonId);
-        if (!btn) {
-            console.error(`Export button not found: ${buttonId}`);
-            return;
+                this.downloadFile(result.content, filename, config.mimeType);
+                this._updateStatus('Wyeksportowano do pliku!', 'success');
+                this._hideModal('exportModal');
+            });
         }
-        btn.addEventListener('click', async () => {
-            const result = await this._getValidatedExportContent(format);
-            if (!result) return;
 
-            this.downloadFile(result.content, getFilename(result.shouldWrapInPrompt), mimeType);
-            this._updateStatus(successMessage, 'success');
-            this._hideModal('exportModal');
-        });
-    },
+        const clipboardBtn = this._replaceWithClone('exportClipboardBtn');
+        if (clipboardBtn) {
+            clipboardBtn.addEventListener('click', async () => {
+                const result = await this._getValidatedExportContent(this._getSelectedFormat());
+                if (!result) return;
 
-    /**
-     * Wire up a copy-to-clipboard export button.
-     * @param {string} buttonId - DOM element ID
-     * @param {'txt'|'md'} format - Export format
-     */
-    _setupClipboardButton(buttonId, format) {
-        const btn = this._replaceWithClone(buttonId);
-        if (!btn) {
-            console.error(`Clipboard button not found: ${buttonId}`);
-            return;
+                await this.copyToClipboard(result.content);
+                this._hideModal('exportModal');
+            });
         }
-        btn.addEventListener('click', async () => {
-            const result = await this._getValidatedExportContent(format);
-            if (!result) return;
-
-            await this.copyToClipboard(result.content);
-            this._hideModal('exportModal');
-        });
     },
 
     /**

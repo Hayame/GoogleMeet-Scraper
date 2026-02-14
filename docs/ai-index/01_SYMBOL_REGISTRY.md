@@ -25,7 +25,7 @@ See taxonomy-frontend.md for full type code definitions.
 | S016 | SessionUIManager | SRV | js/features/session-ui.js | 6 | yes (window) | Session list rendering, participant modal, tooltips. Internal: _el() DOM helper, _buildSessionItem(), _buildParticipantItem() |
 | S017 | TranscriptManager | SRV | js/features/transcript.js | 7 | yes (window) | Transcript display with incremental updates, search highlighting, stats |
 | S018 | TranscriptRefreshManager | SRV | js/features/transcript-refresh.js | 5 | yes (window) | Manual transcript reload and scanner restart |
-| S019 | ExportManager | SRV | js/features/export.js | 7 | yes (window) | TXT/MD export, clipboard copy, LLM prompt wrapping, prompt selector dropdown, toast notifications. Internal: _getValidatedExportContent(format), _setupExportButton(), _setupClipboardButton(), _prepareContent() |
+| S019 | ExportManager | SRV | js/features/export.js | 7 | yes (window) | TXT/MD export via format dropdown, clipboard copy, LLM prompt wrapping, prompt selector dropdown, toast notifications. Internal: FORMAT_CONFIG, _getSelectedFormat(), _getValidatedExportContent(format), _prepareContent() |
 | S020 | SearchFilterManager | SRV | js/features/search-filter.js | 7 | yes (window) | Inline debounced search, participant filtering, filter state persistence |
 | S021 | ModalManager | SRV | js/features/modal-manager.js | 6 | yes (window) | Modal show/hide, ESC/backdrop close, confirm/resume/export/stop modals |
 | S022 | ThemeManager | SRV | js/features/theme-manager.js | 5 | yes (window) | Light/dark theme toggle via data-theme attribute, persisted through UIManager/chrome.storage |
@@ -165,7 +165,7 @@ See taxonomy-frontend.md for full type code definitions.
 | ID | Symbol Name | Type | Update Description |
 |----|-------------|------|--------------------|
 | S006 | AppConstants | CNS | Added EXPORT_FORMATS.MD, TIMING.PAGINATION_PAGE_SIZE/CAPTION_CHECK_INTERVAL/AUTO_SAVE_FLUSH_DELAY, STORAGE_KEYS.AUTO_SAVE_DATA/KEYBOARD_SHORTCUTS, IMPORT_LIMITS |
-| S019 | ExportManager | SRV | Added generateMdContent(), prepareExportContentMd(), quickCopyWithPrompt(), Markdown export handlers. Refactored: consolidated _getExportContent→_getValidatedExportContent(format), extracted _setupExportButton/_setupClipboardButton helpers, shared _prepareContent() for TXT/MD |
+| S019 | ExportManager | SRV | Added generateMdContent(), prepareExportContentMd(), quickCopyWithPrompt(), Markdown export handlers. Refactored: consolidated _getExportContent→_getValidatedExportContent(format), shared _prepareContent() for TXT/MD. Simplified: replaced 4-button grid with format dropdown (#exportFormatSelect) + 2 action buttons, removed _setupExportButton/_setupClipboardButton helpers, added _getSelectedFormat() |
 | S051 | scrapeTranscript | UTL | Now returns captionsEnabled field |
 | S016 | SessionUIManager | SRV | renderSessionHistory() now uses SessionSearchManager.getFilteredSessions() |
 | S017 | TranscriptManager | SRV | displayTranscript() now integrates PaginationManager |
