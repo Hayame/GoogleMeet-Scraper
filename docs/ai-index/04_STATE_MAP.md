@@ -30,7 +30,7 @@
 | Key | Type | Mutated by | Restored by |
 |-----|------|------------|-------------|
 | sidebarCollapsed | boolean | UIManager.toggleSidebar (S003) | UIManager.restoreUIState |
-| searchPanelOpen | boolean | SearchFilterManager (S020) | SearchFilterManager.restoreFilterState |
+| searchPanelOpen | boolean | [DEPRECATED — search is now inline, no panel to toggle] | — |
 | filterPanelOpen | boolean | SearchFilterManager (S020) | SearchFilterManager.restoreFilterState |
 | searchQuery | string | SearchFilterManager (S020) | SearchFilterManager.restoreFilterState |
 | activeParticipantFilters | string[] | SearchFilterManager (S020) | SearchFilterManager.restoreFilterState |

@@ -113,7 +113,7 @@
 | `expandedEntries` | Set of expanded transcript entry IDs | S002 |
 | `theme` | UI theme (light/dark) | S001 |
 | `sidebarCollapsed` | Sidebar collapse state | S001 |
-| `searchPanelOpen` | Search panel visibility | S001 |
+| `searchPanelOpen` | [DEPRECATED — search is now inline] | S001 |
 | `filterPanelOpen` | Filter panel visibility | S001 |
 | `searchQuery` | Active search query text | S001 |
 | `activeParticipantFilters` | Active participant filter list | S001 |

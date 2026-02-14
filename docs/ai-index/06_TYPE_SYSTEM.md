@@ -62,7 +62,7 @@ Note: This project uses vanilla JavaScript without TypeScript. Types documented 
 ```javascript
 {
   sidebarCollapsed: boolean,
-  searchPanelOpen: boolean,
+  searchPanelOpen: boolean,  // DEPRECATED — search is now inline, kept for storage compat
   filterPanelOpen: boolean,
   searchQuery: string,
   activeParticipantFilters: string[],

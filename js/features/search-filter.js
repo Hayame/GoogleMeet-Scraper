@@ -19,90 +19,21 @@ window.SearchFilterManager = {
      * Initialize search functionality
      */
     initializeSearch() {
-        const searchBtn = document.getElementById("searchBtn");
         const searchInput = document.getElementById("searchInput");
         const clearSearchBtn = document.getElementById("searchClearBtn");
-        
-        if (searchBtn) {
-            searchBtn.addEventListener("click", () => this.toggleSearchPanel());
-        }
-        
+
         if (searchInput) {
             searchInput.addEventListener("input", (e) => this.handleSearchInput(e));
             searchInput.addEventListener("keydown", (e) => {
                 if (e.key === "Escape") {
-                    this.hideSearchPanel();
+                    this.clearSearch();
+                    searchInput.blur();
                 }
             });
         }
-        
+
         if (clearSearchBtn) {
             clearSearchBtn.addEventListener("click", () => this.clearSearch());
-        }
-        
-        // Close search panel when clicking outside
-        document.addEventListener('click', (e) => {
-            const searchPanel = document.getElementById("searchPanel");
-            const searchBtn = document.getElementById("searchBtn");
-            
-            if (searchPanel && searchBtn && 
-                !searchPanel.contains(e.target) && 
-                !searchBtn.contains(e.target) &&
-                searchPanel.classList.contains("show")) {
-                this.hideSearchPanel();
-            }
-        });
-    },
-
-    /**
-     * Hide search panel without clearing search query
-     */
-    hideSearchPanel() {
-        const searchPanel = document.getElementById("searchPanel");
-        const searchBtn = document.getElementById("searchBtn");
-        
-        if (searchPanel) {
-            searchPanel.classList.remove("show");
-            setTimeout(() => {
-                searchPanel.style.display = "none";
-            }, 300); // Match animation duration
-        }
-        
-        // Remove active state from search button
-        if (searchBtn) {
-            searchBtn.classList.remove("active");
-        }
-    },
-
-    /**
-     * Toggle search panel visibility
-     */
-    toggleSearchPanel() {
-        const searchPanel = document.getElementById("searchPanel");
-        const searchInput = document.getElementById("searchInput");
-        const searchBtn = document.getElementById("searchBtn");
-        
-        if (searchPanel) {
-            const isVisible = searchPanel.classList.contains("show");
-            
-            if (isVisible) {
-                this.hideSearchPanel();
-            } else {
-                // Show panel
-                searchPanel.style.display = "block";
-                // Force reflow to ensure animation plays
-                searchPanel.offsetHeight;
-                searchPanel.classList.add("show");
-                
-                // Update button state
-                if (searchBtn) {
-                    searchBtn.classList.add("active");
-                }
-                
-                if (searchInput) {
-                    searchInput.focus();
-                }
-            }
         }
     },
 
@@ -138,7 +69,6 @@ window.SearchFilterManager = {
      */
     performSearch(query) {
         this._currentSearchQuery = query;
-        this.updateSearchButtonState();
         this._refreshTranscriptDisplay();
         this.saveFilterState();
     },
@@ -148,15 +78,7 @@ window.SearchFilterManager = {
      */
     _resetSearchUI() {
         const searchInput = document.getElementById("searchInput");
-        const searchPanel = document.getElementById("searchPanel");
-        const searchBtn = document.getElementById("searchBtn");
-
         if (searchInput) searchInput.value = "";
-        if (searchPanel) {
-            searchPanel.classList.remove("show");
-            searchPanel.style.display = "none";
-        }
-        if (searchBtn) searchBtn.classList.remove("active");
 
         if (this._searchDebounceTimer) {
             clearTimeout(this._searchDebounceTimer);
@@ -164,7 +86,7 @@ window.SearchFilterManager = {
         }
 
         this._currentSearchQuery = "";
-        this.updateSearchButtonState();
+        this.updateSearchResults();
     },
 
     /**
@@ -583,49 +505,26 @@ window.SearchFilterManager = {
     },
 
     /**
-     * Update search results counter and display
+     * Update search results counter and clear button visibility
      */
     updateSearchResults() {
-        const searchResultsInfo = document.getElementById("searchResultsInfo");
         const searchResultsCount = document.getElementById("searchResultsCount");
-        if (!searchResultsInfo || !searchResultsCount) return;
-
-        const hasQuery = !!this._currentSearchQuery;
         const clearButton = document.getElementById("searchClearBtn");
+        const hasQuery = !!this._currentSearchQuery;
 
         if (hasQuery) {
             const filteredMessages = this.applyFilters(window.transcriptData?.messages || []);
-            searchResultsCount.textContent = filteredMessages.length;
-            searchResultsInfo.style.display = "block";
+            if (searchResultsCount) {
+                searchResultsCount.textContent = filteredMessages.length;
+                searchResultsCount.classList.add("show");
+            }
             if (clearButton) clearButton.classList.add("show");
         } else {
-            searchResultsInfo.style.display = "none";
+            if (searchResultsCount) {
+                searchResultsCount.textContent = "";
+                searchResultsCount.classList.remove("show");
+            }
             if (clearButton) clearButton.classList.remove("show");
-        }
-    },
-
-    /**
-     * Update search button visual state
-     */
-    updateSearchButtonState() {
-        const searchBtn = document.getElementById("searchBtn");
-        if (!searchBtn) return;
-        
-        // Remove existing badge
-        const existingBadge = searchBtn.querySelector('.search-badge');
-        if (existingBadge) {
-            existingBadge.remove();
-        }
-        
-        if (this._currentSearchQuery) {
-            searchBtn.classList.add("search-active");
-            
-            // Add badge to indicate active search
-            const badge = document.createElement('span');
-            badge.className = 'search-badge';
-            searchBtn.appendChild(badge);
-        } else {
-            searchBtn.classList.remove("search-active");
         }
     },
 
@@ -671,12 +570,7 @@ window.SearchFilterManager = {
                 if (searchInput) {
                     searchInput.value = uiState.searchQuery;
                 }
-                this.updateSearchButtonState();
-                
-                // Only update search results if transcript data is available
-                if (window.transcriptData && window.transcriptData.messages) {
-                    this.updateSearchResults();
-                }
+                this.updateSearchResults();
             }
             
             // Restore participant filters
