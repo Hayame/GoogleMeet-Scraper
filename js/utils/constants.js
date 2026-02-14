@@ -37,7 +37,8 @@ const STORAGE_KEYS = {
     LAST_UI_STATE: 'lastUIState',
     SESSION_STATE: 'sessionState',
     RECORDING_PAUSED: 'recordingPaused',
-    RECORDING_STOPPED: 'recordingStopped'
+    RECORDING_STOPPED: 'recordingStopped',
+    PROMPTS_LIST: 'promptsList'
 };
 
 // Application states

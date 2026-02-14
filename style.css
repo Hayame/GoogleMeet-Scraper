@@ -674,6 +674,168 @@ input[type="checkbox"] {
     background: var(--text-muted);
 }
 
+/* ─── Multi-Prompt List ─── */
+
+.prompt-table {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.prompt-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--bg-secondary);
+    transition: background 0.15s ease;
+}
+
+.prompt-row:hover {
+    background: var(--bg-hover);
+}
+
+.prompt-row-default {
+    background: var(--bg-tertiary);
+}
+
+.prompt-row-default-col {
+    flex-shrink: 0;
+    width: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.prompt-default-badge {
+    color: var(--accent-color);
+    font-size: 16px;
+    line-height: 1;
+}
+
+.prompt-set-default {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    transition: color 0.15s ease;
+}
+
+.prompt-set-default:hover {
+    color: var(--accent-color);
+}
+
+.prompt-row-title {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.prompt-row-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.prompt-action-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition-fast);
+}
+
+.prompt-action-btn:hover {
+    background: var(--bg-accent);
+    color: var(--text-primary);
+}
+
+.prompt-action-delete:hover {
+    color: var(--btn-danger-bg);
+}
+
+.prompt-add-btn {
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Prompt Form */
+.prompt-form-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-heading);
+    margin: 0 0 16px 0;
+}
+
+.prompt-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.input-error {
+    font-size: 12px;
+    color: var(--btn-danger-bg);
+    margin: 4px 0 0 0;
+}
+
+/* ─── Export Prompt Selector ─── */
+
+.prompt-selector-group {
+    margin-top: 12px;
+}
+
+.prompt-selector-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    display: block;
+}
+
+.prompt-selector {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: var(--transition-theme);
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+}
+
+.prompt-selector:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
 /* Tab actions */
 .tab-actions {
     display: flex;

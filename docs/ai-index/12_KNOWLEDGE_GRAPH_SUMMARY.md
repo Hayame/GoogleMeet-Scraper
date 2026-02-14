@@ -3,15 +3,15 @@
 ## Statistics
 | Metric | Count |
 |--------|------:|
-| Total Symbols | 80 |
+| Total Symbols | 93 |
 | -- SRV (Services/Managers) | 18 |
-| -- UTL (Utilities) | 54 |
+| -- UTL (Utilities) | 67 |
 | -- CNS (Constants) | 3 |
 | -- STR (State) | 5 |
-| Total Relations | 54 |
-| -- USES | 54 |
+| Total Relations | 55 |
+| -- USES | 55 |
 | Circular Dependencies | 2 |
-| Business Rules | 48 |
+| Business Rules | 55 |
 | Chrome Messages | 13 |
 
 ## Top 10 Most Connected Symbols
@@ -25,7 +25,7 @@
 | 6 | TranscriptManager | S017 | 5 | 2 | 7 | Display hub: transcript rendering and stats |
 | 7 | SearchFilterManager | S020 | 5 | 2 | 7 | Filter hub: search and participant filtering |
 | 8 | RecordingManager | S013 | 0 | 6 | 6 | Orchestrator: no inbound deps, drives recording flow |
-| 9 | SettingsManager | S023 | 1 | 5 | 6 | Settings service: user preferences, Google name |
+| 9 | SettingsManager | S023 | 1 | 5 | 6 | Settings service: user preferences, multi-prompt CRUD, Google name |
 | 10 | TransactionCoordinator | S005 | 3 | 2 | 5 | Safety layer: atomic writes with rollback |
 
 ## Architectural Observations
@@ -45,7 +45,7 @@
 | Source files in repo | 27 | -- |
 | Source files indexed | 27 | OK |
 | Coverage | 100% | OK |
-| Symbols [REMOVED] | 0 | OK |
+| Symbols [REMOVED] | 4 | OK |
 | Dangling references | 0 | OK |
 | Circular dependencies | 2 (runtime-resolved) | WARN |
 
@@ -166,8 +166,8 @@ graph TD
 
     S023 --> S002
     S023 --> S003
-    S023 --> S009
     S023 --> S015
+    S023 --> S019
     S023 --> S021
 
     %% Cross-context messaging

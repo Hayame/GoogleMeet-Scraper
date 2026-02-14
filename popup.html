@@ -286,30 +286,35 @@
                     <!-- Prompt Settings Tab -->
                     <div class="tab-pane" id="prompt-tab">
                         <div class="tab-body">
-                            <div class="input-group">
-                                <label class="switch-label">
-                                    <input type="checkbox" id="useDefaultPrompt" checked>
-                                    <span class="switch-slider"></span>
-                                    <span class="switch-text">Zastosuj domyślny prompt przy eksporcie konwersacji</span>
-                                </label>
-                                <p class="input-description">
-                                    Gdy włączone, transkrypcja będzie opakowana w domyślny szablon promptu. 
-                                    Gdy wyłączone, możesz edytować własny prompt.
-                                </p>
+                            <!-- Prompt List Container (shown by default) -->
+                            <div id="promptListContainer">
+                                <div id="promptTableBody" class="prompt-table">
+                                    <!-- Prompt rows rendered dynamically by SettingsManager -->
+                                </div>
+                                <button id="addPromptBtn" class="btn btn-secondary btn-small prompt-add-btn">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="12" y1="5" x2="12" y2="19"/>
+                                        <line x1="5" y1="12" x2="19" y2="12"/>
+                                    </svg>
+                                    Dodaj nowy prompt
+                                </button>
                             </div>
-                            
-                            <div class="input-group" id="customPromptGroup" style="display: none;">
-                                <label for="customPromptText" class="input-label">
-                                    Niestandardowy prompt
-                                </label>
-                                <textarea 
-                                    id="customPromptText" 
-                                    class="prompt-textarea"
-                                    placeholder="Wczytywanie domyślnego promptu..."
-                                    rows="10"></textarea>
-                                <p class="input-description">
-                                    Edytuj szablon promptu według własnych potrzeb. Transkrypcja zostanie dodana na końcu.
-                                </p>
+                            <!-- Prompt Add/Edit Form (hidden by default) -->
+                            <div id="promptFormContainer" style="display: none;">
+                                <h4 id="promptFormTitle" class="prompt-form-title">Nowy prompt</h4>
+                                <div class="input-group">
+                                    <label for="promptTitleInput" class="input-label">Nazwa promptu</label>
+                                    <input type="text" id="promptTitleInput" class="setting-input" placeholder="Np. Podsumowanie spotkania" maxlength="100">
+                                    <p id="promptTitleError" class="input-error" style="display: none;"></p>
+                                </div>
+                                <div class="input-group">
+                                    <label for="promptTextInput" class="input-label">Treść promptu</label>
+                                    <textarea id="promptTextInput" class="prompt-textarea" placeholder="Wpisz treść promptu..." rows="10"></textarea>
+                                </div>
+                                <div class="prompt-form-actions">
+                                    <button id="promptFormCancel" class="btn btn-secondary">Anuluj</button>
+                                    <button id="promptFormSave" class="btn btn-primary">Zapisz</button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -368,6 +373,12 @@
                         <span class="switch-text">Eksportuj jako prompt dla LLM w celu wygenerowania podsumowania</span>
                     </label>
                     <p class="export-description">Gdy włączone, transkrypcja zostanie opakowana w szablon promptu do generowania podsumowania przez AI.</p>
+                    <div id="promptSelectorGroup" class="prompt-selector-group" style="display: none;">
+                        <label for="exportPromptSelect" class="input-label prompt-selector-label">Wybierz prompt:</label>
+                        <select id="exportPromptSelect" class="prompt-selector">
+                            <!-- Options populated dynamically -->
+                        </select>
+                    </div>
                 </div>
                 <div class="export-options">
                     <button id="exportTxtBtn" class="export-option">

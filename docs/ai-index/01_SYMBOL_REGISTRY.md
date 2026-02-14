@@ -25,11 +25,11 @@ See taxonomy-frontend.md for full type code definitions.
 | S016 | SessionUIManager | SRV | js/features/session-ui.js | 6 | yes (window) | Session list rendering, participant modal, tooltips |
 | S017 | TranscriptManager | SRV | js/features/transcript.js | 7 | yes (window) | Transcript display with incremental updates, search highlighting, stats |
 | S018 | TranscriptRefreshManager | SRV | js/features/transcript-refresh.js | 5 | yes (window) | Manual transcript reload and scanner restart |
-| S019 | ExportManager | SRV | js/features/export.js | 7 | yes (window) | TXT export, clipboard copy, LLM prompt wrapping, toast notifications |
+| S019 | ExportManager | SRV | js/features/export.js | 7 | yes (window) | TXT export, clipboard copy, LLM prompt wrapping, prompt selector dropdown, toast notifications |
 | S020 | SearchFilterManager | SRV | js/features/search-filter.js | 7 | yes (window) | Debounced search, participant filtering, filter state persistence |
 | S021 | ModalManager | SRV | js/features/modal-manager.js | 6 | yes (window) | Modal show/hide, ESC/backdrop close, confirm/resume/export/stop modals |
 | S022 | ThemeManager | SRV | js/features/theme-manager.js | 5 | yes (window) | Light/dark theme toggle via data-theme attribute and localStorage |
-| S023 | SettingsManager | SRV | js/features/settings-manager.js | 6 | yes (window) | User display name, prompt settings, Google name detection, tab UI |
+| S023 | SettingsManager | SRV | js/features/settings-manager.js | 6 | yes (window) | User display name, multi-prompt CRUD, Google name detection, tab UI |
 
 ## Registry — Global Function Aliases (set during module initialization)
 
@@ -130,7 +130,25 @@ See taxonomy-frontend.md for full type code definitions.
 | S089 | processPendingUpdates | UTL | js/features/background-scanner.js | — | yes (window) | Drain queued background updates received before realtimeMode active |
 | S091 | _MAX_PENDING_UPDATES | CNS | js/features/background-scanner.js | 12 | yes (window) | Max pending background updates queue size (20) |
 
+## Registry — Multi-Prompt System (SettingsManager methods)
+
+| ID | Symbol Name | Type | File Path | Line | Exported | Description |
+|----|-------------|------|-----------|------|----------|-------------|
+| S092 | SettingsManager.loadPrompts | UTL | js/features/settings-manager.js | 59 | yes (window) | Load prompts from storage with migration from old useDefaultPrompt/customPrompt format |
+| S093 | SettingsManager.savePrompts | UTL | js/features/settings-manager.js | 106 | yes (window) | Persist prompts list to chrome.storage.sync |
+| S094 | SettingsManager.getDefaultPrompt | UTL | js/features/settings-manager.js | 118 | yes (window) | Return the prompt marked as default |
+| S095 | SettingsManager.getBuiltinPromptText | UTL | js/features/settings-manager.js | 125 | yes (window) | Fetch and cache built-in prompt.md text |
+| S096 | SettingsManager.getPromptText | UTL | js/features/settings-manager.js | 140 | yes (window) | Resolve prompt object to its text (builtin → fetch, custom → return stored) |
+| S097 | SettingsManager.addPrompt | UTL | js/features/settings-manager.js | 166 | yes (window) | Add new custom prompt with generated ID |
+| S098 | SettingsManager.updatePrompt | UTL | js/features/settings-manager.js | 182 | yes (window) | Update existing prompt title/text (blocks builtin) |
+| S099 | SettingsManager.deletePrompt | UTL | js/features/settings-manager.js | 194 | yes (window) | Delete prompt by ID (blocks builtin, reassigns default) |
+| S100 | SettingsManager.setDefaultPrompt | UTL | js/features/settings-manager.js | 213 | yes (window) | Mark one prompt as default (only one at a time) |
+| S101 | SettingsManager.renderPromptList | UTL | js/features/settings-manager.js | 223 | yes (window) | Render prompt table rows dynamically in prompt tab |
+| S102 | SettingsManager.showPromptForm | UTL | js/features/settings-manager.js | 323 | yes (window) | Show add/edit/copy inline form for prompts |
+| S103 | ExportManager.updatePromptSelectorVisibility | UTL | js/features/export.js | — | yes (window) | Populate and show/hide prompt selector dropdown in export modal |
+| S104 | ExportManager.getSelectedExportPrompt | UTL | js/features/export.js | — | yes (window) | Get selected prompt from dropdown or fall back to default |
+
 ## Numbering Rules
-- Sequential: S001–S091 (current max)
-- Next available ID: S092
+- Sequential: S001–S104 (current max)
+- Next available ID: S105
 - Removed symbols: marked [REMOVED], ID never reused

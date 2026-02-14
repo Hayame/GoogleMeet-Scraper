@@ -23,8 +23,7 @@
 |-------------|------|------------|-------------|
 | userDisplayName | string | SettingsManager (S023) | SettingsManager, content.js |
 | googleUserName | string | SettingsManager (S023), GoogleUserDetector (S009) | SettingsManager, content.js |
-| useDefaultPrompt | boolean | SettingsManager (S023) | ExportManager (S019) |
-| customPrompt | string | SettingsManager (S023) | ExportManager (S019) |
+| promptsList | Array\<Prompt\> | SettingsManager (S023) | SettingsManager (S023), ExportManager (S019) |
 
 ## 3. Persisted UI State (chrome.storage.local — lastUIState)
 
@@ -63,6 +62,9 @@
 | GoogleUserDetector (S009) | state.lastDetectedName | string\|null | Last detected Google account name |
 | GoogleUserDetector (S009) | state.isDetecting | boolean | Continuous detection active flag |
 | SettingsManager (S023) | originalUserDisplayName | string | Undo value for cancel button |
+| SettingsManager (S023) | prompts | Array | In-memory list of all prompt objects |
+| SettingsManager (S023) | _builtinPromptCache | string\|null | Cached built-in prompt.md text |
+| SettingsManager (S023) | _editingPromptId | string\|null | ID of prompt being edited in form |
 | TransactionCoordinator (S005) | _activeTransactions | Map | In-flight transaction tracking |
 | StateManager (S001) | sessionState | Object | recordingStartTime, sessionStartTime, totalDuration, flags |
 

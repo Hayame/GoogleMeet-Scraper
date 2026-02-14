@@ -23,6 +23,11 @@ window.ExportManager = {
     setupExportButtonHandlers() {
         const exportAsLLMPrompt = document.getElementById('exportAsLLMPrompt');
 
+        // Toggle prompt selector visibility when checkbox changes
+        if (exportAsLLMPrompt) {
+            exportAsLLMPrompt.addEventListener('change', () => this.updatePromptSelectorVisibility());
+        }
+
         const exportTxtBtn = this._replaceWithClone('exportTxtBtn');
         if (exportTxtBtn) {
             exportTxtBtn.addEventListener('click', async () => {
@@ -60,6 +65,58 @@ window.ExportManager = {
         } else {
             console.error('Export clipboard button not found');
         }
+    },
+
+    /**
+     * Populate and show/hide the prompt selector dropdown in the export modal
+     */
+    updatePromptSelectorVisibility() {
+        const checkbox = document.getElementById('exportAsLLMPrompt');
+        const selectorGroup = document.getElementById('promptSelectorGroup');
+        const select = document.getElementById('exportPromptSelect');
+
+        if (!selectorGroup || !select) return;
+
+        const sm = window.SettingsManager;
+        const prompts = sm?.prompts || [];
+        const isChecked = checkbox?.checked ?? true;
+
+        // Show dropdown only when checkbox is on AND there are >1 prompts
+        if (isChecked && prompts.length > 1) {
+            selectorGroup.style.display = '';
+
+            // Populate options
+            select.innerHTML = '';
+            const defaultPrompt = sm.getDefaultPrompt();
+            prompts.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = p.title + (p.isDefault ? ' (domyślny)' : '');
+                if (p.id === defaultPrompt.id) opt.selected = true;
+                select.appendChild(opt);
+            });
+        } else {
+            selectorGroup.style.display = 'none';
+        }
+    },
+
+    /**
+     * Get the currently selected prompt object from the export modal selector
+     */
+    getSelectedExportPrompt() {
+        const sm = window.SettingsManager;
+        if (!sm) return null;
+
+        const select = document.getElementById('exportPromptSelect');
+        const selectorGroup = document.getElementById('promptSelectorGroup');
+
+        // If selector is visible and has a selection, use it
+        if (selectorGroup && selectorGroup.style.display !== 'none' && select?.value) {
+            return sm.getPromptById(select.value);
+        }
+
+        // Otherwise use the default prompt
+        return sm.getDefaultPrompt();
     },
 
     /**
@@ -141,37 +198,18 @@ Na podstawie poniższej transkrypcji stwórz szczegółowe podsumowanie w formac
     },
 
     /**
-     * Fetch the default prompt.md bundled with the extension
-     */
-    async fetchDefaultPrompt() {
-        const response = await fetch(chrome.runtime.getURL('prompt.md'));
-        return await response.text();
-    },
-
-    /**
-     * Get the appropriate prompt template (custom or default)
+     * Get the appropriate prompt template based on multi-prompt selection
      */
     async getPromptTemplate() {
-        const settings = await this.getPromptSettings();
-
-        if (settings.useDefaultPrompt) {
-            return await this.fetchDefaultPrompt();
+        const sm = window.SettingsManager;
+        if (!sm) {
+            // Fallback: fetch built-in prompt.md directly
+            const response = await fetch(chrome.runtime.getURL('prompt.md'));
+            return await response.text();
         }
-        return settings.customPrompt || await this.fetchDefaultPrompt();
-    },
 
-    /**
-     * Get prompt settings from storage
-     */
-    async getPromptSettings() {
-        return new Promise((resolve) => {
-            chrome.storage.sync.get(['useDefaultPrompt', 'customPrompt'], (result) => {
-                resolve({
-                    useDefaultPrompt: result.useDefaultPrompt ?? true,
-                    customPrompt: result.customPrompt || ''
-                });
-            });
-        });
+        const selectedPrompt = this.getSelectedExportPrompt();
+        return await sm.getPromptText(selectedPrompt);
     },
 
     /**

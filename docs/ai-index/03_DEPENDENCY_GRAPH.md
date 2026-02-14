@@ -84,8 +84,8 @@ S020 —[USES]→ S017  (SearchFilterManager → TranscriptManager.displayTransc
 S021 —[USES]→ S015  (ModalManager → SessionHistoryManager.performDeleteSession)
 S023 —[USES]→ S002  (SettingsManager → chrome.storage.sync)
 S023 —[USES]→ S003  (SettingsManager → UIManager.updateStatus)
-S023 —[USES]→ S009  (SettingsManager → GoogleUserDetector for name cleaning)
 S023 —[USES]→ S015  (SettingsManager → SessionHistoryManager.clearAllSessionsFromHistory)
+S023 —[USES]→ S019  (SettingsManager → ExportManager.showToast for prompt CRUD feedback)
 S023 —[USES]→ S021  (SettingsManager → ModalManager.showModal)
 ```
 
@@ -142,8 +142,8 @@ Content Script ──self-scrape──→ chrome.storage.local  (immune to SW te
 | AppConstants | S006 | 5 | 0 | 5 | Config |
 | ModalManager | S021 | 3 | 1 | 4 | UI service |
 | SessionUIManager | S016 | 2 | 3 | 5 | UI renderer |
-| SettingsManager | S023 | 0 | 5 | 5 | Settings service |
-| ExportManager | S019 | 0 | 3 | 3 | Export service |
+| SettingsManager | S023 | 1 | 5 | 6 | Settings service |
+| ExportManager | S019 | 1 | 3 | 4 | Export service |
 
 ## Circular Dependencies
 - ⚠️ S015 ↔ S016 (SessionHistoryManager ↔ SessionUIManager — mutual references via window)

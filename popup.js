@@ -346,6 +346,10 @@ function setupMainEventListeners() {
     bindClick('exportBtn', () => {
         const hasData = window.transcriptData?.messages?.length > 0;
         if (hasData && window.ModalManager) {
+            // Populate prompt selector before showing modal
+            if (window.ExportManager?.updatePromptSelectorVisibility) {
+                window.ExportManager.updatePromptSelectorVisibility();
+            }
             window.ModalManager.showModal('exportModal');
         } else if (window.UIManager?.updateStatus) {
             window.UIManager.updateStatus('Brak danych do eksportu', 'error');
