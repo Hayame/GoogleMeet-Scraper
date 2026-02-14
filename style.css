@@ -144,7 +144,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 16px;
+    padding: 6px 12px;
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-primary);
     transition: var(--transition-theme);
@@ -158,7 +158,7 @@ body {
 }
 
 .app-title {
-    font-size: 18px;
+    font-size: 15px;
     font-weight: 700;
     color: var(--text-heading);
     margin: 0;
@@ -175,12 +175,12 @@ body {
 .theme-toggle {
     background: transparent;
     border: none;
-    padding: 8px;
+    padding: 6px;
     cursor: pointer;
     border-radius: 10px;
     transition: all 0.2s ease;
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -249,7 +249,7 @@ body {
 .settings-btn {
     background: transparent;
     border: none;
-    padding: 8px;
+    padding: 6px;
     margin-right: 8px;
     cursor: pointer;
     border-radius: 10px;
@@ -258,8 +258,8 @@ body {
     align-items: center;
     justify-content: center;
     transition: var(--transition-fast);
-    min-width: 36px;
-    min-height: 36px;
+    min-width: 32px;
+    min-height: 32px;
 }
 
 .settings-btn:hover {
@@ -1308,24 +1308,24 @@ input[type="checkbox"] {
 
 /* Recording Controls */
 .recording-controls {
-    padding: 16px 16px;
+    padding: 8px 12px;
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-primary);
     display: flex;
     justify-content: space-between;
     align-items: center;
     transition: var(--transition-theme);
-    min-height: 53px;
+    min-height: 40px;
 }
 
 .record-button {
     background: var(--btn-record-bg);
     color: white;
     border: none;
-    padding: 8px 16px;
+    padding: 5px 12px;
     border-radius: 10px;
     cursor: pointer;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     display: flex;
     align-items: center;
@@ -1334,7 +1334,7 @@ input[type="checkbox"] {
     transition: all 0.2s ease;
     position: relative;
     overflow: hidden;
-    min-height: 36px;
+    min-height: 30px;
     min-width: 140px;
     letter-spacing: 0.02em;
     box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
@@ -1371,8 +1371,8 @@ input[type="checkbox"] {
 }
 
 .record-icon {
-    width: 20px;
-    height: 20px;
+    width: 16px;
+    height: 16px;
     fill: currentColor;
 }
 
@@ -1381,7 +1381,7 @@ input[type="checkbox"] {
     align-items: center;
     gap: 8px;
     color: var(--text-muted);
-    font-size: 14px;
+    font-size: 12px;
     transition: var(--transition-theme);
 }
 
@@ -1504,36 +1504,34 @@ input[type="checkbox"] {
 .transcript-stats {
     display: flex !important;
     gap: 20px;
-    padding: 16px 16px;
+    padding: 6px 12px;
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-primary);
     transition: var(--transition-theme);
     flex-wrap: nowrap !important;
     overflow-x: auto;
-    min-height: 60px;
     flex-direction: row !important;
 }
 
 .stat-item {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
     gap: 4px;
-    min-width: 100px;
     flex-shrink: 0;
     flex-grow: 0;
     flex-basis: auto;
 }
 
 .stat-label {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-muted);
     font-weight: 500;
     transition: var(--transition-theme);
 }
 
 .stat-value {
-    font-size: 20px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--text-heading);
     transition: var(--transition-theme);
@@ -1551,14 +1549,14 @@ input[type="checkbox"] {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px 16px;
+    padding: 6px 12px;
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-primary);
     transition: var(--transition-theme);
 }
 
 .transcript-title {
-    font-size: 16px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--text-heading);
     margin: 0;
@@ -1568,14 +1566,14 @@ input[type="checkbox"] {
 .transcript-actions {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 6px;
     overflow: visible;
 }
 
 .action-group-left,
 .action-group-right {
     display: flex;
-    gap: 8px;
+    gap: 4px;
 }
 
 .action-separator {
@@ -1588,7 +1586,7 @@ input[type="checkbox"] {
 .icon-button {
     background: transparent;
     border: none;
-    padding: 8px;
+    padding: 5px;
     cursor: pointer;
     border-radius: 8px;
     color: var(--text-muted);
@@ -1613,8 +1611,8 @@ input[type="checkbox"] {
 }
 
 .icon-button svg {
-    width: 20px;
-    height: 20px;
+    width: 17px;
+    height: 17px;
     fill: currentColor;
     transition: all 0.2s ease;
 }
@@ -1653,7 +1651,7 @@ input[type="checkbox"] {
 /* Transcript Content */
 .transcript-content {
     flex: 1;
-    padding: 18px;
+    padding: 10px 12px;
     overflow-y: auto;
     background: var(--bg-primary);
     transition: var(--transition-theme);
@@ -1692,9 +1690,9 @@ input[type="checkbox"] {
 /* Transcript Entries */
 .transcript-entry {
     display: flex;
-    margin-bottom: 16px;
+    margin-bottom: 10px;
     align-items: flex-start;
-    gap: 12px;
+    gap: 8px;
 }
 
 .transcript-entry:last-child {
@@ -2602,12 +2600,11 @@ input[type="checkbox"] {
         flex-wrap: nowrap !important;
         gap: 16px;
         overflow-x: auto;
-        padding: 16px 8px;
+        padding: 6px 8px;
         flex-direction: row !important;
     }
-    
+
     .stat-item {
-        min-width: 80px;
         flex-shrink: 0;
         flex-grow: 0;
     }
