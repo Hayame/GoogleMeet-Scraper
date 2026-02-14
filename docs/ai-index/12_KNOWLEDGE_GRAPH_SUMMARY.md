@@ -38,6 +38,9 @@
 - **Strong data integrity layer**: TransactionCoordinator (S005) + DataIntegrity (S011) + checkpoint system (S065-S066) provide crash recovery, orphan detection, and atomic writes -- unusual depth for a browser extension.
 - **No external dependencies**: The entire project is vanilla JS with zero npm packages, reducing supply-chain risk but increasing the surface area of hand-rolled utilities.
 
+## Recent Changes (cosmetic, no symbol impact)
+- **UI Cleanup (2026-02-14)**: CSS dedup (~150 lines removed from style.css), design token migration in session-history.css, unified trash icons to stroke-based SVG across S016 (SessionUIManager) and S023 (SettingsManager), compacted settings tabs. No new/removed symbols; only innerHTML markup and CSS values changed.
+
 ## Index Health Metrics
 | Metric | Value | Status |
 |--------|-------|--------|
