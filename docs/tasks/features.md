@@ -95,7 +95,7 @@ Rozszerzenie jest już dojrzałe — posiada 38+ kategorii funkcji: nagrywanie w
 
 ---
 
-### 6. Tagowanie / etykietowanie sesji
+### 6. Tagowanie / etykietowanie sesji - tego nie realizuj
 **Dlaczego:** Przy wielu sesjach trudno je odnaleźć. Tagi (np. "standup", "1on1", "planowanie") umożliwiają szybką kategoryzację.
 - Dodawanie tagów do sesji
 - Filtrowanie historii po tagach
@@ -178,7 +178,7 @@ Rozszerzenie jest już dojrzałe — posiada 38+ kategorii funkcji: nagrywanie w
 
 ---
 
-### 11. Podsumowanie AI (lokalne)
+### 11. Podsumowanie AI (lokalne) - tego nie realizuj
 **Dlaczego:** Zamiast ręcznie kopiować do LLM — automatyczne podsumowanie.
 - Integracja z API OpenAI/Claude (klucz użytkownika)
 - Podsumowanie, action items, decyzje
@@ -196,7 +196,7 @@ Rozszerzenie jest już dojrzałe — posiada 38+ kategorii funkcji: nagrywanie w
 
 ---
 
-### 12. Eksport do Google Docs / Notion
+### 12. Eksport do Google Docs / Notion - tego nie realizuj
 **Dlaczego:** Bezpośredni eksport do narzędzi, w których użytkownik pracuje.
 - OAuth z Google Docs
 - Tworzenie dokumentu z transkryptem
@@ -222,7 +222,7 @@ Rozszerzenie jest już dojrzałe — posiada 38+ kategorii funkcji: nagrywanie w
 
 ---
 
-### 14. Automatyczne rozpoznawanie języka
+### 14. Automatyczne rozpoznawanie języka - tego nie realizuj
 **Dlaczego:** Spotkania w różnych językach — prompt LLM powinien być dopasowany.
 - Detekcja języka transkryptu
 - Auto-wybór odpowiedniego prompta
@@ -236,7 +236,7 @@ Rozszerzenie jest już dojrzałe — posiada 38+ kategorii funkcji: nagrywanie w
 
 ---
 
-### 15. Notatki użytkownika przy sesji
+### 15. Notatki użytkownika przy sesji - tego nie realizuj
 **Dlaczego:** Dodanie własnych adnotacji do sesji — "omówiliśmy X", "TODO: Y".
 - Pole tekstowe przy każdej sesji
 - Zachowane w storage
@@ -251,7 +251,7 @@ Rozszerzenie jest już dojrzałe — posiada 38+ kategorii funkcji: nagrywanie w
 
 ---
 
-### 16. Tryb "Follow speaker"
+### 16. Tryb "Follow speaker" - tego nie realizuj
 **Dlaczego:** Podczas długich spotkań śledzenie konkretnego mówcy.
 - Kliknij na uczestnika → filtruj na żywo tylko jego wypowiedzi
 - Podświetlanie wybranego mówcy
@@ -266,7 +266,7 @@ Rozszerzenie jest już dojrzałe — posiada 38+ kategorii funkcji: nagrywanie w
 
 ---
 
-## FUTURE / EKSPERYMENTALNE
+## FUTURE / EKSPERYMENTALNE - tej sekcji nie realizuj
 
 ### 17. Tryb offline z synchronizacją
 - IndexedDB jako primary storage
