@@ -242,11 +242,12 @@ async function applySessionStateRestoration(sessionState) {
         const transcriptToDisplay = window.transcriptData || sessionState.transcriptData;
         displayTranscriptAndStats(transcriptToDisplay);
 
-        if (reactivationResult && !reactivationResult.mergeSuccess) {
+        if (reactivationResult?.restartSuccess === false) {
+            console.error('❌ [POPUP] Background scanning restart failed');
+            window.updateStatus?.('Nie udało się wznowić skanowania w tle — zamknij i otwórz popup', 'error');
+        } else if (reactivationResult && !reactivationResult.mergeSuccess) {
             console.warn('⚠️ [POPUP] Merge failed, displaying stored data instead');
-            if (window.updateStatus) {
-                window.updateStatus('Przywrócono zapisane dane (częściowo)', 'warning');
-            }
+            window.updateStatus?.('Przywrócono zapisane dane (częściowo)', 'warning');
         }
 
         if (window.UIManager) {

@@ -73,12 +73,15 @@
 
 | Rule ID | Rule | Source IDs | Enforced at |
 |---------|------|------------|-------------|
-| BR070 | Scanning interval: 3 seconds | S063 | background.js startBackgroundScanning |
-| BR071 | Checkpoints created every 10 scans, max 3 kept | S065, S066 | createCheckpoint, cleanupOldCheckpoints |
-| BR072 | Scanning stops when tab navigates away from meet.google.com | background.js | chrome.tabs.onUpdated listener |
-| BR073 | Scanning stops when tab is closed | background.js | chrome.tabs.onRemoved listener |
+| BR070 | Scanning interval: 3 seconds, runs in content script (immune to SW termination) | S081 | content.js startScanning |
+| BR071 | Checkpoints created every 10 scans, max 3 kept | S083, S084 | content.js _createCheckpoint, _cleanupOldCheckpoints |
+| BR072 | Scanning auto-resumes on tab refresh via persisted scanningState in storage | S085 | content.js _autoResumeScanning |
+| BR073 | Scanning stops only when explicitly stopped or tab is closed entirely | S082 | content.js stopScanning |
 | BR074 | Accumulated data max age: 1 hour (older data rejected) | S014 | BackgroundScanner._MAX_DATA_AGE |
 | BR075 | Data recovery tries: primary key → checkpoints → URL match | S014 | BackgroundScanner.retrieveAccumulatedScanData |
+| BR076 | Background updates received before realtimeMode are queued (max 20), drained on reactivation | S089 | BackgroundScanner.processPendingUpdates |
+| BR077 | Transient scan errors do NOT stop the scanning loop (content script stays alive) | S081 | content.js startScanning interval |
+| BR078 | Service worker is a thin relay only — forwards start/stop/status to content script | S087, S088 | background.js message handler |
 
 ## Search & Filter Rules
 

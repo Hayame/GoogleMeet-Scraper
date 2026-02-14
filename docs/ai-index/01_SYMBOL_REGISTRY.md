@@ -83,16 +83,25 @@ See taxonomy-frontend.md for full type code definitions.
 | S059 | enableCaptionsIfNeeded | UTL | content.js | 288 | no (local) | Auto-enable captions via keyboard shortcut dispatch |
 | S060 | areCaptionsEnabled | UTL | content.js | 244 | no (local) | Check if captions are active via [jsname="dsyhDe"] |
 | S061 | generateHash | UTL | content.js | 482 | no (local) | Simple hash for change detection (speaker:text → base36) |
-| S062 | detectMeetingStart | UTL | content.js | 555 | no (local) | Poll for captions availability (2s interval, 5min timeout) |
+| S062 | detectMeetingStart | UTL | content.js | — | no (local) | Poll for captions availability (2s interval, 5min timeout) |
+| S081 | startScanning | UTL | content.js | — | no (local) | Start 3s interval self-scanning loop in content script |
+| S082 | stopScanning | UTL | content.js | — | no (local) | Stop scanning loop and clear persisted state |
+| S083 | _createCheckpoint | UTL | content.js | — | no (local) | Create backup checkpoint every 10 scans (moved from background.js) |
+| S084 | _cleanupOldCheckpoints | UTL | content.js | — | no (local) | Keep only last 3 checkpoints per tab (moved from background.js) |
+| S085 | _autoResumeScanning | UTL | content.js | — | no (local) | Auto-resume scanning on content script load (handles tab refresh) |
+| S086 | _getOwnTabId | UTL | content.js | — | no (local) | Get tab ID via service worker relay |
 
-## Registry — Background Script (background.js)
+## Registry — Background Script (background.js) — Thin Relay
 
 | ID | Symbol Name | Type | File Path | Line | Exported | Description |
 |----|-------------|------|-----------|------|----------|-------------|
-| S063 | startBackgroundScanning | UTL | background.js | 53 | no (local) | Start 3s interval scanning for a tab |
-| S064 | stopBackgroundScanning | UTL | background.js | 116 | no (local) | Stop scanning interval |
-| S065 | createCheckpoint | UTL | background.js | 128 | no (local) | Create backup checkpoint every 10 scans |
-| S066 | cleanupOldCheckpoints | UTL | background.js | 149 | no (local) | Keep only last 3 checkpoints per tab |
+| S063 | [REMOVED] startBackgroundScanning | — | — | — | — | Scanning loop moved to content.js (S081) |
+| S064 | [REMOVED] stopBackgroundScanning | — | — | — | — | Scanning stop moved to content.js (S082) |
+| S065 | [REMOVED] createCheckpoint | — | — | — | — | Moved to content.js (S083) |
+| S066 | [REMOVED] cleanupOldCheckpoints | — | — | — | — | Moved to content.js (S084) |
+| S087 | _relayStopToScanningTab | UTL | background.js | 97 | no (local) | Find scanning Meet tab and relay stop command |
+| S088 | _relayScanningStatus | UTL | background.js | 115 | no (local) | Relay scanning status query to Meet tabs |
+| S090 | _findScanningTab | UTL | background.js | 77 | no (local) | Find first Meet tab that is actively scanning (shared helper) |
 
 ## Registry — Popup Entry Point (popup.js)
 
@@ -118,7 +127,10 @@ See taxonomy-frontend.md for full type code definitions.
 |----|-------------|------|-----------|------|----------|-------------|
 | S080 | DEBUG_ENABLED | CNS | debug-config.js | 7 | yes (globalScope) | Master switch for console.log/debug/info |
 
+| S089 | processPendingUpdates | UTL | js/features/background-scanner.js | — | yes (window) | Drain queued background updates received before realtimeMode active |
+| S091 | _MAX_PENDING_UPDATES | CNS | js/features/background-scanner.js | 12 | yes (window) | Max pending background updates queue size (20) |
+
 ## Numbering Rules
-- Sequential: S001–S080 (current max)
-- Next available ID: S081
+- Sequential: S001–S091 (current max)
+- Next available ID: S092
 - Removed symbols: marked [REMOVED], ID never reused

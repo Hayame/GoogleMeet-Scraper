@@ -1,9 +1,7 @@
 // Background script (Service Worker) - Chrome Manifest V3
+// Thin relay: forwards start/stop/status commands to the content script.
+// The actual scanning loop lives in content.js (immune to SW termination).
 importScripts('debug-config.js');
-
-let isScanning = false;
-let scanningTabId = null;
-let scanInterval = null;
 
 // Inject content script into all open Google Meet tabs on install
 chrome.runtime.onInstalled.addListener(() => {
@@ -30,148 +28,101 @@ chrome.action.onClicked.addListener((tab) => {
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'startBackgroundScanning') {
-        startBackgroundScanning(request.tabId);
-        sendResponse({ success: true });
+        // Relay to content script
+        const tabId = request.tabId;
+        chrome.tabs.sendMessage(tabId, {
+            action: 'startContentScanning',
+            sessionId: request.sessionId || 'default'
+        }, (response) => {
+            if (chrome.runtime.lastError) {
+                console.error('❌ [BACKGROUND] Failed to relay startContentScanning:', chrome.runtime.lastError.message);
+                sendResponse({ success: false, error: chrome.runtime.lastError.message });
+                return;
+            }
+            sendResponse(response || { success: true });
+        });
+        return true; // async
+
     } else if (request.action === 'stopBackgroundScanning') {
-        stopBackgroundScanning();
-        sendResponse({ success: true });
+        // Relay stop to content script — need to find which tab is scanning
+        _relayStopToScanningTab(sendResponse);
+        return true; // async
+
     } else if (request.action === 'getScanningStatus') {
-        sendResponse({ isScanning, tabId: scanningTabId });
+        // Relay status query to content script
+        _relayScanningStatus(sendResponse);
+        return true; // async
+
+    } else if (request.action === 'getOwnTabId') {
+        // Content script asks for its own tab ID
+        sendResponse({ tabId: sender.tab?.id || null });
+
     } else if (request.action === 'updateGoogleUserName') {
         console.log('⚙️ [BACKGROUND] Received Google user name update:', request.userName);
         chrome.runtime.sendMessage({
             action: 'updateGoogleUserName',
             userName: request.userName
         }).catch(() => {
-            // Popup is not open - expected during background operation
+            // Popup is not open — expected during background operation
         });
         sendResponse({ success: true });
     }
     return true;
 });
 
-function startBackgroundScanning(tabId) {
-    console.log('🔶 [BACKGROUND] Starting background scanning for tab:', tabId);
+/**
+ * Find the first Meet tab that is actively scanning.
+ * @returns {Promise<{tab: Object, status: Object}|null>} The matching tab and its status, or null
+ */
+async function _findScanningTab() {
+    const tabs = await chrome.tabs.query({ url: 'https://meet.google.com/*' });
 
-    if (isScanning) {
-        stopBackgroundScanning();
-    }
-
-    isScanning = true;
-    scanningTabId = tabId;
-    let scanCount = 0;
-
-    scanInterval = setInterval(async () => {
-        scanCount++;
-        if (!isScanning) {
-            clearInterval(scanInterval);
-            return;
-        }
-
+    for (const tab of tabs) {
         try {
-            const tab = await chrome.tabs.get(tabId);
-            if (!tab || !tab.url.includes('meet.google.com')) {
-                console.log('🔶 [BACKGROUND] Tab not on Meet page, stopping scan');
-                stopBackgroundScanning();
-                return;
+            const status = await chrome.tabs.sendMessage(tab.id, { action: 'getScanningStatus' });
+            if (status?.isScanning) {
+                return { tab, status };
             }
-
-            const result = await chrome.tabs.sendMessage(tabId, { action: 'scrapeTranscript' });
-            const hasMessages = result?.success && result.data?.messages?.length > 0;
-
-            if (hasMessages) {
-                console.log(`🔶 [BACKGROUND] Scan #${scanCount}:`, result.data.messages.length, 'messages');
-
-                await chrome.storage.local.set({
-                    [`backgroundScan_${tabId}`]: {
-                        data: result.data,
-                        timestamp: Date.now(),
-                        sequenceNumber: scanCount,
-                        meetingUrl: result.data.meetingUrl
-                    }
-                });
-
-                if (scanCount % 10 === 0) {
-                    await createCheckpoint(tabId, result.data, scanCount);
-                }
-
-                try {
-                    await chrome.runtime.sendMessage({
-                        action: 'backgroundScanUpdate',
-                        data: result.data
-                    });
-                } catch (popupError) {
-                    // Popup not open - data already saved to storage
-                }
-            }
-        } catch (error) {
-            console.error('🔶 [BACKGROUND] Scan error:', error);
-            if (!error.message.includes('Could not establish connection')) {
-                stopBackgroundScanning();
-            }
+        } catch {
+            // Tab may not have content script loaded
         }
-    }, 3000);
+    }
+
+    return null;
 }
 
-function stopBackgroundScanning() {
-    isScanning = false;
-    scanningTabId = null;
-    if (scanInterval) {
-        clearInterval(scanInterval);
-        scanInterval = null;
+/**
+ * Find the scanning Meet tab and relay stop command
+ */
+async function _relayStopToScanningTab(sendResponse) {
+    try {
+        const found = await _findScanningTab();
+
+        if (found) {
+            await chrome.tabs.sendMessage(found.tab.id, { action: 'stopContentScanning' });
+        }
+
+        sendResponse({ success: true, stopped: !!found });
+    } catch (error) {
+        console.error('❌ [BACKGROUND] Failed to relay stop:', error);
+        sendResponse({ success: false, error: error.message });
     }
 }
 
 /**
- * Create checkpoint backup of scan data. Keeps last 3 checkpoints for recovery.
+ * Relay scanning status query to Meet tabs
  */
-async function createCheckpoint(tabId, data, scanCount) {
+async function _relayScanningStatus(sendResponse) {
     try {
-        const checkpointKey = `checkpoint_${tabId}_${Date.now()}`;
-        await chrome.storage.local.set({
-            [checkpointKey]: {
-                data: data,
-                timestamp: Date.now(),
-                scanCount: scanCount,
-                type: 'CHECKPOINT'
-            }
-        });
-        console.log(`💾 [CHECKPOINT] Created: ${checkpointKey} (${data.messages.length} messages)`);
-        await cleanupOldCheckpoints(tabId);
-    } catch (error) {
-        console.error('❌ [CHECKPOINT] Failed to create:', error);
-    }
-}
+        const found = await _findScanningTab();
 
-/**
- * Remove old checkpoints, keeping only the last 3
- */
-async function cleanupOldCheckpoints(tabId) {
-    try {
-        const allData = await chrome.storage.local.get(null);
-        const checkpointKeys = Object.keys(allData)
-            .filter(k => k.startsWith(`checkpoint_${tabId}_`))
-            .sort();
-
-        if (checkpointKeys.length > 3) {
-            const toRemove = checkpointKeys.slice(0, -3);
-            await chrome.storage.local.remove(toRemove);
-            console.log(`🧹 [CHECKPOINT] Cleaned up ${toRemove.length} old checkpoints`);
+        if (found) {
+            sendResponse({ isScanning: true, tabId: found.tab.id, scanCount: found.status.scanCount });
+        } else {
+            sendResponse({ isScanning: false, tabId: null });
         }
     } catch (error) {
-        console.error('❌ [CHECKPOINT] Cleanup failed:', error);
+        console.error('❌ [BACKGROUND] Failed to get scanning status:', error);
+        sendResponse({ isScanning: false, tabId: null, error: error.message });
     }
 }
-
-// Stop scanning when the target tab is closed or refreshed
-chrome.tabs.onRemoved.addListener((tabId) => {
-    if (tabId === scanningTabId) {
-        stopBackgroundScanning();
-    }
-});
-
-chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-    if (tabId === scanningTabId && changeInfo.status === 'loading') {
-        stopBackgroundScanning();
-    }
-});

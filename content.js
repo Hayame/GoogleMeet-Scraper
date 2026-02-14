@@ -398,6 +398,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             console.error('❌ [CONTENT] Manual detection error:', error);
             sendResponse({ success: false, error: error.message });
         }
+    } else if (request.action === 'startContentScanning') {
+        console.log('🟢 [CONTENT] Received startContentScanning, sessionId:', request.sessionId);
+        startScanning(request.sessionId)
+            .then(() => sendResponse({ success: true }))
+            .catch(error => sendResponse({ success: false, error: error.message }));
+        return true;
+    } else if (request.action === 'stopContentScanning') {
+        console.log('🔴 [CONTENT] Received stopContentScanning');
+        stopScanning()
+            .then(() => sendResponse({ success: true }))
+            .catch(error => sendResponse({ success: false, error: error.message }));
+        return true;
+    } else if (request.action === 'getScanningStatus') {
+        sendResponse({ isScanning: _isScanning, scanCount: _scanCount });
     } else if (request.action === 'enableCaptions') {
         // Auto-enable captions handler
         console.log('🎬 [CONTENT] Received enableCaptions request');
@@ -551,22 +565,218 @@ function sanitizeTranscriptText(text) {
     return text.trim();
 }
 
+// ============================================================================
+// SELF-SCANNING LOOP (runs in content script, immune to service worker kill)
+// ============================================================================
+
+let _isScanning = false;
+let _scanInterval = null;
+let _scanningSessionId = null;
+let _scanCount = 0;
+
+/**
+ * Get the current tab ID from the extension framework
+ * @returns {Promise<number|null>}
+ */
+function _getOwnTabId() {
+    return new Promise((resolve) => {
+        try {
+            chrome.runtime.sendMessage({ action: 'getOwnTabId' }, (response) => {
+                if (chrome.runtime.lastError) {
+                    resolve(null);
+                    return;
+                }
+                resolve(response?.tabId || null);
+            });
+        } catch {
+            resolve(null);
+        }
+    });
+}
+
+/**
+ * Start scanning transcript at 3-second intervals.
+ * Data is saved to chrome.storage.local and optionally pushed to the popup.
+ * @param {string} sessionId - Current recording session ID
+ */
+async function startScanning(sessionId) {
+    if (_isScanning) {
+        console.log('⚠️ [CONTENT SCAN] Already scanning, stopping previous before restart');
+        await stopScanning();
+    }
+
+    _isScanning = true;
+    _scanningSessionId = sessionId;
+    _scanCount = 0;
+
+    const tabId = await _getOwnTabId();
+    console.log('🟢 [CONTENT SCAN] Starting scanning, sessionId:', sessionId, 'tabId:', tabId);
+
+    // Persist scanning state for auto-resume on tab refresh
+    try {
+        await chrome.storage.local.set({
+            scanningState: { isScanning: true, sessionId, tabId }
+        });
+    } catch (e) {
+        console.error('❌ [CONTENT SCAN] Failed to persist scanning state:', e);
+    }
+
+    // Cache the resolved tab ID so we don't re-query every tick
+    let resolvedTabId = tabId;
+
+    _scanInterval = setInterval(async () => {
+        if (!_isScanning) {
+            clearInterval(_scanInterval);
+            _scanInterval = null;
+            return;
+        }
+
+        _scanCount++;
+
+        try {
+            const result = scrapeTranscript();
+            if (!result?.messages?.length) return;
+
+            console.log(`🔶 [CONTENT SCAN] Scan #${_scanCount}:`, result.messages.length, 'messages');
+
+            if (!resolvedTabId) {
+                resolvedTabId = await _getOwnTabId();
+            }
+            const storageKey = resolvedTabId ? `backgroundScan_${resolvedTabId}` : 'backgroundScan_unknown';
+
+            await chrome.storage.local.set({
+                [storageKey]: {
+                    data: result,
+                    timestamp: Date.now(),
+                    sequenceNumber: _scanCount,
+                    meetingUrl: result.meetingUrl
+                }
+            });
+
+            // Create checkpoint every 10 scans
+            if (_scanCount % 10 === 0 && resolvedTabId) {
+                await _createCheckpoint(resolvedTabId, result, _scanCount);
+            }
+
+            // Try to notify popup (silently fail if popup is closed)
+            try {
+                chrome.runtime.sendMessage({
+                    action: 'backgroundScanUpdate',
+                    data: result
+                });
+            } catch {
+                // Popup not open — data already saved to storage
+            }
+        } catch (error) {
+            console.error('❌ [CONTENT SCAN] Scan error:', error);
+            // Do NOT stop scanning on transient errors — the tab is still alive
+        }
+    }, 3000);
+}
+
+/**
+ * Stop the scanning loop and clear persisted state
+ */
+async function stopScanning() {
+    console.log('🔴 [CONTENT SCAN] Stopping scanning');
+    _isScanning = false;
+    _scanningSessionId = null;
+    _scanCount = 0;
+
+    if (_scanInterval) {
+        clearInterval(_scanInterval);
+        _scanInterval = null;
+    }
+
+    try {
+        await chrome.storage.local.remove('scanningState');
+    } catch (e) {
+        console.error('❌ [CONTENT SCAN] Failed to clear scanning state:', e);
+    }
+}
+
+/**
+ * Create checkpoint backup of scan data. Keeps last 3 checkpoints.
+ * @param {number} tabId
+ * @param {Object} data
+ * @param {number} scanCount
+ */
+async function _createCheckpoint(tabId, data, scanCount) {
+    try {
+        const now = Date.now();
+        const checkpointKey = `checkpoint_${tabId}_${now}`;
+        await chrome.storage.local.set({
+            [checkpointKey]: {
+                data,
+                timestamp: now,
+                scanCount,
+                type: 'CHECKPOINT'
+            }
+        });
+        console.log(`💾 [CONTENT SCAN] Checkpoint: ${checkpointKey} (${data.messages.length} messages)`);
+        await _cleanupOldCheckpoints(tabId);
+    } catch (error) {
+        console.error('❌ [CONTENT SCAN] Checkpoint failed:', error);
+    }
+}
+
+/**
+ * Remove old checkpoints, keeping only the last 3
+ * @param {number} tabId
+ */
+async function _cleanupOldCheckpoints(tabId) {
+    try {
+        const allData = await chrome.storage.local.get(null);
+        const checkpointKeys = Object.keys(allData)
+            .filter(k => k.startsWith(`checkpoint_${tabId}_`))
+            .sort();
+
+        if (checkpointKeys.length > 3) {
+            const toRemove = checkpointKeys.slice(0, -3);
+            await chrome.storage.local.remove(toRemove);
+            console.log(`🧹 [CONTENT SCAN] Cleaned up ${toRemove.length} old checkpoints`);
+        }
+    } catch (error) {
+        console.error('❌ [CONTENT SCAN] Checkpoint cleanup failed:', error);
+    }
+}
+
+/**
+ * Auto-resume scanning on content script load (handles tab refresh)
+ */
+async function _autoResumeScanning() {
+    try {
+        const result = await chrome.storage.local.get('scanningState');
+        const state = result.scanningState;
+
+        if (state?.isScanning && state.sessionId) {
+            console.log('🔄 [CONTENT SCAN] Auto-resuming scanning for session:', state.sessionId);
+            await startScanning(state.sessionId);
+        }
+    } catch (error) {
+        console.error('❌ [CONTENT SCAN] Auto-resume failed:', error);
+    }
+}
+
 // Automatyczne wykrywanie początku spotkania
 function detectMeetingStart() {
     // Sprawdź co 2 sekundy czy pojawiły się napisy
     const checkInterval = setInterval(() => {
         const captionsButton = document.querySelector('[aria-label*="napisy"], [aria-label*="captions"], [aria-label*="subtitles"]');
         const transcriptElements = document.querySelectorAll('.a4cQT, [jscontroller="MZnM8e"]');
-        
+
         if (captionsButton || transcriptElements.length > 0) {
             console.log('🎬 Meeting started, captions available');
             clearInterval(checkInterval);
         }
     }, 2000);
-    
+
     // Zatrzymaj sprawdzanie po 5 minutach
     setTimeout(() => clearInterval(checkInterval), 300000);
 }
 
 // Rozpocznij wykrywanie spotkania
 detectMeetingStart();
+
+// Auto-resume scanning if it was active before tab refresh
+_autoResumeScanning();

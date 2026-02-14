@@ -8,6 +8,8 @@ window.BackgroundScanner = {
     _mergeQueue: [],          // Array of {id, data, priority, timestamp, retryCount}
     _isMerging: false,        // True while processing queue
     _mergeSequence: 0,        // Unique ID generator
+    _pendingBackgroundUpdates: [], // Queue for updates received before realtimeMode is active
+    _MAX_PENDING_UPDATES: 20,
     get _maxQueueSize() {     // Prevent memory leak
         return window.AppConstants.TIMING.MERGE_QUEUE_MAX_SIZE;
     },
@@ -17,15 +19,20 @@ window.BackgroundScanner = {
      * @param {Object} data - Transcript data from background scan
      */
     async handleBackgroundScanUpdate(data) {
-        if (!window.realtimeMode) {
-            return;
-        }
-
         if (window.StateManager?.getRecordingStopped()) {
             return;
         }
 
-        if (!data || !data.messages || data.messages.length === 0) {
+        if (!data?.messages?.length) {
+            return;
+        }
+
+        if (!window.realtimeMode) {
+            // Queue updates so they aren't lost during popup restore
+            if (this._pendingBackgroundUpdates.length < this._MAX_PENDING_UPDATES) {
+                this._pendingBackgroundUpdates.push(data);
+                console.log('📋 [SCANNER] Queued pending update (' + this._pendingBackgroundUpdates.length + ' queued)');
+            }
             return;
         }
 
@@ -211,10 +218,14 @@ window.BackgroundScanner = {
     _sendRuntimeMessage(message, errorText) {
         return new Promise((resolve, reject) => {
             chrome.runtime.sendMessage(message, (response) => {
-                if (response && response.success) {
+                if (chrome.runtime.lastError) {
+                    reject(new Error(chrome.runtime.lastError.message || errorText));
+                    return;
+                }
+                if (response?.success) {
                     resolve(response);
                 } else {
-                    reject(new Error(errorText));
+                    reject(new Error(response?.error || errorText));
                 }
             });
         });
@@ -326,7 +337,10 @@ window.BackgroundScanner = {
                 window.updateStatus?.('Nie udało się wznowić skanowania w tle', 'error');
             }
 
-            return { success: true, mergeSuccess, restartSuccess };
+            // Drain any updates that arrived before realtimeMode was set
+            this.processPendingUpdates();
+
+            return { success: mergeSuccess && restartSuccess, mergeSuccess, restartSuccess };
         } catch (error) {
             console.error('❌ [REACTIVATE] Critical error:', error);
             window.updateStatus?.('Błąd reaktywacji: ' + error.message, 'error');
@@ -662,6 +676,23 @@ window.BackgroundScanner = {
 
         console.log('🔍 [CHANGES] added:', changes.added.length, 'updated:', changes.updated.length, 'removed:', changes.removed.length);
         return changes;
+    },
+
+    /**
+     * Drain queued background updates that arrived before realtimeMode was active
+     */
+    async processPendingUpdates() {
+        if (this._pendingBackgroundUpdates.length === 0) return;
+
+        console.log(`🔄 [SCANNER] Processing ${this._pendingBackgroundUpdates.length} pending updates`);
+
+        // Only the latest update matters (each contains the full transcript)
+        const latest = this._pendingBackgroundUpdates[this._pendingBackgroundUpdates.length - 1];
+        this._pendingBackgroundUpdates.length = 0;
+
+        if (latest && window.realtimeMode) {
+            await this.scheduleMerge(latest, 1);
+        }
     },
 
     /**

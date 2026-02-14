@@ -92,14 +92,17 @@ S023 —[USES]→ S021  (SettingsManager → ModalManager.showModal)
 ### Cross-Context Communication (Chrome Messaging)
 
 ```
-popup.js —[SENDS: startBackgroundScanning]→ background.js
-popup.js —[SENDS: stopBackgroundScanning]→ background.js
-popup.js —[SENDS: getScanningStatus]→ background.js
-popup.js —[LISTENS: backgroundScanUpdate]← background.js
+popup.js —[SENDS: startBackgroundScanning]→ background.js —[RELAYS: startContentScanning]→ content.js
+popup.js —[SENDS: stopBackgroundScanning]→ background.js —[RELAYS: stopContentScanning]→ content.js
+popup.js —[SENDS: getScanningStatus]→ background.js —[RELAYS: getScanningStatus]→ content.js
+popup.js —[LISTENS: backgroundScanUpdate]← content.js (via chrome.runtime.sendMessage)
 popup.js —[LISTENS: updateGoogleUserName]← background.js
-background.js —[SENDS: scrapeTranscript]→ content.js
-background.js —[SENDS: backgroundScanUpdate]→ popup.js
-content.js —[LISTENS: scrapeTranscript]← popup/background
+content.js —[SENDS: getOwnTabId]→ background.js (to learn own tab ID for storage keys)
+content.js —[SELF-SCANS: scrapeTranscript]→ chrome.storage.local (no messaging needed)
+content.js —[LISTENS: scrapeTranscript]← popup (manual refresh)
+content.js —[LISTENS: startContentScanning]← background.js relay
+content.js —[LISTENS: stopContentScanning]← background.js relay
+content.js —[LISTENS: getScanningStatus]← background.js relay
 content.js —[LISTENS: updateUserDisplayName]← popup
 content.js —[LISTENS: manualDetectGoogleName]← popup
 content.js —[LISTENS: enableCaptions]← popup
@@ -109,15 +112,17 @@ GoogleUserDetector —[SENDS: updateGoogleUserName]→ background.js
 ### Key Data Flows
 
 ```
-Content Script ──scrape──→ Background Worker ──store──→ chrome.storage.local
-                                                              ↓
-Popup opens → StateManager.restoreStateFromStorage() → BackgroundScanner.reactivateAfterRestore()
-                                                              ↓
-                                                    merge accumulated data
-                                                              ↓
-                                     TranscriptManager.displayTranscript() → DOM
-                                                              ↓
-                                     SearchFilterManager.applyFilters() → Filtered DOM
+Content Script ──self-scrape──→ chrome.storage.local  (immune to SW termination)
+       ↓                              ↓
+  try notify popup            Popup opens → StateManager.restoreStateFromStorage()
+  (silently fails                            ↓
+   if closed)               BackgroundScanner.reactivateAfterRestore()
+                                             ↓
+                                   merge accumulated data from storage
+                                             ↓
+                              TranscriptManager.displayTranscript() → DOM
+                                             ↓
+                              SearchFilterManager.applyFilters() → Filtered DOM
 ```
 
 ## Dependency Matrix (top 15 most connected)
