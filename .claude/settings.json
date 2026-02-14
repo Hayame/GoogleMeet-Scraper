@@ -1,0 +1,207 @@
+{
+  "includeCoAuthoredBy": false,
+  "permissions": {
+    "allow": [
+      "Read(/Users/szlachtowskil/Sources/geomarkup/.claude/**)",
+      "Write(/Users/szlachtowskil/Sources/geomarkup/.claude/**)",
+      "Write(*)",
+      "Update(*)",
+      "Update(*:*)",
+      "Read(//.claude/**)",
+      "Read(///**)",
+      "Bash(mkdir:*)",
+      "Bash(go:*)",
+      "Bash(ls:*)",
+      "Bash(git:*)",
+      "Bash(mv:*)",
+      "Bash(echo:*)",
+      "Bash(sed:*)",
+      "Bash(source:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "Bash(pkill:*)",
+      "Bash(touch:*)",
+      "Bash(grep:*)",
+      "Bash(deadcode:*)",
+      "Bash(sqlite3:*)",
+      "Bash(curl:*)",
+      "Bash(rg:*)",
+      "Bash(chmod:*)",
+      "Bash(lsof:*)",
+      "Bash(make:*)",
+      "Bash(PORT=:*)",
+      "Bash(find:*)",
+      "Bash(docker:*)",
+      "Bash(poetry:*)",
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "Bash(python3.13:*)",
+      "Bash(rm:*)",
+      "Bash(cat:*)",
+      "Bash(tree:*)",
+      "Bash(cut:*)",
+      "Bash(awk:*)",
+      "Bash(sort:*)",
+      "Bash(wc:*)",
+      "Bash(bc)",
+      "Bash(tee:*)",
+      "Bash(test:*)",
+      "Bash(kill:*)",
+      "Bash(node:*)",
+      "Bash(ln:*)",
+      "Bash(xargs:*)",
+      "Bash(for:*)",
+      "Bash(brew list:*)",
+      "Bash(brew --version:*)",
+      "Bash(brew update:*)",
+      "Bash(brew info:*)",
+      "Bash(brew upgrade:*)",
+      "Bash(brew install:*)",
+      "Bash(brew uninstall:*)",
+      "Bash(pip install:*)",
+      "Bash(pip3 install:*)",
+      "Bash(source .venv/bin/activate)",
+      "Bash(dotnet:*)",
+      "Bash(git branch:*)",
+      "Bash(git worktree:*)",
+      "Bash(git merge:*)",
+      "Bash(git remote prune:*)",
+      "Bash(git -C /Users/szlachtowskil/Sources/geomarkup:*)",
+      "Bash(git -C . status --short)",
+      "Bash(git -C . add -A)",
+      "Bash(timeout 10s npm run dev)",
+      "Bash(timeout 10 npm run dev:*)",
+      "Bash(timeout 10s npx tsc --noEmit --skipLibCheck)",
+      "Bash(timeout 30s npx tsc:*)",
+      "Bash(gtimeout:*)",
+      "Bash(VITE_DEV_PORT=3000 npm run dev)",
+      "Bash(open http://localhost:3000)",
+      "Bash(open http://localhost:3001)",
+      "Bash(open http://localhost:3002)",
+      "Bash(open http://localhost:3003)",
+      "Bash(open http://localhost:4173)",
+      "Bash(open http://localhost:4177)",
+      "Bash(/run-subagents)",
+      "Bash(/dev/null)",
+      "Bash(paste -sd+ -)",
+      "WebSearch",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:data.humdata.org)",
+      "WebFetch(domain:overpass-turbo.eu)",
+      "WebFetch(domain:wiki.openstreetmap.org)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:stackoverflow.com)",
+      "WebFetch(domain:nominatim.org)",
+      "WebFetch(domain:mantine.dev)",
+      "WebFetch(domain:v7.mantine.dev)",
+      "WebFetch(domain:maplibre.org)",
+      "WebFetch(domain:ryancatalani.medium.com)",
+      "WebFetch(domain:www.geeksforgeeks.org)",
+      "WebFetch(domain:www.eleken.co)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_resize",
+      "mcp__playwright__browser_console_messages",
+      "mcp__playwright__browser_evaluate",
+      "mcp__playwright__browser_handle_dialog",
+      "mcp__playwright__browser_press_key",
+      "mcp__playwright__browser_close",
+      "mcp__playwright__browser_type",
+      "mcp__playwright__browser_hover",
+      "mcp__playwright__browser_install",
+      "mcp__playwright__browser_wait_for",
+      "mcp__playwright__browser_network_requests",
+      "Skill(session-summary)",
+      "Skill(session-summary:*)",
+      "Skill(restore-session)",
+      "Skill(restore-session:*)",
+      "Skill(backend-code-review)",
+      "Skill(backend-code-review:*)",
+      "Skill(backend-fix-code-review)",
+      "Skill(backend-fix-code-review:*)",
+      "Skill(backend-implementation)",
+      "Skill(backend-implementation:*)",
+      "Skill(resume-backend-implementation)",
+      "Skill(resume-backend-implementation:*)",
+      "Skill(frontend:start-task)",
+      "Skill(frontend:start-task:*)",
+      "Skill(frontend:resume-task)",
+      "Skill(frontend:resume-task:*)",
+      "Skill(frontend:code-review)",
+      "Skill(frontend:code-review:*)",
+      "Skill(frontend:fix-issues)",
+      "Skill(frontend:fix-issues:*)",
+      "Skill(backend:start-task)",
+      "Skill(backend:start-task:*)",
+      "Skill(backend:resume-task)",
+      "Skill(backend:resume-task:*)",
+      "Skill(backend:code-review)",
+      "Skill(backend:code-review:*)",
+      "Skill(backend:fix-issues)",
+      "Skill(backend:fix-issues:*)"
+    ],
+    "deny": []
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/hook-post-tool-track.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/hook-phase-quality-gate.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/hook-post-tool-format.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/hook-stop-verify-index.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/hook-prompt-inject.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
