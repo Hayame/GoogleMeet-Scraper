@@ -357,7 +357,7 @@ body {
 }
 
 #settingsModal .modal-body {
-    padding: 24px;
+    padding: 20px;
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -448,19 +448,19 @@ body {
 .settings-tabs {
     display: flex;
     border-bottom: 2px solid var(--border-primary);
-    margin-bottom: 24px;
+    margin-bottom: 16px;
     gap: 4px;
 }
 
 .tab-button {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 12px 20px;
+    gap: 6px;
+    padding: 8px 16px;
     background: transparent;
     border: none;
     color: var(--text-secondary);
-    font-size: var(--text-md);
+    font-size: var(--text-base);
     font-weight: 500;
     cursor: pointer;
     transition: var(--transition-fast);
@@ -639,13 +639,14 @@ body {
     color: var(--text-muted);
 }
 
-/* Switch styling for prompt settings */
+/* Switch styling */
 .switch-label {
     display: flex;
     align-items: center;
     gap: 12px;
     cursor: pointer;
     user-select: none;
+    font-weight: 500;
 }
 
 .switch-slider {
@@ -1670,8 +1671,8 @@ input[type="checkbox"] {
 }
 
 .icon-button svg {
-    width: 17px;
-    height: 17px;
+    width: 16px;
+    height: 16px;
     fill: currentColor;
     transition: var(--transition-base);
 }
@@ -1710,7 +1711,7 @@ input[type="checkbox"] {
 /* Transcript Content */
 .transcript-content {
     flex: 1;
-    padding: 10px 12px;
+    padding: 8px 10px;
     overflow-y: auto;
     background: var(--bg-primary);
     transition: var(--transition-theme);
@@ -1749,9 +1750,9 @@ input[type="checkbox"] {
 /* Transcript Entries */
 .transcript-entry {
     display: flex;
-    margin-bottom: 10px;
+    margin-bottom: 6px;
     align-items: flex-start;
-    gap: 8px;
+    gap: 6px;
 }
 
 .transcript-entry:last-child {
@@ -1759,15 +1760,15 @@ input[type="checkbox"] {
 }
 
 .avatar {
-    width: 36px;
-    height: 36px;
-    border-radius: var(--radius-xl);
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-lg);
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--color-white);
     font-weight: 600;
-    font-size: var(--text-md);
+    font-size: var(--text-sm);
     flex-shrink: 0;
     position: relative;
     box-shadow: var(--shadow-lg);
@@ -1788,13 +1789,13 @@ input[type="checkbox"] {
     display: flex;
     align-items: baseline;
     gap: 8px;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 }
 
 .speaker-name {
     font-weight: 600;
     color: var(--text-heading);
-    font-size: var(--text-md);
+    font-size: var(--text-base);
     transition: var(--transition-theme);
 }
 
@@ -1807,12 +1808,12 @@ input[type="checkbox"] {
 .message-bubble {
     background: var(--bg-secondary);
     border: 1px solid var(--border-primary);
-    padding: 14px 16px;
-    border-radius: var(--radius-2xl);
+    padding: 8px 12px;
+    border-radius: var(--radius-xl);
     transition: var(--transition-theme);
     box-shadow: var(--shadow-sm);
     position: relative;
-    padding-bottom: 32px; /* Extra space for fixed expand button */
+    padding-bottom: 24px; /* Extra space for fixed expand button */
 }
 
 .message-bubble:hover {
@@ -1822,10 +1823,10 @@ input[type="checkbox"] {
 
 .transcript-text {
     color: var(--text-secondary);
-    line-height: 1.5;
+    line-height: 1.4;
     margin: 0;
     word-wrap: break-word;
-    font-size: var(--text-md);
+    font-size: var(--text-base);
     transition: var(--transition-theme);
 }
 
@@ -2482,54 +2483,7 @@ input[type="checkbox"] {
     border: 1px solid var(--border-primary);
 }
 
-.switch-label {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    cursor: pointer;
-    font-weight: 500;
-}
-
-.switch-label input[type="checkbox"] {
-    display: none;
-}
-
-.switch-slider {
-    position: relative;
-    width: 44px;
-    height: 24px;
-    background: var(--border-secondary);
-    border-radius: var(--radius-xl);
-    transition: background-color 0.3s ease;
-    flex-shrink: 0;
-}
-
-.switch-slider::before {
-    content: '';
-    position: absolute;
-    width: 20px;
-    height: 20px;
-    border-radius: var(--radius-full);
-    background: var(--color-white);
-    top: 2px;
-    left: 2px;
-    transition: transform 0.3s ease;
-    box-shadow: var(--shadow-button);
-}
-
-.switch-label input[type="checkbox"]:checked + .switch-slider {
-    background: var(--btn-primary-bg);
-}
-
-.switch-label input[type="checkbox"]:checked + .switch-slider::before {
-    transform: translateX(20px);
-}
-
-.switch-text {
-    color: var(--text-primary);
-    font-size: var(--text-md);
-    line-height: 1.4;
-}
+/* Duplicate switch-label/switch-slider/switch-text removed — see definitions above (~lines 643–691) */
 
 .export-description {
     margin: 8px 0 0 56px;
@@ -3060,10 +3014,7 @@ input[type="checkbox"] {
     }
 }
 
-.filter-header {
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--border-primary);
-}
+/* Duplicate filter-header and filter-content removed — see definitions above (~lines 2021–2037) */
 
 .filter-title {
     font-size: var(--text-xl);
@@ -3071,13 +3022,6 @@ input[type="checkbox"] {
     color: var(--text-heading);
     margin: 0;
     transition: var(--transition-theme);
-}
-
-.filter-content {
-    display: flex;
-    flex-direction: column;
-    padding: 12px;
-    max-height: 230px;
 }
 
 /* Filter Items - Matching Participants Modal Style */
@@ -3334,12 +3278,7 @@ input[type="checkbox"] {
     outline-offset: 2px;
 }
 
-.filter-participant-name {
-    font-size: var(--text-md);
-    color: var(--text-primary);
-    transition: var(--transition-theme);
-    flex: 1;
-}
+/* Duplicate filter-participant-name removed — see definition above (~line 3127) */
 
 .filter-separator {
     height: 1px;
@@ -3347,13 +3286,7 @@ input[type="checkbox"] {
     margin: 8px 0;
 }
 
-.filter-participants-list {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    max-height: 200px;
-    overflow-y: auto;
-}
+/* Duplicate filter-participants-list removed — see definition above (~line 3199) */
 
 .filter-participant-option {
     display: flex;
@@ -3519,40 +3452,11 @@ input[type="checkbox"] {
     transform: rotate(45deg);
 }
 
-.filter-participant-avatar {
-    width: 28px;
-    height: 28px;
-    border-radius: var(--radius-lg);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--color-white);
-    font-weight: 600;
-    font-size: var(--text-sm);
-    flex-shrink: 0;
-    box-shadow: var(--shadow-md);
-    transition: var(--transition-base);
-}
-
-.filter-participant-avatar:hover {
-    transform: scale(1.05);
-    box-shadow: var(--shadow-lg);
-}
-
-/* Filter participant avatar colors — see unified avatar colors above */
+/* Duplicate filter-participant-avatar (3rd copy) and filter-participant-name (2nd copy) removed — see definitions above (~lines 3110–3133) */
 
 .filter-participant-info {
     flex: 1;
     min-width: 0;
-}
-
-.filter-participant-name {
-    font-weight: 500;
-    color: var(--text-primary);
-    font-size: var(--text-md);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 .filter-participant-count {
@@ -3562,64 +3466,7 @@ input[type="checkbox"] {
 }
 
 
-.search-input-container {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.search-input {
-    flex: 1;
-    background: var(--bg-tertiary);
-    border: 2px solid var(--border-primary);
-    border-radius: var(--radius-lg);
-    padding: 12px 16px;
-    padding-right: 40px;
-    font-size: var(--text-md);
-    color: var(--text-primary);
-    transition: var(--transition-base);
-    outline: none;
-}
-
-.search-input:focus {
-    border-color: var(--btn-primary-bg);
-    box-shadow: var(--shadow-focus);
-    background: var(--bg-secondary);
-}
-
-.search-input::placeholder {
-    color: var(--text-muted);
-}
-
-.search-clear-btn {
-    position: absolute;
-    right: 8px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
-    cursor: pointer;
-    padding: 4px;
-    border-radius: var(--radius-sm);
-    transition: var(--transition-base);
-    display: none;
-}
-
-.search-clear-btn:hover {
-    color: var(--text-secondary);
-    background: var(--bg-hover);
-}
-
-.search-clear-btn.show {
-    display: block;
-}
-
-.search-clear-btn svg {
-    width: 16px;
-    height: 16px;
-}
+/* Duplicate search-input-container/search-input/search-clear-btn removed — see definitions above (~lines 2943–3002) */
 
 .search-stats {
     display: flex;
