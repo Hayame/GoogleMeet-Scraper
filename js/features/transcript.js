@@ -45,6 +45,13 @@ window.TranscriptManager = {
             messagesToDisplay = window.SearchFilterManager.applyFilters(messagesToDisplay);
         }
 
+        // Pagination integration
+        if (window.PaginationManager) {
+            window.PaginationManager.setTotalItems(messagesToDisplay.length);
+            messagesToDisplay = window.PaginationManager.getCurrentPageItems(messagesToDisplay);
+            window.PaginationManager.renderControls();
+        }
+
         if (messagesToDisplay.length === 0) {
             this._showEmptyState(previewDiv);
             return;

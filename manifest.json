@@ -35,6 +35,15 @@
     "48": "icon48.png",
     "128": "icon128.png"
   },
+  "commands": {
+    "toggle-recording": {
+      "suggested_key": {
+        "default": "Alt+Shift+R",
+        "mac": "MacCtrl+Shift+R"
+      },
+      "description": "Rozpocznij/zatrzymaj nagrywanie"
+    }
+  },
   "web_accessible_resources": [
     {
       "resources": ["prompt.md"],

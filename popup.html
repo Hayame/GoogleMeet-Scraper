@@ -49,6 +49,24 @@
                         <span class="new-session-icon">+</span>
                         <span class="new-session-text">Nowa sesja</span>
                     </button>
+                    <div class="session-search-wrapper">
+                        <svg class="session-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                        </svg>
+                        <input type="text" id="sessionSearchInput" class="session-search-input" placeholder="Szukaj w sesjach..." autocomplete="off">
+                        <button id="sessionSearchClear" class="session-search-clear" style="display: none;" title="Wyczyść wyszukiwanie">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <button id="mergeSessionsBtn" class="merge-sessions-btn" title="Połącz sesje">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+                            <path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+                        </svg>
+                        <span class="merge-btn-text">Połącz sesje</span>
+                    </button>
                 </div>
                 <div class="session-list" id="sessionList">
                     <div class="empty-sessions">
@@ -103,6 +121,18 @@
                     </button>
                 </div>
 
+                <div id="captionWarning" class="caption-warning" style="display: none;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                    </svg>
+                    <span>Napisy nie są włączone w Google Meet. Włącz napisy, aby nagrywać transkrypcję.</span>
+                    <button id="captionWarningDismiss" class="caption-warning-dismiss" title="Zamknij">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                        </svg>
+                    </button>
+                </div>
+
                 <!-- Transcript Stats -->
                 <div class="transcript-stats" id="transcriptStats">
                     <div class="stat-item">
@@ -117,6 +147,12 @@
                         <span class="stat-label">Czas trwania:</span>
                         <span class="stat-value" id="duration">0:00</span>
                     </div>
+                    <button id="statsBtn" class="stats-button" title="Statystyki spotkania" style="display: none;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+                        </svg>
+                        <span>Statystyki</span>
+                    </button>
                 </div>
 
                 <!-- Transcript Preview -->
@@ -124,7 +160,7 @@
                     <div class="transcript-header">
                         <h3 class="transcript-title">Transkrypcja</h3>
                         <div class="transcript-actions">
-                            <div class="action-group-left">
+                            <div id="actionGroupLeft" class="action-group-left" style="display: none;">
                                 <div class="inline-search">
                                     <svg class="inline-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                                         <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
@@ -172,14 +208,19 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="action-separator"></div>
+                            <div id="actionSeparator" class="action-separator" style="display: none;"></div>
                             <div class="action-group-right">
-                                <button id="exportBtn" class="icon-button" title="Eksportuj">
+                                <button id="quickCopyBtn" class="icon-button" title="Kopiuj z promptem" style="display: none;">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                                    </svg>
+                                </button>
+                                <button id="exportBtn" class="icon-button" title="Eksportuj" style="display: none;">
                                     <svg width="20" height="20" viewBox="0 0 24 24">
                                         <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
                                     </svg>
                                 </button>
-                                <button id="clearBtn" class="icon-button icon-button-danger" title="Usuń sesję">
+                                <button id="clearBtn" class="icon-button icon-button-danger" title="Usuń sesję" style="display: none;">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
                                     </svg>
@@ -195,6 +236,17 @@
                             <p>Brak transkrypcji</p>
                             <p class="empty-subtitle">Rozpocznij nagrywanie, aby zobaczyć transkrypcję</p>
                         </div>
+                    </div>
+                    <div id="paginationControls" class="pagination-controls" style="display: none;">
+                        <button id="paginationPrev" class="pagination-btn" disabled>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+                            Poprzednia
+                        </button>
+                        <span id="paginationInfo" class="pagination-info">Strona 1 z 1</span>
+                        <button id="paginationNext" class="pagination-btn">
+                            Następna
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+                        </button>
                     </div>
                 </div>
             </section>
@@ -328,6 +380,14 @@
                                 </div>
                             </div>
                             <div class="tab-actions">
+                                <button id="importSessionBtn" class="btn btn-secondary">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <polyline points="17 8 12 3 7 8"/>
+                                        <line x1="12" y1="3" x2="12" y2="15"/>
+                                    </svg>
+                                    Importuj sesję
+                                </button>
                                 <button id="clearAllSessionsBtn" class="btn btn-danger">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M3 6h18"/>
@@ -384,6 +444,18 @@
                             <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
                         </svg>
                         <span>Kopiuj do schowka</span>
+                    </button>
+                    <button id="exportMdBtn" class="export-option">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M20.56 18H3.44C2.65 18 2 17.37 2 16.59V7.41C2 6.63 2.65 6 3.44 6h17.12c.79 0 1.44.63 1.44 1.41v9.18c0 .78-.65 1.41-1.44 1.41zM6 15.5v-5l2.5 3 2.5-3v5h2v-7h-2L8.5 12 6 8.5H4v7h2zm13-7h-2v3h-2v-3h-2l3-3.5 3 3.5z"/>
+                        </svg>
+                        <span>Eksportuj Markdown</span>
+                    </button>
+                    <button id="exportMdClipboardBtn" class="export-option">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                        </svg>
+                        <span>Kopiuj Markdown</span>
                     </button>
                 </div>
             </div>
@@ -457,6 +529,35 @@
         </div>
     </div>
 
+    <div id="statsModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Statystyki spotkania</h3>
+                <button class="modal-close" data-modal="statsModal">&times;</button>
+            </div>
+            <div class="modal-body" id="statsModalBody">
+                <!-- Stats content rendered dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <div id="mergeModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Połącz sesje</h3>
+                <button class="modal-close" data-modal="mergeModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="merge-instructions">Wybierz sesje do połączenia. Duplikaty wiadomości zostaną automatycznie usunięte.</p>
+                <div id="mergeSessionList" class="merge-session-list"></div>
+            </div>
+            <div class="modal-footer">
+                <button id="mergeCancelBtn" class="btn btn-secondary">Anuluj</button>
+                <button id="mergeConfirmBtn" class="btn btn-primary" disabled>Połącz</button>
+            </div>
+        </div>
+    </div>
+
     <div id="stopRecordingModal" class="modal" style="display: none;">
         <div class="modal-content modal-small">
             <div class="modal-header">
@@ -503,12 +604,19 @@
     <script src="js/features/theme-manager.js"></script>
     <script src="js/features/recording.js"></script>
     <script src="js/features/background-scanner.js"></script>
+    <script src="js/features/auto-save-manager.js"></script>
+    <script src="js/features/session-search.js"></script>
     <script src="js/features/session-history.js"></script>
+    <script src="js/features/session-merge.js"></script>
     <script src="js/features/session-ui.js"></script>
+    <script src="js/features/pagination.js"></script>
     <script src="js/features/transcript.js"></script>
     <script src="js/features/export.js"></script>
+    <script src="js/features/import-manager.js"></script>
     <script src="js/features/search-filter.js"></script>
+    <script src="js/features/meeting-stats.js"></script>
     <script src="js/features/transcript-refresh.js"></script>
+    <script src="js/features/keyboard-shortcuts.js"></script>
 
     <!-- Main popup script (load last) -->
     <script src="popup.js"></script>

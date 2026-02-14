@@ -26,12 +26,18 @@ window.SessionUIManager = {
 
         historyContainer.innerHTML = '';
 
-        if (!window.sessionHistory?.length) {
-            historyContainer.innerHTML = '<div class="empty-sessions"><p>Brak zapisanych sesji</p></div>';
+        const sessions = window.SessionSearchManager?.getFilteredSessions() ?? window.sessionHistory ?? [];
+
+        if (!sessions.length) {
+            if (window.SessionSearchManager?.isSearchActive()) {
+                historyContainer.innerHTML = '<div class="session-search-empty"><p>Nie znaleziono sesji</p></div>';
+            } else if (!window.sessionHistory?.length) {
+                historyContainer.innerHTML = '<div class="empty-sessions"><p>Brak zapisanych sesji</p></div>';
+            }
             return;
         }
 
-        for (const session of window.sessionHistory) {
+        for (const session of sessions) {
             historyContainer.appendChild(this._buildSessionItem(session));
         }
 

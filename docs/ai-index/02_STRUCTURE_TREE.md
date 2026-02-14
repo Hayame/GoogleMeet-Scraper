@@ -31,12 +31,19 @@ Google Meet Recorder Extension
 │   │   ├── js/features/theme-manager.js       (S022) — Light/dark theme
 │   │   ├── js/features/recording.js           (S013) — Record start/stop/resume
 │   │   ├── js/features/background-scanner.js  (S014) — Merge queue + data recovery
+│   │   ├── js/features/auto-save-manager.js   (S106) — Auto-save on tab close
+│   │   ├── js/features/session-search.js      (S105) — Session history search
 │   │   ├── js/features/session-history.js     (S015) — Session CRUD + auto-save
+│   │   ├── js/features/session-merge.js       (S110) — Session merging + dedup
 │   │   ├── js/features/session-ui.js          (S016) — Session list rendering
+│   │   ├── js/features/pagination.js          (S109) — Transcript pagination
 │   │   ├── js/features/transcript.js          (S017) — Transcript display + stats
 │   │   ├── js/features/transcript-refresh.js  (S018) — Manual refresh
-│   │   ├── js/features/export.js              (S019) — TXT/clipboard export
-│   │   └── js/features/search-filter.js       (S020) — Search + participant filter
+│   │   ├── js/features/export.js              (S019) — TXT/MD/clipboard export
+│   │   ├── js/features/import-manager.js      (S107) — JSON session import
+│   │   ├── js/features/search-filter.js       (S020) — Search + participant filter
+│   │   ├── js/features/meeting-stats.js       (S108) — Meeting statistics
+│   │   └── js/features/keyboard-shortcuts.js  (S111) — Keyboard shortcuts
 │   │
 │   └── Entry Point
 │       └── popup.js                        (S067–S073) — Orchestrator

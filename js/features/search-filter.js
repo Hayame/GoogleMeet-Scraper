@@ -69,6 +69,7 @@ window.SearchFilterManager = {
      */
     performSearch(query) {
         this._currentSearchQuery = query;
+        window.PaginationManager?.resetToFirstPage();
         this._refreshTranscriptDisplay();
         this.saveFilterState();
     },
@@ -382,6 +383,7 @@ window.SearchFilterManager = {
      * Apply participant filters to transcript display
      */
     applyParticipantFilters() {
+        window.PaginationManager?.resetToFirstPage();
         if (window.transcriptData?.messages && window.TranscriptManager) {
             window.TranscriptManager.displayTranscript(window.transcriptData);
         }

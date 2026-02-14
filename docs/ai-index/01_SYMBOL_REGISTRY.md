@@ -9,7 +9,7 @@ See taxonomy-frontend.md for full type code definitions.
 |----|-------------|------|-----------|------|----------|-------------|
 | S001 | StateManager | SRV | js/core/state-manager.js | 561 | yes (window) | Global state management, storage restoration, UI state persistence |
 | S002 | StorageManager | SRV | js/core/storage-manager.js | 120 | yes (window) | Chrome storage CRUD operations wrapper |
-| S003 | UIManager | SRV | js/core/ui-manager.js | 6 | yes (window) | Button visibility, status messages, sidebar toggle, meeting name editing |
+| S003 | UIManager | SRV | js/core/ui-manager.js | 6 | yes (window) | Button visibility (data-dependent: export/clear/stats/quickCopy hidden when no transcript), status messages, sidebar toggle, meeting name editing |
 | S004 | TimerManager | SRV | js/core/timer-manager.js | 6 | yes (window) | Duration tracking based on recordingStartTime, periodic persistence |
 | S005 | TransactionCoordinator | SRV | js/core/transaction-coordinator.js | 6 | yes (window) | Atomic multi-key storage writes with rollback, verification, crash recovery |
 | S006 | AppConstants | CNS | js/utils/constants.js | 90 | yes (window) | TIMING, STORAGE_KEYS, APP_STATES, SESSION_STATES, EXPORT_FORMATS, THEMES |
@@ -25,7 +25,7 @@ See taxonomy-frontend.md for full type code definitions.
 | S016 | SessionUIManager | SRV | js/features/session-ui.js | 6 | yes (window) | Session list rendering, participant modal, tooltips. Internal: _el() DOM helper, _buildSessionItem(), _buildParticipantItem() |
 | S017 | TranscriptManager | SRV | js/features/transcript.js | 7 | yes (window) | Transcript display with incremental updates, search highlighting, stats |
 | S018 | TranscriptRefreshManager | SRV | js/features/transcript-refresh.js | 5 | yes (window) | Manual transcript reload and scanner restart |
-| S019 | ExportManager | SRV | js/features/export.js | 7 | yes (window) | TXT export, clipboard copy, LLM prompt wrapping, prompt selector dropdown, toast notifications |
+| S019 | ExportManager | SRV | js/features/export.js | 7 | yes (window) | TXT/MD export, clipboard copy, LLM prompt wrapping, prompt selector dropdown, toast notifications. Internal: _getValidatedExportContent(format), _setupExportButton(), _setupClipboardButton(), _prepareContent() |
 | S020 | SearchFilterManager | SRV | js/features/search-filter.js | 7 | yes (window) | Inline debounced search, participant filtering, filter state persistence |
 | S021 | ModalManager | SRV | js/features/modal-manager.js | 6 | yes (window) | Modal show/hide, ESC/backdrop close, confirm/resume/export/stop modals |
 | S022 | ThemeManager | SRV | js/features/theme-manager.js | 5 | yes (window) | Light/dark theme toggle via data-theme attribute, persisted through UIManager/chrome.storage |
@@ -80,7 +80,7 @@ See taxonomy-frontend.md for full type code definitions.
 | S056 | isValidTranscriptText | UTL | content.js | 523 | no (local) | Validate transcript text entries |
 | S057 | sanitizeTranscriptText | UTL | content.js | 531 | no (local) | Remove emojis, UI fragments, language menu artifacts |
 | S058 | NAME_BLACKLIST | CNS | content.js | 163 | no (local) | Blacklisted terms for name validation |
-| S059 | enableCaptionsIfNeeded | UTL | content.js | 288 | no (local) | Auto-enable captions via keyboard shortcut dispatch |
+| S059 | enableCaptionsIfNeeded | UTL | content.js | 288 | no (local) | Auto-enable captions via keyboard shortcut dispatch (retry loop, up to 2 attempts) |
 | S060 | areCaptionsEnabled | UTL | content.js | 244 | no (local) | Check if captions are active via [jsname="dsyhDe"] |
 | S061 | generateHash | UTL | content.js | 482 | no (local) | Simple hash for change detection (speaker:text → base36) |
 | S062 | detectMeetingStart | UTL | content.js | — | no (local) | Poll for captions availability (2s interval, 5min timeout) |
@@ -148,7 +148,31 @@ See taxonomy-frontend.md for full type code definitions.
 | S103 | ExportManager.updatePromptSelectorVisibility | UTL | js/features/export.js | — | yes (window) | Populate and show/hide prompt selector dropdown in export modal |
 | S104 | ExportManager.getSelectedExportPrompt | UTL | js/features/export.js | — | yes (window) | Get selected prompt from dropdown or fall back to default |
 
+## Registry — New Feature Modules (Batch Implementation)
+
+| ID | Symbol Name | Type | File Path | Line | Exported | Description |
+|----|-------------|------|-----------|------|----------|-------------|
+| S105 | SessionSearchManager | SRV | js/features/session-search.js | 5 | yes (window) | Session history search by title/participant/date with debounced input |
+| S106 | AutoSaveManager | SRV | js/features/auto-save-manager.js | 5 | yes (window) | Auto-recover transcript data saved when Meet tab closes during recording |
+| S107 | ImportManager | SRV | js/features/import-manager.js | 5 | yes (window) | Import JSON session files with format validation and normalization |
+| S108 | MeetingStatsManager | SRV | js/features/meeting-stats.js | 5 | yes (window) | Per-speaker analytics: message count, word count, speaking time with CSS bar charts |
+| S109 | PaginationManager | SRV | js/features/pagination.js | 5 | yes (window) | Transcript pagination with configurable page size, prev/next navigation |
+| S110 | SessionMergeManager | SRV | js/features/session-merge.js | 5 | yes (window) | Merge multiple sessions with hash-based deduplication |
+| S111 | KeyboardShortcutsManager | SRV | js/features/keyboard-shortcuts.js | 5 | yes (window) | Popup keyboard shortcuts: Ctrl+Shift+R/C/E, Escape |
+
+## Registry — Updated Existing Modules
+
+| ID | Symbol Name | Type | Update Description |
+|----|-------------|------|--------------------|
+| S006 | AppConstants | CNS | Added EXPORT_FORMATS.MD, TIMING.PAGINATION_PAGE_SIZE/CAPTION_CHECK_INTERVAL/AUTO_SAVE_FLUSH_DELAY, STORAGE_KEYS.AUTO_SAVE_DATA/KEYBOARD_SHORTCUTS, IMPORT_LIMITS |
+| S019 | ExportManager | SRV | Added generateMdContent(), prepareExportContentMd(), quickCopyWithPrompt(), Markdown export handlers. Refactored: consolidated _getExportContent→_getValidatedExportContent(format), extracted _setupExportButton/_setupClipboardButton helpers, shared _prepareContent() for TXT/MD |
+| S051 | scrapeTranscript | UTL | Now returns captionsEnabled field |
+| S016 | SessionUIManager | SRV | renderSessionHistory() now uses SessionSearchManager.getFilteredSessions() |
+| S017 | TranscriptManager | SRV | displayTranscript() now integrates PaginationManager |
+| S020 | SearchFilterManager | SRV | Resets PaginationManager on search/filter change |
+| S003 | UIManager | SRV | Data-dependent visibility for actionGroupLeft (search+filter), actionSeparator, exportBtn, clearBtn, statsBtn, quickCopyBtn (all hidden when no transcript data) |
+
 ## Numbering Rules
-- Sequential: S001–S104 (current max)
-- Next available ID: S105
+- Sequential: S001–S111 (current max)
+- Next available ID: S112
 - Removed symbols: marked [REMOVED], ID never reused

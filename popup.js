@@ -109,11 +109,22 @@ async function initializeApplication() {
     initModule('TranscriptRefreshManager');
     initModule('RecordingManager');
 
+    // Auto-save recovery (check for auto-saved data from closed tabs)
+    if (window.AutoSaveManager) {
+        await window.AutoSaveManager.initialize();
+    }
+
+    // Session search (before session history so it's ready for filtering)
+    initModule('SessionSearchManager');
+
     // Session history (both modules needed together)
     if (window.SessionHistoryManager && window.SessionUIManager) {
         await window.SessionHistoryManager.initialize();
         window.SessionUIManager.initialize();
     }
+
+    // Session merge (after session history so sessions are available)
+    initModule('SessionMergeManager');
 
     // Data integrity verification (after session history loaded)
     if (window.DataIntegrity) {
@@ -129,9 +140,13 @@ async function initializeApplication() {
     }
 
     // Feature modules
+    initModule('PaginationManager');
     initModule('TranscriptManager');
     initModule('SearchFilterManager');
     initModule('ExportManager');
+    initModule('ImportManager');
+    initModule('MeetingStatsManager');
+    initModule('KeyboardShortcutsManager');
 
     setupMainEventListeners();
     setupMessageListener();
@@ -194,18 +209,14 @@ async function restoreCompleteApplicationState() {
 }
 
 /**
- * Display transcript data, update stats, and update participant count clickability
+ * Display transcript data and update stats.
+ * Note: updateStats already handles participant count clickability internally.
  */
 function displayTranscriptAndStats(transcriptData) {
     if (!transcriptData) return;
 
     window.displayTranscript?.(transcriptData);
     window.updateStats?.(transcriptData);
-
-    if (window.TranscriptManager?.updateParticipantCountClickability) {
-        const uniqueParticipants = new Set(transcriptData.messages?.map(m => m.speaker) || []).size;
-        window.TranscriptManager.updateParticipantCountClickability(uniqueParticipants);
-    }
 }
 
 /**
@@ -331,6 +342,16 @@ function setupMainEventListeners() {
         }
     });
 
+    bindClick('quickCopyBtn', () => window.ExportManager?.quickCopyWithPrompt());
+
+    bindClick('captionWarningDismiss', () => {
+        const warningEl = document.getElementById('captionWarning');
+        if (warningEl) {
+            warningEl.style.display = 'none';
+            warningEl.dataset.dismissed = 'true';
+        }
+    });
+
     console.log('✅ Main event listeners setup complete');
 }
 
@@ -352,27 +373,25 @@ function setupMessageListener() {
 }
 
 /**
- * Show initialization error to user
+ * Show initialization error to user.
+ * Delegates to UIManager when available, falls back to inline DOM creation
+ * (UIManager may not be initialized yet when this is called).
  */
 function showInitializationError(error) {
+    if (window.UIManager?.showInitializationError) {
+        window.UIManager.showInitializationError(error);
+        return;
+    }
+
     const errorDiv = document.createElement('div');
     errorDiv.style.cssText = `
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: #f44336;
-        color: white;
-        padding: 20px;
-        border-radius: 8px;
-        text-align: center;
-        z-index: 10000;
-        max-width: 300px;
+        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        background: #f44336; color: white; padding: 20px; border-radius: 8px;
+        text-align: center; z-index: 10000; max-width: 300px;
     `;
     errorDiv.innerHTML = `
         <h3>Błąd inicjalizacji</h3>
-        <p>Wystąpił błąd podczas uruchamiania rozszerzenia:</p>
-        <p><strong>${error.message}</strong></p>
+        <p>${error.message}</p>
         <p>Spróbuj odświeżyć stronę lub zrestartować rozszerzenie.</p>
     `;
     document.body.appendChild(errorDiv);

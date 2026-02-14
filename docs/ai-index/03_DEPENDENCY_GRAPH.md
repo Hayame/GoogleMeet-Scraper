@@ -21,13 +21,20 @@
 15. js/features/theme-manager.js (S022 → S003)
 16. js/features/recording.js     (S013 → S001, S002, S003, S004, S005, S014)
 17. js/features/background-scanner.js (S014 → S001, S002, S005, S015, S017, S020)
-18. js/features/session-history.js (S015 → S001, S002, S003, S004, S005, S016, S017, S020)
-19. js/features/session-ui.js    (S016 → S015, S017, S020)
-20. js/features/transcript.js    (S017 → S008, S020)
-21. js/features/export.js        (S019 → S023, S021, S003)
-22. js/features/search-filter.js (S020 → S001, S017)
-23. js/features/transcript-refresh.js (S018 → S002, S014, S017, S003)
-24. popup.js                     (S067 → all modules)
+18. js/features/auto-save-manager.js (S106 → S002, S019)
+19. js/features/session-search.js (S105 → S016)
+20. js/features/session-history.js (S015 → S001, S002, S003, S004, S005, S016, S017, S020)
+21. js/features/session-merge.js (S110 → S002, S016, S019, S021)
+22. js/features/session-ui.js    (S016 → S015, S017, S020, S105)
+23. js/features/pagination.js    (S109 → S006, S017)
+24. js/features/transcript.js    (S017 → S008, S020, S109)
+25. js/features/export.js        (S019 → S023, S021, S003)
+26. js/features/import-manager.js (S107 → S002, S006, S016, S019)
+27. js/features/search-filter.js (S020 → S001, S017, S109)
+28. js/features/meeting-stats.js (S108 → S019, S021)
+29. js/features/transcript-refresh.js (S018 → S002, S014, S017, S003)
+30. js/features/keyboard-shortcuts.js (S111 → S013, S019, S021)
+31. popup.js                     (S067 → all modules)
 ```
 
 ### Module Dependency Relations
@@ -89,6 +96,29 @@ S023 —[USES]→ S003  (SettingsManager → UIManager.updateStatus)
 S023 —[USES]→ S015  (SettingsManager → SessionHistoryManager.clearAllSessionsFromHistory)
 S023 —[USES]→ S019  (SettingsManager → ExportManager.showToast for prompt CRUD feedback)
 S023 —[USES]→ S021  (SettingsManager → ModalManager.showModal)
+
+S105 —[USES]→ S016  (SessionSearchManager → SessionUIManager.renderSessionHistory)
+S016 —[USES]→ S105  (SessionUIManager → SessionSearchManager.getFilteredSessions)
+S106 —[USES]→ S002  (AutoSaveManager → chrome.storage.local for auto-save data)
+S106 —[USES]→ S019  (AutoSaveManager → ExportManager.showToast)
+S107 —[USES]→ S002  (ImportManager → StorageManager.setStorageData)
+S107 —[USES]→ S006  (ImportManager → AppConstants.IMPORT_LIMITS)
+S107 —[USES]→ S016  (ImportManager → SessionUIManager.renderSessionHistory)
+S107 —[USES]→ S019  (ImportManager → ExportManager.showToast)
+S108 —[USES]→ S019  (MeetingStatsManager → ExportManager.showToast)
+S108 —[USES]→ S021  (MeetingStatsManager → ModalManager.showModal)
+S109 —[USES]→ S006  (PaginationManager → AppConstants.TIMING.PAGINATION_PAGE_SIZE)
+S017 —[USES]→ S109  (TranscriptManager → PaginationManager for page slicing)
+S020 —[USES]→ S109  (SearchFilterManager → PaginationManager.resetToFirstPage)
+S110 —[USES]→ S002  (SessionMergeManager → StorageManager.setStorageData)
+S110 —[USES]→ S016  (SessionMergeManager → SessionUIManager.renderSessionHistory)
+S110 —[USES]→ S019  (SessionMergeManager → ExportManager.showToast)
+S110 —[USES]→ S021  (SessionMergeManager → ModalManager.showModal/hideModal)
+S111 —[USES]→ S013  (KeyboardShortcutsManager → RecordingManager.handleRecordButtonClick)
+S111 —[USES]→ S019  (KeyboardShortcutsManager → ExportManager.quickCopyWithPrompt)
+S111 —[USES]→ S021  (KeyboardShortcutsManager → ModalManager.hideModal via DOM query)
+S014 —[USES]→ S003  (BackgroundScanner → UIManager.updateButtonVisibility on merge)
+S014 —[UPDATES]→ DOM  (BackgroundScanner → caption warning visibility, checked BEFORE early return on empty messages)
 ```
 
 ### Cross-Context Communication (Chrome Messaging)
@@ -109,6 +139,9 @@ content.js —[LISTENS: updateUserDisplayName]← popup
 content.js —[LISTENS: manualDetectGoogleName]← popup
 content.js —[LISTENS: enableCaptions]← popup
 GoogleUserDetector —[SENDS: updateGoogleUserName]→ background.js
+content.js —[AUTO-SAVE: beforeunload]→ chrome.storage.local (auto-save transcript on tab close)
+background.js —[AUTO-SAVE: tabs.onRemoved]→ chrome.storage.local (auto-save from scan buffer)
+background.js —[LISTENS: chrome.commands.onCommand]← Chrome (global keyboard shortcut)
 ```
 
 ### Key Data Flows

@@ -13,7 +13,10 @@ const TIMING = {
     STATE_RESTORATION_MAX_WAIT: 10000, // 10 seconds - max wait for sessionHistory load
     STATE_RESTORATION_CHECK_INTERVAL: 500, // 500ms - check interval for restoration
     ANIMATION_STAGGER_DELAY: 50, // 50ms - transcript entry animation stagger
-    ANIMATION_TRANSITION_DURATION: 300 // 300ms - transcript entry transition
+    ANIMATION_TRANSITION_DURATION: 300, // 300ms - transcript entry transition
+    PAGINATION_PAGE_SIZE: 100, // Entries per page for transcript pagination
+    CAPTION_CHECK_INTERVAL: 10000, // 10s between caption status checks
+    AUTO_SAVE_FLUSH_DELAY: 500 // Delay before auto-save flush
 };
 
 // Storage keys used throughout the application
@@ -38,7 +41,9 @@ const STORAGE_KEYS = {
     SESSION_STATE: 'sessionState',
     RECORDING_PAUSED: 'recordingPaused',
     RECORDING_STOPPED: 'recordingStopped',
-    PROMPTS_LIST: 'promptsList'
+    PROMPTS_LIST: 'promptsList',
+    AUTO_SAVE_DATA: 'autoSaveData',
+    KEYBOARD_SHORTCUTS: 'keyboardShortcuts'
 };
 
 // Application states
@@ -58,7 +63,8 @@ const SESSION_STATES = {
 
 // Export format types
 const EXPORT_FORMATS = {
-    TXT: 'txt'
+    TXT: 'txt',
+    MD: 'md'
 };
 
 // Theme options
@@ -87,6 +93,12 @@ const DEBUG_CONFIG = {
     }
 };
 
+// Import limits
+const IMPORT_LIMITS = {
+    MAX_FILE_SIZE_BYTES: 5 * 1024 * 1024,  // 5MB
+    MAX_SESSIONS_PER_IMPORT: 50
+};
+
 // Export all constants
 window.AppConstants = {
     TIMING,
@@ -96,5 +108,6 @@ window.AppConstants = {
     EXPORT_FORMATS,
     THEMES,
     LOG_LEVELS,
-    DEBUG_CONFIG
+    DEBUG_CONFIG,
+    IMPORT_LIMITS
 };

@@ -1,7 +1,7 @@
 /**
  * Export Functionality Module
  *
- * Handles TXT export functionality
+ * Handles TXT and Markdown export functionality
  */
 
 window.ExportManager = {
@@ -18,16 +18,19 @@ window.ExportManager = {
     },
 
     /**
-     * Prepare export content with data validation.
+     * Prepare export content with data validation for a given format.
      * Returns null and shows error if no transcript data is available.
+     * @param {'txt'|'md'} format - Export format
      */
-    async _getExportContent() {
+    async _getValidatedExportContent(format = 'txt') {
         if (!window.transcriptData) {
             this._updateStatus('Brak danych do eksportu', 'error');
             return null;
         }
         const shouldWrapInPrompt = document.getElementById('exportAsLLMPrompt')?.checked ?? true;
-        return { content: await this.prepareExportContent(shouldWrapInPrompt), shouldWrapInPrompt };
+        const prepareFn = format === 'md' ? this.prepareExportContentMd : this.prepareExportContent;
+        const content = await prepareFn.call(this, shouldWrapInPrompt);
+        return { content, shouldWrapInPrompt };
     },
 
     /**
@@ -37,32 +40,79 @@ window.ExportManager = {
         document.getElementById('exportAsLLMPrompt')
             ?.addEventListener('change', () => this.updatePromptSelectorVisibility());
 
-        const exportTxtBtn = this._replaceWithClone('exportTxtBtn');
-        if (exportTxtBtn) {
-            exportTxtBtn.addEventListener('click', async () => {
-                const result = await this._getExportContent();
-                if (!result) return;
+        this._setupExportButton('exportTxtBtn', 'txt', {
+            getFilename: (withPrompt) => withPrompt ? 'transkrypcja-z-promptem.txt' : 'transkrypcja-google-meet.txt',
+            mimeType: 'text/plain',
+            successMessage: 'Wyeksportowano do pliku!'
+        });
 
-                const filename = result.shouldWrapInPrompt ? 'transkrypcja-z-promptem.txt' : 'transkrypcja-google-meet.txt';
-                this.downloadFile(result.content, filename, 'text/plain');
-                this._updateStatus('Wyeksportowano do pliku!', 'success');
-                this._hideModal('exportModal');
-            });
-        } else {
-            console.error('Export TXT button not found');
+        this._setupClipboardButton('exportClipboardBtn', 'txt');
+
+        this._setupExportButton('exportMdBtn', 'md', {
+            getFilename: (withPrompt) => withPrompt ? 'transkrypcja-z-promptem.md' : 'transkrypcja.md',
+            mimeType: 'text/markdown',
+            successMessage: 'Wyeksportowano do pliku Markdown!'
+        });
+
+        this._setupClipboardButton('exportMdClipboardBtn', 'md');
+    },
+
+    /**
+     * Wire up a download-to-file export button.
+     * @param {string} buttonId - DOM element ID
+     * @param {'txt'|'md'} format - Export format
+     * @param {Object} opts - { getFilename, mimeType, successMessage }
+     */
+    _setupExportButton(buttonId, format, { getFilename, mimeType, successMessage }) {
+        const btn = this._replaceWithClone(buttonId);
+        if (!btn) {
+            console.error(`Export button not found: ${buttonId}`);
+            return;
         }
+        btn.addEventListener('click', async () => {
+            const result = await this._getValidatedExportContent(format);
+            if (!result) return;
 
-        const exportClipboardBtn = this._replaceWithClone('exportClipboardBtn');
-        if (exportClipboardBtn) {
-            exportClipboardBtn.addEventListener('click', async () => {
-                const result = await this._getExportContent();
-                if (!result) return;
+            this.downloadFile(result.content, getFilename(result.shouldWrapInPrompt), mimeType);
+            this._updateStatus(successMessage, 'success');
+            this._hideModal('exportModal');
+        });
+    },
 
-                await this.copyToClipboard(result.content);
-                this._hideModal('exportModal');
-            });
-        } else {
-            console.error('Export clipboard button not found');
+    /**
+     * Wire up a copy-to-clipboard export button.
+     * @param {string} buttonId - DOM element ID
+     * @param {'txt'|'md'} format - Export format
+     */
+    _setupClipboardButton(buttonId, format) {
+        const btn = this._replaceWithClone(buttonId);
+        if (!btn) {
+            console.error(`Clipboard button not found: ${buttonId}`);
+            return;
+        }
+        btn.addEventListener('click', async () => {
+            const result = await this._getValidatedExportContent(format);
+            if (!result) return;
+
+            await this.copyToClipboard(result.content);
+            this._hideModal('exportModal');
+        });
+    },
+
+    /**
+     * Quick copy transcript with default LLM prompt to clipboard (no modal)
+     */
+    async quickCopyWithPrompt() {
+        if (!window.transcriptData?.messages?.length) {
+            this.showToast('Brak danych do skopiowania', 'error');
+            return;
+        }
+        try {
+            const content = await this.prepareExportContent(true);
+            await this.copyToClipboard(content);
+        } catch (error) {
+            console.error('❌ [EXPORT] Quick copy failed:', error);
+            this.showToast('Błąd kopiowania do schowka', 'error');
         }
     },
 
@@ -163,6 +213,47 @@ window.ExportManager = {
         return lines.join('\n');
     },
 
+    /**
+     * Generate Markdown content for export
+     * @param {Object} dataSnapshot - Immutable snapshot of transcript data
+     */
+    generateMdContent(dataSnapshot) {
+        if (!dataSnapshot?.messages) {
+            console.error('No transcript data available in snapshot');
+            return '';
+        }
+
+        const lines = [
+            '# Transkrypcja Google Meet',
+            '',
+            `**Data eksportu:** ${new Date(dataSnapshot.exportedAt).toLocaleString('pl-PL')}`,
+            `**URL spotkania:** ${dataSnapshot.meetingUrl || 'Nieznany'}`,
+            `**Liczba wiadomości:** ${dataSnapshot.messageCount}`,
+            '',
+            '---',
+            ''
+        ];
+
+        let lastSpeaker = null;
+
+        for (const entry of dataSnapshot.messages) {
+            if (entry.speaker !== lastSpeaker) {
+                lines.push(`### ${entry.speaker}`);
+                lines.push('');
+                lastSpeaker = entry.speaker;
+            }
+
+            if (entry.timestamp) {
+                lines.push(`*[${entry.timestamp}]*`);
+            }
+
+            lines.push(`> ${entry.text}`);
+            lines.push('');
+        }
+
+        return lines.join('\n');
+    },
+
     FALLBACK_PROMPT: `# Prompt: Stwórz szczegółowe podsumowanie konwersacji
 
 Na podstawie poniższej transkrypcji stwórz szczegółowe podsumowanie w formacie Markdown.
@@ -174,13 +265,30 @@ Na podstawie poniższej transkrypcji stwórz szczegółowe podsumowanie w formac
      * Creates immutable snapshot to prevent corruption during active recording.
      */
     async prepareExportContent(shouldWrapInPrompt) {
+        return this._prepareContent(this.generateTxtContent, shouldWrapInPrompt);
+    },
+
+    /**
+     * Prepare Markdown export content based on user preferences.
+     * Creates immutable snapshot to prevent corruption during active recording.
+     */
+    async prepareExportContentMd(shouldWrapInPrompt) {
+        return this._prepareContent(this.generateMdContent, shouldWrapInPrompt);
+    },
+
+    /**
+     * Shared implementation for preparing export content in any format.
+     * @param {Function} generateFn - Content generator (receives dataSnapshot)
+     * @param {boolean} shouldWrapInPrompt - Whether to prepend the LLM prompt
+     */
+    async _prepareContent(generateFn, shouldWrapInPrompt) {
         const dataSnapshot = this.createDataSnapshot();
-        const transcriptContent = this.generateTxtContent(dataSnapshot);
+        const content = generateFn.call(this, dataSnapshot);
 
         if (!shouldWrapInPrompt) {
-            return transcriptContent;
+            return content;
         }
-        return await this.wrapWithLLMPrompt(transcriptContent);
+        return await this.wrapWithLLMPrompt(content);
     },
 
     /**

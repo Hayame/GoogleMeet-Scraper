@@ -289,66 +289,29 @@ async function enableCaptionsIfNeeded() {
     console.log('🎬 [CC ENABLE] Starting auto-enable captions...');
 
     try {
-        // Check current state
-        const alreadyEnabled = areCaptionsEnabled();
-
-        if (alreadyEnabled) {
+        if (areCaptionsEnabled()) {
             console.log('✅ [CC ENABLE] Captions already enabled, skipping');
-            return {
-                success: true,
-                alreadyEnabled: true,
-                message: 'Captions already enabled'
-            };
+            return { success: true, alreadyEnabled: true, message: 'Captions already enabled' };
         }
 
-        // Captions are OFF, need to toggle them ON
-        console.log('🔄 [CC ENABLE] Captions disabled, toggling...');
-        toggleCaptionsViaKeyboard();
-
-        // Wait for UI to update (Google Meet needs ~250ms to process)
-        await new Promise(resolve => setTimeout(resolve, 250));
-
-        // Verify that captions turned ON
-        const nowEnabled = areCaptionsEnabled();
-
-        if (nowEnabled) {
-            console.log('✅ [CC ENABLE] Captions successfully enabled');
-            return {
-                success: true,
-                toggled: true,
-                message: 'Captions enabled successfully'
-            };
-        } else {
-            // Retry once
-            console.log('⚠️ [CC ENABLE] First attempt failed, retrying...');
+        // Try toggling captions ON up to 2 times
+        const MAX_ATTEMPTS = 2;
+        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            console.log(`🔄 [CC ENABLE] Toggling captions (attempt ${attempt}/${MAX_ATTEMPTS})...`);
             toggleCaptionsViaKeyboard();
             await new Promise(resolve => setTimeout(resolve, 250));
 
-            const retryEnabled = areCaptionsEnabled();
-            if (retryEnabled) {
-                console.log('✅ [CC ENABLE] Captions enabled on retry');
-                return {
-                    success: true,
-                    toggled: true,
-                    retriedOnce: true,
-                    message: 'Captions enabled on retry'
-                };
-            } else {
-                console.log('❌ [CC ENABLE] Failed to enable captions after retry');
-                return {
-                    success: false,
-                    error: 'Failed to enable captions',
-                    message: 'Keyboard shortcut did not toggle captions'
-                };
+            if (areCaptionsEnabled()) {
+                console.log('✅ [CC ENABLE] Captions enabled on attempt', attempt);
+                return { success: true, toggled: true, message: 'Captions enabled successfully' };
             }
         }
+
+        console.log('❌ [CC ENABLE] Failed to enable captions after', MAX_ATTEMPTS, 'attempts');
+        return { success: false, error: 'Failed to enable captions', message: 'Keyboard shortcut did not toggle captions' };
     } catch (error) {
         console.error('❌ [CC ENABLE] Error:', error);
-        return {
-            success: false,
-            error: error.message,
-            message: 'Exception during caption enable'
-        };
+        return { success: false, error: error.message, message: 'Exception during caption enable' };
     }
 }
 
@@ -438,7 +401,8 @@ function createEmptyResult() {
     return {
         messages: [],
         scrapedAt: new Date().toISOString(),
-        meetingUrl: window.location.href
+        meetingUrl: window.location.href,
+        captionsEnabled: areCaptionsEnabled()
     };
 }
 
@@ -489,7 +453,8 @@ function scrapeTranscript() {
     return {
         messages: messages,
         scrapedAt: new Date().toISOString(),
-        meetingUrl: window.location.href
+        meetingUrl: window.location.href,
+        captionsEnabled: areCaptionsEnabled()
     };
 }
 
@@ -635,6 +600,17 @@ async function startScanning(sessionId) {
 
         try {
             const result = scrapeTranscript();
+
+            // Always notify popup (caption warning needs captionsEnabled even with 0 messages)
+            try {
+                chrome.runtime.sendMessage({
+                    action: 'backgroundScanUpdate',
+                    data: result
+                });
+            } catch {
+                // Popup not open — expected
+            }
+
             if (!result?.messages?.length) return;
 
             console.log(`🔶 [CONTENT SCAN] Scan #${_scanCount}:`, result.messages.length, 'messages');
@@ -656,16 +632,6 @@ async function startScanning(sessionId) {
             // Create checkpoint every 10 scans
             if (_scanCount % 10 === 0 && resolvedTabId) {
                 await _createCheckpoint(resolvedTabId, result, _scanCount);
-            }
-
-            // Try to notify popup (silently fail if popup is closed)
-            try {
-                chrome.runtime.sendMessage({
-                    action: 'backgroundScanUpdate',
-                    data: result
-                });
-            } catch {
-                // Popup not open — data already saved to storage
             }
         } catch (error) {
             console.error('❌ [CONTENT SCAN] Scan error:', error);
@@ -777,6 +743,29 @@ function detectMeetingStart() {
 
 // Rozpocznij wykrywanie spotkania
 detectMeetingStart();
+
+// ============================================================================
+// AUTO-SAVE ON TAB CLOSE / MEETING END
+// ============================================================================
+
+window.addEventListener('beforeunload', () => {
+    if (!_isScanning) return;
+    try {
+        const result = scrapeTranscript();
+        if (result?.messages?.length > 0) {
+            chrome.storage.local.set({
+                autoSaveData: {
+                    transcript: result,
+                    sessionId: _scanningSessionId,
+                    timestamp: Date.now(),
+                    source: 'beforeunload'
+                }
+            });
+        }
+    } catch (error) {
+        console.error('❌ [AUTO-SAVE] beforeunload save failed:', error);
+    }
+});
 
 // Auto-resume scanning if it was active before tab refresh
 _autoResumeScanning();
