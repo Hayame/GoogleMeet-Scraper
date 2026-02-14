@@ -7,18 +7,17 @@ window.ThemeManager = {
      * Initialize theme system
      */
     initialize() {
-        this.loadSavedTheme();
+        this.applyDefaultTheme();
         this.setupEventListeners();
         console.log('🎨 [THEME] ThemeManager initialized');
     },
 
     /**
-     * Load saved theme or default to light
+     * Apply default theme (restored theme is applied later via UIManager.restoreUIState)
      */
-    loadSavedTheme() {
-        const savedTheme = localStorage.getItem('theme') || 'light';
-        document.documentElement.setAttribute('data-theme', savedTheme);
-        this.updateThemeToggleIcon(savedTheme);
+    applyDefaultTheme() {
+        document.documentElement.setAttribute('data-theme', 'light');
+        this.updateThemeToggleIcon('light');
     },
 
     /**
@@ -41,8 +40,10 @@ window.ThemeManager = {
         const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
 
         document.documentElement.setAttribute('data-theme', newTheme);
-        localStorage.setItem('theme', newTheme);
         this.updateThemeToggleIcon(newTheme);
+
+        // Persist to chrome.storage
+        window.UIManager?.saveCurrentUIState?.();
 
         console.log('🎨 [THEME] Theme changed to:', newTheme);
     },

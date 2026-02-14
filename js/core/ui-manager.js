@@ -347,15 +347,14 @@ window.UIManager = {
             sidebar.classList.toggle('collapsed', !!uiState.sidebarCollapsed);
         }
 
-        if (uiState.theme && uiState.theme !== 'light') {
+        if (uiState.theme) {
             document.documentElement.setAttribute('data-theme', uiState.theme);
+            window.ThemeManager?.updateThemeToggleIcon?.(uiState.theme);
         }
 
         if (window.SearchFilterManager?.restoreFilterState) {
             window.SearchFilterManager.restoreFilterState(uiState);
         }
-
-        this.saveCurrentUIState();
     },
 
     /**

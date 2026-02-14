@@ -43,7 +43,7 @@ Note: This project has NO npm packages. All dependencies are browser/Chrome Exte
 | Blob API | `new Blob()` | S019, S021 | Create binary file objects for download |
 | URL API | `URL.createObjectURL` / `URL.revokeObjectURL` | S019, S021 | Generate temporary URLs for Blob downloads and release them |
 | Fetch API | `fetch()` | S019, S023 | Load prompt.md template from extension resources |
-| Web Storage | `localStorage.getItem/setItem` | S022 | Persist theme preference (light/dark) |
+| Web Storage | [REMOVED] `localStorage` no longer used | S022 | Theme now persisted via UIManager → chrome.storage.local |
 | Timers | `setInterval` / `clearInterval` | S001, S004, S014, S062, S063 | Duration tracking, background scanning (3s), meeting start detection (2s) |
 | Timers | `setTimeout` / `clearTimeout` | S001, S008, S017, S019, S020 | Debounced search, animation delays, toast auto-dismiss, state restoration polling |
 | JSON | `JSON.parse` / `JSON.stringify` | S001, S005, S014, S015, S019 | Deep clone transcript data, serialize/deserialize storage data |

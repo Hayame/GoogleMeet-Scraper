@@ -28,7 +28,7 @@ See taxonomy-frontend.md for full type code definitions.
 | S019 | ExportManager | SRV | js/features/export.js | 7 | yes (window) | TXT export, clipboard copy, LLM prompt wrapping, prompt selector dropdown, toast notifications |
 | S020 | SearchFilterManager | SRV | js/features/search-filter.js | 7 | yes (window) | Debounced search, participant filtering, filter state persistence |
 | S021 | ModalManager | SRV | js/features/modal-manager.js | 6 | yes (window) | Modal show/hide, ESC/backdrop close, confirm/resume/export/stop modals |
-| S022 | ThemeManager | SRV | js/features/theme-manager.js | 5 | yes (window) | Light/dark theme toggle via data-theme attribute and localStorage |
+| S022 | ThemeManager | SRV | js/features/theme-manager.js | 5 | yes (window) | Light/dark theme toggle via data-theme attribute, persisted through UIManager/chrome.storage |
 | S023 | SettingsManager | SRV | js/features/settings-manager.js | 6 | yes (window) | User display name, multi-prompt CRUD, Google name detection, tab UI |
 
 ## Registry — Global Function Aliases (set during module initialization)
