@@ -1,83 +1,124 @@
 # Symbol Registry
 
-> Auto-generated index of public symbols exposed on `window.*` in this Chrome extension.
+## Taxonomy Reference
+See taxonomy-frontend.md for full type code definitions.
 
-## Modules (window.* globals)
+## Registry — Popup Modules (window.* globals)
 
-| ID | Symbol | File | Type | Description |
-|----|--------|------|------|-------------|
-| S001 | `window.StateManager` | js/core/state-manager.js | Module | Global state management and restoration |
-| S002 | `window.StorageManager` | js/core/storage-manager.js | Module | Chrome storage operations and persistence |
-| S003 | `window.UIManager` | js/core/ui-manager.js | Module | Button visibility and UI state management |
-| S004 | `window.TimerManager` | js/core/timer-manager.js | Module | Duration tracking and timer logic |
-| S005 | `window.TransactionCoordinator` | js/core/transaction-coordinator.js | Module | Atomic storage operations with rollback |
-| S006 | `window.AppConstants` | js/utils/constants.js | Module | Application constants and configuration |
-| S007 | `window.Formatters` | js/utils/formatters.js | Module | Date/duration formatting functions |
-| S008 | `window.DOMHelpers` | js/utils/dom-helpers.js | Module | DOM manipulation utilities |
-| S009 | `window.GoogleUserDetector` | js/utils/google-user-detector.js | Module | Google account name detection |
-| S010 | `window.SessionUtils` | js/utils/session-utils.js | Module | Session ID/title generation utilities |
-| S011 | `window.DataIntegrityManager` | js/utils/data-integrity.js | Module | Storage data integrity checks |
-| S012 | `window.DebugManager` | js/utils/debug-manager.js | Module | Debug utilities and module testing |
-| S013 | `window.RecordingManager` | js/features/recording.js | Module | Recording start/stop functionality |
-| S014 | `window.BackgroundScanner` | js/features/background-scanner.js | Module | Background transcript scanning |
-| S015 | `window.SessionHistoryManager` | js/features/session-history.js | Module | Session CRUD operations |
-| S016 | `window.SessionUIManager` | js/features/session-ui.js | Module | Session history UI rendering |
-| S017 | `window.TranscriptManager` | js/features/transcript.js | Module | Transcript display and management |
-| S018 | `window.TranscriptRefreshManager` | js/features/transcript-refresh.js | Module | Transcript refresh button handling |
-| S019 | `window.ExportManager` | js/features/export.js | Module | TXT/JSON export functionality |
-| S020 | `window.SearchFilterManager` | js/features/search-filter.js | Module | Search and participant filtering |
-| S021 | `window.ModalManager` | js/features/modal-manager.js | Module | Modal dialogs management |
-| S022 | `window.ThemeManager` | js/features/theme-manager.js | Module | Light/dark theme switching |
-| S023 | `window.SettingsManager` | js/features/settings-manager.js | Module | User settings and preferences |
+| ID | Symbol Name | Type | File Path | Line | Exported | Description |
+|----|-------------|------|-----------|------|----------|-------------|
+| S001 | StateManager | SRV | js/core/state-manager.js | 561 | yes (window) | Global state management, storage restoration, UI state persistence |
+| S002 | StorageManager | SRV | js/core/storage-manager.js | 120 | yes (window) | Chrome storage CRUD operations wrapper |
+| S003 | UIManager | SRV | js/core/ui-manager.js | 6 | yes (window) | Button visibility, status messages, sidebar toggle, meeting name editing |
+| S004 | TimerManager | SRV | js/core/timer-manager.js | 6 | yes (window) | Duration tracking based on recordingStartTime, periodic persistence |
+| S005 | TransactionCoordinator | SRV | js/core/transaction-coordinator.js | 6 | yes (window) | Atomic multi-key storage writes with rollback, verification, crash recovery |
+| S006 | AppConstants | CNS | js/utils/constants.js | 90 | yes (window) | TIMING, STORAGE_KEYS, APP_STATES, SESSION_STATES, EXPORT_FORMATS, THEMES |
+| S007 | Formatters | UTL | js/utils/formatters.js | 5 | yes (window) | formatDuration, formatTimestamp, formatSessionDate/Time, escapeHtml, truncateText |
+| S008 | DOMHelpers | UTL | js/utils/dom-helpers.js | 8 | yes (window) | createMessageElement, toggleMessageExpansion, getInitials, ripple effects |
+| S009 | GoogleUserDetector | SRV | js/utils/google-user-detector.js | 6 | yes (window) | Google account name detection via script tags and DOM selectors |
+| S010 | SessionUtils | UTL | js/utils/session-utils.js | 5 | yes (window) | generateSessionId, generateSessionTitle, isValidSessionId |
+| S011 | DataIntegrity | SRV | js/utils/data-integrity.js | 6 | yes (window) | Storage integrity verification: orphaned sessions, duplicates, stale data |
+| S012 | DebugManager | UTL | js/utils/debug-manager.js | 5 | yes (window) | debugState, testSessionLoading, testStatePersistence, testAllModules |
+| S013 | RecordingManager | SRV | js/features/recording.js | 6 | yes (window) | Recording start/stop, auto-enable captions, state persistence |
+| S014 | BackgroundScanner | SRV | js/features/background-scanner.js | 6 | yes (window) | Priority merge queue, accumulated data recovery, background scan coordination |
+| S015 | SessionHistoryManager | SRV | js/features/session-history.js | 6 | yes (window) | Session CRUD, auto-save, load/delete with confirmation dialogs |
+| S016 | SessionUIManager | SRV | js/features/session-ui.js | 6 | yes (window) | Session list rendering, participant modal, tooltips |
+| S017 | TranscriptManager | SRV | js/features/transcript.js | 7 | yes (window) | Transcript display with incremental updates, search highlighting, stats |
+| S018 | TranscriptRefreshManager | SRV | js/features/transcript-refresh.js | 5 | yes (window) | Manual transcript reload and scanner restart |
+| S019 | ExportManager | SRV | js/features/export.js | 7 | yes (window) | TXT export, clipboard copy, LLM prompt wrapping, toast notifications |
+| S020 | SearchFilterManager | SRV | js/features/search-filter.js | 7 | yes (window) | Debounced search, participant filtering, filter state persistence |
+| S021 | ModalManager | SRV | js/features/modal-manager.js | 6 | yes (window) | Modal show/hide, ESC/backdrop close, confirm/resume/export/stop modals |
+| S022 | ThemeManager | SRV | js/features/theme-manager.js | 5 | yes (window) | Light/dark theme toggle via data-theme attribute and localStorage |
+| S023 | SettingsManager | SRV | js/features/settings-manager.js | 6 | yes (window) | User display name, prompt settings, Google name detection, tab UI |
 
-## Global Function Aliases
+## Registry — Global Function Aliases (set during module initialization)
 
-| ID | Symbol | Delegated To | Description |
-|----|--------|-------------|-------------|
-| S024 | `window.displayTranscript` | TranscriptManager.displayTranscript | Display transcript data |
-| S025 | `window.updateStats` | TranscriptManager.updateStats | Update stats display |
-| S026 | `window.getSpeakerColorMap` | TranscriptManager.getSpeakerColorMap | Get speaker color assignments |
-| S027 | `window.detectChanges` | BackgroundScanner.detectChanges | Detect transcript changes |
-| S028 | `window.createNewSession` | SessionHistoryManager.createNewSession | Create new recording session |
-| S029 | `window.showSettingsModal` | SettingsManager.showSettingsModal | Open settings modal |
-| S030 | `window.getUserDisplayName` | SettingsManager.getUserDisplayName | Get user display name |
-| S031 | `window.startDurationTimer` | TimerManager.startDurationTimer | Start duration timer |
-| S032 | `window.stopDurationTimer` | TimerManager.stopDurationTimer | Stop duration timer |
-| S033 | `window.updateDurationDisplay` | TimerManager.updateDurationDisplay | Update duration display |
+| ID | Symbol Name | Type | Delegated To | Description |
+|----|-------------|------|-------------|-------------|
+| S024 | window.displayTranscript | UTL | TranscriptManager.displayTranscript | Display transcript data in UI |
+| S025 | window.updateStats | UTL | TranscriptManager.updateStats | Update entry/participant/duration stats |
+| S026 | window.getSpeakerColorMap | UTL | TranscriptManager.getSpeakerColorMap | Get consistent speaker→color mapping |
+| S027 | window.detectChanges | UTL | BackgroundScanner.detectChanges | Diff old vs new transcript messages |
+| S028 | window.createNewSession | UTL | SessionHistoryManager.createNewSession | Create empty session |
+| S029 | window.showSettingsModal | UTL | SettingsManager.showSettingsModal | Open settings modal |
+| S030 | window.getUserDisplayName | UTL | SettingsManager.getUserDisplayName | Get user display name |
+| S031 | window.startDurationTimer | UTL | TimerManager.startDurationTimer | Start duration timer |
+| S032 | window.stopDurationTimer | UTL | TimerManager.stopDurationTimer | Stop duration timer |
+| S033 | window.updateDurationDisplay | UTL | TimerManager.updateDurationDisplay | Update duration display |
+| S034 | window.showModal | UTL | ModalManager.showModal | Show modal by ID |
+| S035 | window.hideModal | UTL | ModalManager.hideModal | Hide modal by ID |
+| S036 | window.updateStatus | UTL | UIManager.updateStatus | Update status message |
+| S037 | window.updateButtonVisibility | UTL | UIManager.updateButtonVisibility | Update button visibility state |
+| S038 | window.showMeetingName | UTL | UIManager.showMeetingName | Show meeting name for historical session |
+| S039 | window.hideMeetingName | UTL | UIManager.hideMeetingName | Hide meeting name display |
+| S040 | window.resetSearch | UTL | SearchFilterManager.resetSearch | Reset search state |
+| S041 | window.resetParticipantFilters | UTL | SearchFilterManager.resetParticipantFilters | Reset participant filters |
+| S042 | window.renderSessionHistory | UTL | SessionUIManager.renderSessionHistory | Render session list |
+| S043 | window.showEmptySession | UTL | SessionHistoryManager.showEmptySession | Show empty session UI |
+| S044 | window.deactivateRealtimeMode | UTL | RecordingManager.deactivateRealtimeMode | Stop recording |
+| S045 | window.activateRealtimeMode | UTL | RecordingManager.activateRealtimeMode | Start recording |
 
-## Global State Variables
+## Registry — Global State Variables
 
-| ID | Symbol | Description |
-|----|--------|-------------|
-| S034 | `window.transcriptData` | Current transcript data object |
-| S035 | `window.sessionHistory` | Array of saved sessions |
-| S036 | `window.currentSessionId` | Active session identifier |
-| S037 | `window.expandedEntries` | Set of expanded transcript entry IDs |
+| ID | Symbol Name | Type | File Path | Line | Description |
+|----|-------------|------|-----------|------|-------------|
+| S046 | window.transcriptData | STR | js/core/state-manager.js | 6 | Current transcript {messages[], scrapedAt, meetingUrl} |
+| S047 | window.sessionHistory | STR | js/core/state-manager.js | 233 | Array of saved session objects |
+| S048 | window.currentSessionId | STR | js/core/state-manager.js | 9 | Active session identifier string |
+| S049 | window.expandedEntries | STR | js/core/state-manager.js | 11 | Set of expanded transcript entry IDs |
+| S050 | window.realtimeMode | STR | js/core/state-manager.js | 7 | Boolean — is recording active |
 
-## Content Script (content.js)
+## Registry — Content Script (content.js)
 
-| ID | Symbol | Type | Description |
-|----|--------|------|-------------|
-| S038 | `scrapeTranscript()` | Function | DOM scraping of Google Meet captions |
-| S039 | `detectGoogleUserNameFallback()` | Function | Detect logged-in user name |
-| S040 | `findNameByPattern()` | Function | Helper for regex name matching |
-| S041 | `isValidUserNameFallback()` | Function | Validate candidate user names |
-| S042 | `isLanguageSelectionText()` | Function | Filter out language menu text |
-| S043 | `isValidTranscriptText()` | Function | Validate transcript text entries |
-| S044 | `NAME_BLACKLIST` | Constant | Blacklisted terms for name validation |
+| ID | Symbol Name | Type | File Path | Line | Exported | Description |
+|----|-------------|------|-----------|------|----------|-------------|
+| S051 | scrapeTranscript | UTL | content.js | 431 | no (local) | DOM scraping of Google Meet captions container |
+| S052 | detectGoogleUserNameFallback | UTL | content.js | 46 | no (local) | Fallback Google name detection (script tags + DOM) |
+| S053 | findNameByPattern | UTL | content.js | 106 | no (local) | Regex pattern matching helper for name extraction |
+| S054 | isValidUserNameFallback | UTL | content.js | 174 | no (local) | Validate candidate user names |
+| S055 | isLanguageSelectionText | UTL | content.js | 494 | no (local) | Filter out language menu UI text |
+| S056 | isValidTranscriptText | UTL | content.js | 523 | no (local) | Validate transcript text entries |
+| S057 | sanitizeTranscriptText | UTL | content.js | 531 | no (local) | Remove emojis, UI fragments, language menu artifacts |
+| S058 | NAME_BLACKLIST | CNS | content.js | 163 | no (local) | Blacklisted terms for name validation |
+| S059 | enableCaptionsIfNeeded | UTL | content.js | 288 | no (local) | Auto-enable captions via keyboard shortcut dispatch |
+| S060 | areCaptionsEnabled | UTL | content.js | 244 | no (local) | Check if captions are active via [jsname="dsyhDe"] |
+| S061 | generateHash | UTL | content.js | 482 | no (local) | Simple hash for change detection (speaker:text → base36) |
+| S062 | detectMeetingStart | UTL | content.js | 555 | no (local) | Poll for captions availability (2s interval, 5min timeout) |
 
-## Background Script (background.js)
+## Registry — Background Script (background.js)
 
-| ID | Symbol | Type | Description |
-|----|--------|------|-------------|
-| S045 | `chrome.runtime.onMessage` | Listener | Message handler for popup/content communication |
-| S046 | `chrome.tabs.onUpdated` | Listener | Tab URL change monitoring |
+| ID | Symbol Name | Type | File Path | Line | Exported | Description |
+|----|-------------|------|-----------|------|----------|-------------|
+| S063 | startBackgroundScanning | UTL | background.js | 53 | no (local) | Start 3s interval scanning for a tab |
+| S064 | stopBackgroundScanning | UTL | background.js | 116 | no (local) | Stop scanning interval |
+| S065 | createCheckpoint | UTL | background.js | 128 | no (local) | Create backup checkpoint every 10 scans |
+| S066 | cleanupOldCheckpoints | UTL | background.js | 149 | no (local) | Keep only last 3 checkpoints per tab |
 
-## Entry Point (popup.js)
+## Registry — Popup Entry Point (popup.js)
 
-| ID | Symbol | Type | Description |
-|----|--------|------|-------------|
-| S047 | `initializeApp()` | Function | Main application initialization |
-| S048 | `requireModule()` | Function | Validate required module availability |
-| S049 | `initModule()` | Function | Safe module initialization helper |
-| S050 | `bindClick()` | Function | Element click handler binding helper |
+| ID | Symbol Name | Type | File Path | Line | Exported | Description |
+|----|-------------|------|-----------|------|----------|-------------|
+| S067 | initializeApplication | UTL | popup.js | 91 | no (local) | Module initialization sequence orchestrator |
+| S068 | restoreCompleteApplicationState | UTL | popup.js | 165 | no (local) | Full state restoration (session + UI) |
+| S069 | applySessionStateRestoration | UTL | popup.js | 223 | no (local) | Apply restored session state (recording/paused/historical) |
+| S070 | setupMainEventListeners | UTL | popup.js | 317 | no (local) | Bind main button click handlers |
+| S071 | setupMessageListener | UTL | popup.js | 360 | no (local) | Chrome runtime message listener for popup |
+| S072 | requireModule | UTL | popup.js | 70 | no (local) | Validate required module on window |
+| S073 | initModule | UTL | popup.js | 80 | no (local) | Safe optional module initialization |
+| S074 | displayTranscriptAndStats | UTL | popup.js | 205 | no (local) | Display transcript + update stats + participant clickability |
+| S075 | applyEmergencyFallback | UTL | popup.js | 155 | no (local) | Emergency fallback when restoration fails |
+| S076 | validateGlobalFunctions | UTL | popup.js | 35 | no (local) | Validate critical global functions exist |
+| S077 | validateEssentialElements | UTL | popup.js | 57 | no (local) | Validate critical DOM elements exist |
+| S078 | bindClick | UTL | popup.js | 307 | no (local) | Bind click handler to element by ID |
+| S079 | showInitializationError | UTL | popup.js | 377 | no (local) | Display error overlay to user |
+
+## Registry — Debug Config (debug-config.js)
+
+| ID | Symbol Name | Type | File Path | Line | Exported | Description |
+|----|-------------|------|-----------|------|----------|-------------|
+| S080 | DEBUG_ENABLED | CNS | debug-config.js | 7 | yes (globalScope) | Master switch for console.log/debug/info |
+
+## Numbering Rules
+- Sequential: S001–S080 (current max)
+- Next available ID: S081
+- Removed symbols: marked [REMOVED], ID never reused

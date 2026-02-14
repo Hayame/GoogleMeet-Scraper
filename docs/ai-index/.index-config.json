@@ -1,0 +1,7 @@
+{
+  "frontend": {
+    "root": ["."],
+    "extensions": [".js", ".html", ".css", ".json", ".md"]
+  },
+  "extra": []
+}

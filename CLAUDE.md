@@ -143,3 +143,35 @@ Structured data format containing:
 - Requires captions to be enabled in the meeting
 - Scrapes only currently visible transcript (older messages may scroll out of view)
 - No automatic persistence - requires manual export or realtime mode activation
+## Symbolic AI Code Index
+
+This project uses a Symbolic AI code index at `docs/ai-index/`.
+
+**⚠️ IMPORTANT: Before indexing or working with the index, ALWAYS read:**
+- `docs/ai-index/.skill/SKILL.md` — full indexing instructions, subagent strategy, templates
+- `docs/ai-index/.skill/references/templates.md` — index file templates
+- `docs/ai-index/.skill/references/taxonomy-backend.md` or `taxonomy-frontend.md` — symbol types
+
+### Auto-update hooks (active)
+- **PostToolUse**: Every Write/Edit to source files is tracked
+- **Stop**: Claude cannot finish until index is updated for changed files
+- **UserPromptSubmit**: Index context is injected into every prompt
+
+### Quick reference (read SKILL.md for full details)
+
+**Indexing commands:** `index code`, `zaindeksuj kod`, `reindex`, `index only frontend/backend`
+
+**Workflow:**
+1. Before implementing: read relevant index files based on task type
+2. Follow existing architecture patterns visible in the index
+3. After code changes: update affected index files (registry, dependency graph, etc.)
+4. Use next sequential symbol ID (never reuse or renumber)
+5. Mark removed symbols as [REMOVED]
+
+**Task → Index File Routing:**
+- New endpoint/API → 05_API_SURFACE, 06_TYPE_SYSTEM, 07_MIDDLEWARE_PIPELINE, 04_DATA_LAYER
+- New component/page → 02_STRUCTURE_TREE, 06_TYPE_SYSTEM, 04_STATE_MAP, 05_ROUTES_MAP
+- New service/logic → 02_STRUCTURE_TREE, 06_TYPE_SYSTEM, 08_BUSINESS_RULES
+- Database change → 04_DATA_LAYER, 06_TYPE_SYSTEM, 03_DEPENDENCY_GRAPH
+- Bug fix → 03_DEPENDENCY_GRAPH, 08_BUSINESS_RULES + relevant domain file
+- Refactor → 03_DEPENDENCY_GRAPH, 01_SYMBOL_REGISTRY, 12_KNOWLEDGE_GRAPH_SUMMARY
