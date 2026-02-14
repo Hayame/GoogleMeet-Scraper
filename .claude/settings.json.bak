@@ -128,7 +128,23 @@
       "Skill(backend-implementation)",
       "Skill(backend-implementation:*)",
       "Skill(resume-backend-implementation)",
-      "Skill(resume-backend-implementation:*)"
+      "Skill(resume-backend-implementation:*)",
+      "Skill(frontend:start-task)",
+      "Skill(frontend:start-task:*)",
+      "Skill(frontend:resume-task)",
+      "Skill(frontend:resume-task:*)",
+      "Skill(frontend:code-review)",
+      "Skill(frontend:code-review:*)",
+      "Skill(frontend:fix-issues)",
+      "Skill(frontend:fix-issues:*)",
+      "Skill(backend:start-task)",
+      "Skill(backend:start-task:*)",
+      "Skill(backend:resume-task)",
+      "Skill(backend:resume-task:*)",
+      "Skill(backend:code-review)",
+      "Skill(backend:code-review:*)",
+      "Skill(backend:fix-issues)",
+      "Skill(backend:fix-issues:*)"
     ],
     "deny": []
   },
@@ -141,6 +157,26 @@
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/hook-post-tool-track.sh",
             "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/hook-phase-quality-gate.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/hook-post-tool-format.sh",
+            "timeout": 10
           }
         ]
       }
