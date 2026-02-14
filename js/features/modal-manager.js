@@ -7,8 +7,8 @@ window.ModalManager = {
     /**
      * Initialize modal system with global event handlers
      */
-    initializeModalSystem() {    
-        // ESC key handler
+    initializeModalSystem() {
+        // ESC key closes the topmost open modal
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 const openModal = document.querySelector('.modal.show');
@@ -17,22 +17,16 @@ window.ModalManager = {
                 }
             }
         });
-        
-        // Universal modal close button handler
+
+        // Single click handler for close buttons and backdrop clicks
         document.addEventListener('click', (e) => {
             if (e.target.classList.contains('modal-close') && e.target.dataset.modal) {
                 this.hideModal(e.target.dataset.modal);
-            }
-        });
-        
-        // Click outside modal to close handler
-        document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal')) {
+            } else if (e.target.classList.contains('modal')) {
                 this.hideModal(e.target.id);
             }
         });
-        
-        // Initialize specific modals
+
         this.initializeConfirmModal();
         this.initializeExportModal();
     },
@@ -248,13 +242,8 @@ window.ModalManager = {
      * Get current participant count for display
      */
     getCurrentParticipantCount() {
-        if (window.transcriptData && window.transcriptData.messages) {
-            const uniqueParticipants = new Set(
-                window.transcriptData.messages.map(msg => msg.speaker)
-            ).size;
-            return uniqueParticipants;
-        }
-        return 0;
+        if (!window.transcriptData?.messages) return 0;
+        return new Set(window.transcriptData.messages.map(msg => msg.speaker)).size;
     },
 
     /**
@@ -338,16 +327,9 @@ window.ModalManager = {
     },
 
     /**
-     * Hide resume recording modal
-     */
-    hideResumeModal() {
-        this.hideModal('resumeRecordingModal');
-    },
-
-    /**
      * Initialize resume modal event listeners
      */
-    initializeResumeModalEventListeners() {    
+    initializeResumeModalEventListeners() {
         const resumeOptions = document.querySelectorAll('#resumeRecordingModal .resume-option');
         
         resumeOptions.forEach(option => {
@@ -386,54 +368,40 @@ window.ModalManager = {
     /**
      * Initialize confirm modal
      */
-    initializeConfirmModal() {    
+    initializeConfirmModal() {
         const confirmCancel = document.getElementById('confirmCancel');
-        
         if (confirmCancel) {
-            confirmCancel.addEventListener('click', () => {
-                this.hideModal('confirmModal');
-            });
+            confirmCancel.addEventListener('click', () => this.hideModal('confirmModal'));
         } else {
             console.error('Confirm cancel button not found');
         }
     },
 
     /**
-     * Initialize export modal with button handlers
+     * Initialize export modal with TXT export button handler
      */
-    initializeExportModal() {    
-        this.setupExportButtonHandlers();
-    },
-
-    /**
-     * Setup export button event handlers
-     */
-    setupExportButtonHandlers() {    
+    initializeExportModal() {
         const exportTxtBtn = document.getElementById('exportTxtBtn');
-        
-        if (exportTxtBtn) {
-            exportTxtBtn.addEventListener('click', () => {
-                console.log('Export TXT button clicked');
-                
-                if (!window.transcriptData || !window.transcriptData.messages || window.transcriptData.messages.length === 0) {
-                    if (window.UIManager && window.UIManager.updateStatus) {
-                        window.UIManager.updateStatus('Brak danych do eksportu', 'error');
-                    }
-                    return;
-                }
-                
-                const txtContent = this.generateTxtContent();
-                this.downloadFile(txtContent, 'transkrypcja-google-meet.txt', 'text/plain');
-                if (window.UIManager && window.UIManager.updateStatus) {
-                    window.UIManager.updateStatus('Wyeksportowano do pliku TXT!', 'success');
-                }
-                this.hideModal('exportModal');
-            });
-        } else {
+        if (!exportTxtBtn) {
             console.error('Export TXT button not found');
+            return;
         }
-        
-        // JSON export functionality removed - only TXT export is supported
+
+        exportTxtBtn.addEventListener('click', () => {
+            if (!window.transcriptData?.messages?.length) {
+                if (window.UIManager?.updateStatus) {
+                    window.UIManager.updateStatus('Brak danych do eksportu', 'error');
+                }
+                return;
+            }
+
+            const txtContent = this.generateTxtContent();
+            this.downloadFile(txtContent, 'transkrypcja-google-meet.txt', 'text/plain');
+            if (window.UIManager?.updateStatus) {
+                window.UIManager.updateStatus('Wyeksportowano do pliku TXT!', 'success');
+            }
+            this.hideModal('exportModal');
+        });
     },
 
     /**
@@ -441,47 +409,42 @@ window.ModalManager = {
      * @returns {string} Formatted TXT content
      */
     generateTxtContent() {
-        if (!window.transcriptData || !window.transcriptData.messages) {
-            return '';
-        }
-        
-        let content = 'Google Meet Transcript\n';
-        content += '=' + '='.repeat(22) + '\n';
-        content += `Exported: ${new Date().toLocaleString()}\n`;
-        if (window.transcriptData.meetingUrl) {
-            content += `Meeting: ${window.transcriptData.meetingUrl}\n`;
-        }
-        content += '\n';
-        
-        window.transcriptData.messages.forEach((entry, index) => {
-            content += `[${entry.timestamp}] ${entry.speaker}:\n`;
-            content += `${entry.text}\n\n`;
-        });
-        
-        return content;
-    },
+        if (!window.transcriptData?.messages) return '';
 
-    // generateJsonContent() function removed - JSON export no longer supported
+        const lines = [
+            'Google Meet Transcript',
+            '='.repeat(23),
+            `Exported: ${new Date().toLocaleString()}`
+        ];
+
+        if (window.transcriptData.meetingUrl) {
+            lines.push(`Meeting: ${window.transcriptData.meetingUrl}`);
+        }
+        lines.push('');
+
+        for (const entry of window.transcriptData.messages) {
+            lines.push(`[${entry.timestamp}] ${entry.speaker}:\n${entry.text}\n`);
+        }
+
+        return lines.join('\n');
+    },
 
     /**
      * Download file helper
-     * @param {string} content - File content
-     * @param {string} filename - File name
-     * @param {string} mimeType - MIME type
      */
     downloadFile(content, filename, mimeType) {
         const blob = new Blob([content], { type: mimeType });
         const url = URL.createObjectURL(blob);
-        
+
         const a = document.createElement('a');
         a.href = url;
         a.download = filename;
         a.style.display = 'none';
-        
+
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        
+
         URL.revokeObjectURL(url);
     },
 

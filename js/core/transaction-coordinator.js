@@ -1,60 +1,32 @@
 /**
  * Transaction Coordinator - Ensures atomic storage operations
- * Provides ACID-like guarantees for Chrome storage writes
- *
- * @module TransactionCoordinator
- * @version 2.0.0
- *
- * Features:
- * - Atomic operations (all-or-nothing guarantee)
- * - Automatic rollback on failure
- * - Transaction verification
- * - Crash recovery (incomplete transaction detection)
- * - Timeout protection
+ * Provides rollback on failure, transaction verification, crash recovery, and timeout protection.
  */
 
 window.TransactionCoordinator = {
-    /**
-     * Active transactions map (for monitoring and debugging)
-     * @private
-     */
     _activeTransactions: new Map(),
 
-    /**
-     * Transaction timeout (5 seconds max per transaction)
-     * @private
-     */
     get _transactionTimeout() {
         return window.AppConstants.TIMING.TRANSACTION_TIMEOUT;
     },
 
     /**
-     * Execute atomic storage transaction with rollback support
-     * All operations succeed or all fail (atomic guarantee)
+     * Execute atomic storage transaction with rollback support.
+     * All operations succeed or all fail.
      *
-     * @param {Array<Object>} operations - Array of {key, value} pairs to save
-     * @returns {Promise<Object>} Result with success flag and optional error
-     *
-     * @example
-     * const result = await TransactionCoordinator.executeTransaction([
-     *   { key: 'transcriptData', value: data },
-     *   { key: 'sessionHistory', value: history }
-     * ]);
-     * if (result.success) {
-     *   console.log('Transaction completed in', result.duration, 'ms');
-     * }
+     * @param {Array<{key: string, value: *}>} operations - Key-value pairs to save atomically
+     * @returns {Promise<{success: boolean, transactionId: string, duration: number, error?: string}>}
      */
     async executeTransaction(operations) {
         const transactionId = this._generateTransactionId();
         const startTime = Date.now();
+        let rollbackData = {};
 
         try {
-            // Validate operations array
             if (!Array.isArray(operations) || operations.length === 0) {
                 throw new Error('Operations must be non-empty array');
             }
 
-            // Mark transaction as active
             this._activeTransactions.set(transactionId, {
                 startTime,
                 operations: operations.map(op => op.key)
@@ -64,15 +36,11 @@ window.TransactionCoordinator = {
             const keysToRead = operations.map(op => op.key);
             const currentState = await window.StorageManager.getStorageData(keysToRead);
 
-            // Prepare atomic update object
             const updates = {};
-            const rollbackData = {};
-
             for (const operation of operations) {
                 if (!operation.key) {
                     throw new Error('Operation missing required "key" property');
                 }
-
                 rollbackData[operation.key] = currentState[operation.key];
                 updates[operation.key] = operation.value;
             }
@@ -86,135 +54,64 @@ window.TransactionCoordinator = {
                 status: 'IN_PROGRESS'
             };
 
-            // Atomic write - single chrome.storage.local.set call ensures all-or-nothing operation
             await this._executeWithTimeout(
                 window.StorageManager.setStorageData(updates),
                 this._transactionTimeout
             );
 
-            // Verify write succeeded
             const verifyResult = await this._verifyTransaction(updates);
             if (!verifyResult.success) {
                 throw new Error(`Transaction verification failed: ${verifyResult.error}`);
             }
 
-            // Cleanup transaction marker
             await window.StorageManager.removeStorageData([markerKey]);
-
-            // Mark transaction complete
             this._activeTransactions.delete(transactionId);
 
-            return {
-                success: true,
-                transactionId,
-                duration: Date.now() - startTime
-            };
+            return { success: true, transactionId, duration: Date.now() - startTime };
 
         } catch (error) {
             console.error('❌ [TRANSACTION] Failed:', {
-                transactionId,
-                error: error.message,
-                duration: Date.now() - startTime
+                transactionId, error: error.message, duration: Date.now() - startTime
             });
 
-            // Attempt to restore previous state via rollback
             try {
                 await this._rollback(transactionId, rollbackData);
             } catch (rollbackError) {
                 console.error('❌ [TRANSACTION] Rollback failed:', rollbackError);
-                // Log critical failure - manual intervention may be needed
                 this._logCriticalFailure(transactionId, error, rollbackError);
             }
 
             this._activeTransactions.delete(transactionId);
-
-            return {
-                success: false,
-                transactionId,
-                error: error.message,
-                duration: Date.now() - startTime
-            };
+            return { success: false, transactionId, error: error.message, duration: Date.now() - startTime };
         }
     },
 
     /**
-     * Save complete recording state atomically
-     * High-level convenience method for recording operations
-     *
-     * @param {Object} state - Recording state object
-     * @returns {Promise<Object>} Transaction result
-     *
-     * @example
-     * await TransactionCoordinator.saveRecordingState({
-     *   transcriptData: window.transcriptData,
-     *   currentSessionId: window.currentSessionId,
-     *   sessionHistory: window.sessionHistory
-     * });
+     * Save complete recording state atomically (convenience wrapper)
      */
     async saveRecordingState(state) {
+        const KEYS = window.AppConstants.STORAGE_KEYS;
+        const stateKeyMap = {
+            transcriptData: KEYS.TRANSCRIPT_DATA,
+            currentSessionId: KEYS.CURRENT_SESSION_ID,
+            sessionHistory: KEYS.SESSION_HISTORY,
+            realtimeMode: KEYS.REALTIME_MODE,
+            recordingStartTime: KEYS.RECORDING_START_TIME,
+            sessionStartTime: KEYS.SESSION_START_TIME,
+            meetTabId: KEYS.MEET_TAB_ID
+        };
+
         const operations = [];
-
-        // Build operations array from state object
-        if (state.transcriptData !== undefined) {
-            operations.push({
-                key: window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA,
-                value: state.transcriptData
-            });
-        }
-
-        if (state.currentSessionId !== undefined) {
-            operations.push({
-                key: window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID,
-                value: state.currentSessionId
-            });
-        }
-
-        if (state.sessionHistory !== undefined) {
-            operations.push({
-                key: window.AppConstants.STORAGE_KEYS.SESSION_HISTORY,
-                value: state.sessionHistory
-            });
-        }
-
-        if (state.realtimeMode !== undefined) {
-            operations.push({
-                key: window.AppConstants.STORAGE_KEYS.REALTIME_MODE,
-                value: state.realtimeMode
-            });
-        }
-
-        if (state.recordingStartTime !== undefined) {
-            operations.push({
-                key: window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME,
-                value: state.recordingStartTime
-            });
-        }
-
-        if (state.sessionStartTime !== undefined) {
-            operations.push({
-                key: window.AppConstants.STORAGE_KEYS.SESSION_START_TIME,
-                value: state.sessionStartTime
-            });
-        }
-
-        if (state.meetTabId !== undefined) {
-            operations.push({
-                key: window.AppConstants.STORAGE_KEYS.MEET_TAB_ID,
-                value: state.meetTabId
-            });
+        for (const [prop, storageKey] of Object.entries(stateKeyMap)) {
+            if (state[prop] !== undefined) {
+                operations.push({ key: storageKey, value: state[prop] });
+            }
         }
 
         return this.executeTransaction(operations);
     },
 
-    /**
-     * Execute operation with timeout protection
-     * @private
-     * @param {Promise} promise - Promise to execute
-     * @param {number} timeout - Timeout in milliseconds
-     * @returns {Promise} Race between promise and timeout
-     */
-    async _executeWithTimeout(promise, timeout) {
+    _executeWithTimeout(promise, timeout) {
         return Promise.race([
             promise,
             new Promise((_, reject) =>
@@ -223,44 +120,25 @@ window.TransactionCoordinator = {
         ]);
     },
 
-    /**
-     * Verify that transaction data was written correctly
-     * @private
-     * @param {Object} updates - Data that should have been written
-     * @returns {Promise<Object>} Verification result
-     */
     async _verifyTransaction(updates) {
         try {
             const keysToVerify = Object.keys(updates).filter(k => !k.startsWith('__transaction_'));
             const verifyResult = await window.StorageManager.getStorageData(keysToVerify);
 
-            // Simple existence check - data should be present
             for (const key of keysToVerify) {
                 if (verifyResult[key] === undefined && updates[key] !== undefined) {
-                    return {
-                        success: false,
-                        error: `Key ${key} not found in storage after write`
-                    };
+                    return { success: false, error: `Key ${key} not found in storage after write` };
                 }
             }
-
             return { success: true };
         } catch (error) {
             return { success: false, error: error.message };
         }
     },
 
-    /**
-     * Rollback transaction by restoring previous state
-     * @private
-     * @param {string} transactionId - Transaction ID for logging
-     * @param {Object} rollbackData - Previous state to restore
-     * @returns {Promise<void>}
-     */
     async _rollback(transactionId, rollbackData) {
         console.warn('⚠️ [TRANSACTION] Rolling back:', transactionId);
 
-        // Filter out undefined values (keys that didn't exist before)
         const dataToRestore = {};
         for (const [key, value] of Object.entries(rollbackData)) {
             if (value !== undefined) {
@@ -275,13 +153,6 @@ window.TransactionCoordinator = {
         console.log('✅ [TRANSACTION] Rollback complete:', transactionId);
     },
 
-    /**
-     * Log critical failure for monitoring/debugging
-     * @private
-     * @param {string} transactionId - Transaction ID
-     * @param {Error} originalError - Original error that caused failure
-     * @param {Error} rollbackError - Error during rollback attempt
-     */
     _logCriticalFailure(transactionId, originalError, rollbackError) {
         const criticalLog = {
             timestamp: new Date().toISOString(),
@@ -293,62 +164,44 @@ window.TransactionCoordinator = {
 
         console.error('🚨 [TRANSACTION] CRITICAL FAILURE:', criticalLog);
 
-        // Store in separate key for debugging
         try {
-            chrome.storage.local.set({
-                __transaction_failure_log: criticalLog
-            });
+            chrome.storage.local.set({ __transaction_failure_log: criticalLog });
         } catch (e) {
-            // Even logging failed - nothing we can do
             console.error('Failed to log critical failure:', e);
         }
     },
 
-    /**
-     * Generate unique transaction ID
-     * @private
-     * @returns {string} Unique transaction ID
-     */
     _generateTransactionId() {
-        return `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        return `tx_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
     },
 
     /**
-     * Recovery: Check for incomplete transactions on startup
-     * Called during initialization to clean up crashed transactions
-     * @returns {Promise<void>}
+     * Clean up stale transaction markers from previous crashed sessions
      */
     async recoverIncompleteTransactions() {
         try {
             const allKeys = await chrome.storage.local.get(null);
-            const transactionMarkers = Object.keys(allKeys).filter(k =>
-                k.startsWith('__transaction_')
-            );
+            const STALE_THRESHOLD_MS = 300000; // 5 minutes
+            const transactionMarkers = Object.keys(allKeys).filter(k => k.startsWith('__transaction_'));
 
-            if (transactionMarkers.length > 0) {
-                console.warn('⚠️ [TRANSACTION] Found incomplete transactions:', transactionMarkers.length);
+            if (transactionMarkers.length === 0) return;
 
-                // Remove stale markers (>5 minutes old)
-                const staleMarkers = transactionMarkers.filter(key => {
-                    const marker = allKeys[key];
-                    const age = Date.now() - marker.timestamp;
-                    return age > 300000; // 5 minutes
-                });
+            console.warn('⚠️ [TRANSACTION] Found incomplete transactions:', transactionMarkers.length);
 
-                if (staleMarkers.length > 0) {
-                    await window.StorageManager.removeStorageData(staleMarkers);
-                    console.log('✅ [TRANSACTION] Cleaned up stale markers:', staleMarkers.length);
-                }
+            const staleMarkers = transactionMarkers.filter(key => {
+                const age = Date.now() - allKeys[key].timestamp;
+                return age > STALE_THRESHOLD_MS;
+            });
+
+            if (staleMarkers.length > 0) {
+                await window.StorageManager.removeStorageData(staleMarkers);
+                console.log('✅ [TRANSACTION] Cleaned up stale markers:', staleMarkers.length);
             }
         } catch (error) {
             console.error('❌ [TRANSACTION] Recovery failed:', error);
         }
     },
 
-    /**
-     * Get status of active transactions (for debugging)
-     * @returns {Object} Status information
-     */
     getStatus() {
         return {
             activeTransactions: Array.from(this._activeTransactions.entries()).map(([id, data]) => ({
@@ -360,13 +213,8 @@ window.TransactionCoordinator = {
         };
     },
 
-    /**
-     * Initialize Transaction Coordinator
-     */
     initialize() {
         console.log('💳 [TRANSACTION] TransactionCoordinator initialized');
-
-        // Recover any incomplete transactions from previous session
         this.recoverIncompleteTransactions();
     }
 };

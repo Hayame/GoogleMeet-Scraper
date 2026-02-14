@@ -10,191 +10,175 @@ window.SessionUIManager = {
     renderSessionHistory() {
         const historyContainer = document.getElementById('sessionList');
         if (!historyContainer) {
-            console.error('Session list container not found');
             return;
         }
-        
+
         historyContainer.innerHTML = '';
-        
-        if (!window.sessionHistory || window.sessionHistory.length === 0) {
+
+        if (!window.sessionHistory?.length) {
             historyContainer.innerHTML = '<div class="empty-sessions"><p>Brak zapisanych sesji</p></div>';
             return;
         }
-        
+
         window.sessionHistory.forEach(session => {
             const sessionDiv = document.createElement('div');
             sessionDiv.className = 'session-item';
             if (session.id === window.currentSessionId) {
                 sessionDiv.classList.add('active');
             }
-            
+
             const sessionInfo = document.createElement('div');
             sessionInfo.className = 'session-info';
-            
+
             const titleDiv = document.createElement('div');
             titleDiv.className = 'session-title';
             titleDiv.textContent = session.title;
-            
+
             const metaDiv = document.createElement('div');
             metaDiv.className = 'session-meta';
             const date = new Date(session.date);
             const dateStr = date.toLocaleDateString('pl-PL');
             const timeStr = date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
-            
-            // Create participants section - clickable only if count > 0
-            const participantsSpan = document.createElement('span');
-            participantsSpan.textContent = `${session.participantCount} uczestników`;
 
-            // Only make clickable when there are participants
-            if (session.participantCount > 0) {
-                participantsSpan.className = 'participants-clickable';
-                participantsSpan.title = 'Kliknij aby zobaczyć listę uczestników';
-                participantsSpan.style.cursor = 'pointer';
-                participantsSpan.style.textDecoration = 'underline';
-                participantsSpan.style.color = 'var(--btn-primary-bg)';
-                participantsSpan.onclick = (e) => {
-                    e.stopPropagation(); // Prevent session loading
-                    this.showParticipantsList(session);
-                };
-            } else {
-                // Non-clickable style for 0 participants
-                participantsSpan.className = 'participants-non-clickable';
-                participantsSpan.title = 'Brak uczestników';
-                participantsSpan.style.cursor = 'default';
-                participantsSpan.style.textDecoration = 'none';
-                participantsSpan.style.color = 'var(--text-muted)';
-            }
-            
+            const participantsSpan = this._createParticipantsSpan(session);
+
             metaDiv.innerHTML = `${dateStr} ${timeStr} • `;
             metaDiv.appendChild(participantsSpan);
             metaDiv.appendChild(document.createTextNode(` • ${session.entryCount} wpisów`));
-            
+
             sessionInfo.appendChild(titleDiv);
             sessionInfo.appendChild(metaDiv);
-            
+
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'delete-btn';
             deleteBtn.innerHTML = '🗑';
             deleteBtn.title = 'Usuń sesję';
             deleteBtn.onclick = (e) => {
-                if (window.SessionHistoryManager && window.SessionHistoryManager.deleteSessionFromHistory) {
-                    window.SessionHistoryManager.deleteSessionFromHistory(session.id, e);
-                }
+                window.SessionHistoryManager?.deleteSessionFromHistory(session.id, e);
             };
-            
+
             sessionDiv.appendChild(sessionInfo);
             sessionDiv.appendChild(deleteBtn);
-            
+
             sessionDiv.onclick = () => {
-                if (window.SessionHistoryManager && window.SessionHistoryManager.loadSessionFromHistory) {
-                    window.SessionHistoryManager.loadSessionFromHistory(session.id);
-                }
+                window.SessionHistoryManager?.loadSessionFromHistory(session.id);
             };
-            
+
             historyContainer.appendChild(sessionDiv);
         });
-            
-        // Reinitialize enhanced interactions for session items
-        if (window.reinitializeEnhancedInteractions) {
-            window.reinitializeEnhancedInteractions();
+
+        window.reinitializeEnhancedInteractions?.();
+
+        setTimeout(() => this.updateSessionTooltips(), 50);
+    },
+
+    /**
+     * Create a participants span element with appropriate styling
+     * @private
+     */
+    _createParticipantsSpan(session) {
+        const span = document.createElement('span');
+        span.textContent = `${session.participantCount} uczestników`;
+
+        if (session.participantCount > 0) {
+            span.className = 'participants-clickable';
+            span.title = 'Kliknij aby zobaczyć listę uczestników';
+            span.style.cursor = 'pointer';
+            span.style.textDecoration = 'underline';
+            span.style.color = 'var(--btn-primary-bg)';
+            span.onclick = (e) => {
+                e.stopPropagation();
+                this.showParticipantsList(session);
+            };
+        } else {
+            span.className = 'participants-non-clickable';
+            span.title = 'Brak uczestników';
+            span.style.cursor = 'default';
+            span.style.color = 'var(--text-muted)';
         }
-        
-        // Update tooltips for collapsed sidebar (with delay for DOM to settle)
-        setTimeout(() => {
-            this.updateSessionTooltips();
-        }, 50); // Small delay to ensure DOM is fully rendered
+
+        return span;
     },
 
     /**
      * Show participants list modal for a session
      */
+    /**
+     * Get initials from a name (max 2 characters)
+     * @private
+     */
+    _getInitials(name) {
+        return name.split(' ')
+            .map(word => word.charAt(0).toUpperCase())
+            .slice(0, 2)
+            .join('');
+    },
+
     showParticipantsList(session) {
-        // Extract unique participants from session transcript
+        const messages = session.transcript?.messages || [];
         const participantsMap = new Map();
-        
-        if (session.transcript && session.transcript.messages) {
-            session.transcript.messages.forEach(message => {
-                const speaker = message.speaker;
-                if (speaker && speaker !== 'Nieznany') {
-                    if (!participantsMap.has(speaker)) {
-                        participantsMap.set(speaker, {
-                            name: speaker,
-                            messageCount: 0
-                        });
-                    }
-                    participantsMap.get(speaker).messageCount++;
-                }
-            });
+
+        for (const message of messages) {
+            const speaker = message.speaker;
+            if (!speaker || speaker === 'Nieznany') {
+                continue;
+            }
+            if (!participantsMap.has(speaker)) {
+                participantsMap.set(speaker, { name: speaker, messageCount: 0 });
+            }
+            participantsMap.get(speaker).messageCount++;
         }
-        
+
         const participants = Array.from(participantsMap.values())
-            .sort((a, b) => b.messageCount - a.messageCount); // Sort by message count
-        
-        // Get color mapping using the same function as transcript
-        const speakerColors = window.getSpeakerColorMap(session.transcript.messages);
-        
-        // Generate initials
-        function getInitials(name) {
-            return name.split(' ')
-                .map(word => word.charAt(0).toUpperCase())
-                .slice(0, 2) // Max 2 initials
-                .join('');
-        }
-        
-        // Generate participant list HTML
+            .sort((a, b) => b.messageCount - a.messageCount);
+
+        const speakerColors = window.getSpeakerColorMap(messages);
+
         const participantsList = document.getElementById('participantsList');
         if (!participantsList) {
-            console.error('Participants list container not found');
             return;
         }
-        
+
         participantsList.innerHTML = '';
-        
+
         if (participants.length === 0) {
             participantsList.innerHTML = '<p style="text-align: center; color: var(--text-muted);">Brak uczestników do wyświetlenia</p>';
         } else {
             participants.forEach(participant => {
                 const participantDiv = document.createElement('div');
                 participantDiv.className = 'participant-item';
-                
+
                 const avatar = document.createElement('div');
-                avatar.className = 'participant-avatar';
-                avatar.textContent = getInitials(participant.name);
-                
-                // Apply the same color as in transcript
-                const colorIndex = speakerColors.get(participant.name) || 1;
-                avatar.classList.add(`color-${colorIndex}`);
-                
+                avatar.className = `participant-avatar color-${speakerColors.get(participant.name) || 1}`;
+                avatar.textContent = this._getInitials(participant.name);
+
                 const info = document.createElement('div');
                 info.className = 'participant-info';
-                
-                const name = document.createElement('div');
-                name.className = 'participant-name';
-                name.textContent = participant.name;
-                
-                const stats = document.createElement('div');
-                stats.className = 'participant-stats';
-                stats.textContent = `${participant.messageCount} ${participant.messageCount === 1 ? 'wiadomość' : participant.messageCount < 5 ? 'wiadomości' : 'wiadomości'}`;
-                
-                info.appendChild(name);
-                info.appendChild(stats);
-                
+
+                const nameDiv = document.createElement('div');
+                nameDiv.className = 'participant-name';
+                nameDiv.textContent = participant.name;
+
+                const statsDiv = document.createElement('div');
+                statsDiv.className = 'participant-stats';
+                const count = participant.messageCount;
+                statsDiv.textContent = `${count} ${count === 1 ? 'wiadomość' : 'wiadomości'}`;
+
+                info.appendChild(nameDiv);
+                info.appendChild(statsDiv);
                 participantDiv.appendChild(avatar);
                 participantDiv.appendChild(info);
-                
                 participantsList.appendChild(participantDiv);
             });
         }
-        
-        // Show the modal
+
         const modalTitle = document.querySelector('#participantsModal .modal-title');
         if (modalTitle) {
             modalTitle.textContent = `Uczestnicy - ${session.title}`;
         }
-        
+
         window.showModal('participantsModal');
     },
-
 
     /**
      * Update session tooltips for collapsed sidebar
@@ -202,106 +186,56 @@ window.SessionUIManager = {
     updateSessionTooltips() {
         const sidebar = document.querySelector('.sidebar');
         const sessionItems = document.querySelectorAll('.session-item');
-        
-        console.log('🔍 [TOOLTIPS] updateSessionTooltips called');
-        console.log('🔍 [TOOLTIPS] sidebar found:', !!sidebar);
-        console.log('🔍 [TOOLTIPS] sidebar collapsed:', sidebar?.classList.contains('collapsed'));
-        console.log('🔍 [TOOLTIPS] session items found:', sessionItems.length);
-        
-        if (sidebar && sidebar.classList.contains('collapsed')) {
-            // Handle session items
-            sessionItems.forEach((item, index) => {
-                const sessionInfo = item.querySelector('.session-info');
-                if (sessionInfo) {
-                    const title = sessionInfo.querySelector('.session-title')?.textContent || 'Sesja';
-                    const meta = sessionInfo.querySelector('.session-meta')?.textContent || '';
-                    
-                    // Create beautifully formatted tooltip with icons and better layout
-                    let tooltip = `📝 ${title}`;
-                    if (meta) {
-                        // Extract date and participants from meta (format: "14.01.2024 15:30 • 3 uczestników • 5 wpisów")
-                        const parts = meta.split(' • ');
-                        if (parts.length >= 3) {
-                            const dateTime = parts[0];
-                            const participants = parts[1];
-                            const entries = parts[2];
-                            
-                            // Create visually appealing multi-line format with icons
-                            tooltip = `📝 ${title}\n\n📅 ${dateTime}\n👥 ${participants}\n💬 ${entries}`;
-                        } else if (parts.length >= 2) {
-                            const dateTime = parts[0];
-                            const participants = parts[1];
-                            tooltip = `📝 ${title}\n\n📅 ${dateTime}\n👥 ${participants}`;
-                        } else {
-                            tooltip = `📝 ${title}\n\n📋 ${meta}`;
-                        }
-                    }
-                    
-                    item.setAttribute('data-tooltip', tooltip);
-                    console.log('🔍 [TOOLTIPS] Set tooltip for item', index, ':', tooltip);
-                }
-            });
-            
-            // UNIFIED TOOLTIP SYSTEM: Handle new session button
-            const newSessionBtn = document.querySelector('.new-session-btn');
-            if (newSessionBtn) {
-                newSessionBtn.setAttribute('data-tooltip', '➕ Nowa sesja');
-                console.log('🔍 [TOOLTIPS] Set tooltip for new session button');
-            }
-        } else {
-            // Remove tooltips when sidebar is expanded
-            sessionItems.forEach(item => {
-                item.removeAttribute('data-tooltip');
-            });
-            
-            // Remove new session button tooltip when sidebar is expanded
-            const newSessionBtn = document.querySelector('.new-session-btn');
-            if (newSessionBtn) {
-                newSessionBtn.removeAttribute('data-tooltip');
-            }
-            
-            console.log('🔍 [TOOLTIPS] Removed all tooltips');
+        const newSessionBtn = document.querySelector('.new-session-btn');
+        const isCollapsed = sidebar?.classList.contains('collapsed');
+
+        if (!isCollapsed) {
+            sessionItems.forEach(item => item.removeAttribute('data-tooltip'));
+            newSessionBtn?.removeAttribute('data-tooltip');
+            return;
         }
+
+        sessionItems.forEach(item => {
+            const sessionInfo = item.querySelector('.session-info');
+            if (!sessionInfo) {
+                return;
+            }
+
+            const title = sessionInfo.querySelector('.session-title')?.textContent || 'Sesja';
+            const meta = sessionInfo.querySelector('.session-meta')?.textContent || '';
+            const parts = meta.split(' • ');
+
+            let tooltip = `📝 ${title}`;
+            if (parts.length >= 3) {
+                tooltip += `\n\n📅 ${parts[0]}\n👥 ${parts[1]}\n💬 ${parts[2]}`;
+            } else if (parts.length >= 2) {
+                tooltip += `\n\n📅 ${parts[0]}\n👥 ${parts[1]}`;
+            } else if (meta) {
+                tooltip += `\n\n📋 ${meta}`;
+            }
+
+            item.setAttribute('data-tooltip', tooltip);
+        });
+
+        newSessionBtn?.setAttribute('data-tooltip', '➕ Nowa sesja');
     },
 
     /**
      * Initialize session UI components
      */
     initialize() {
-        // Setup event listeners for session-related UI elements
-        this.setupEventListeners();
-        
-        // Setup global aliases for backward compatibility
-        this.setupGlobalAliases();
-    },
-
-    /**
-     * Setup event listeners for session UI
-     */
-    setupEventListeners() {
-        // Event listeners for session history UI will be added here
-        // This is called after the DOM is ready and session history is loaded
-        
-        // Participants modal close button
         const participantsModal = document.getElementById('participantsModal');
-        if (participantsModal) {
-            const closeBtn = participantsModal.querySelector('.close');
-            if (closeBtn) {
-                closeBtn.addEventListener('click', () => {
-                    window.hideModal('participantsModal');
-                });
-            }
+        const closeBtn = participantsModal?.querySelector('.close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => window.hideModal('participantsModal'));
         }
+
+        this.setupGlobalAliases();
+        console.log('🎨 [SESSION UI] SessionUIManager initialized');
     },
 
-    /**
-     * Set up global function aliases for backward compatibility
-     */
     setupGlobalAliases() {
         window.renderSessionHistory = this.renderSessionHistory.bind(this);
         window.updateSessionTooltips = this.updateSessionTooltips.bind(this);
-
-        console.log('🔗 [SESSION UI] Global session UI function aliases created for backward compatibility');
     }
-
 };

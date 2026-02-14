@@ -3,211 +3,122 @@
  * Centralizes global variables and state management functions
  */
 
-// Global state variables
 let transcriptData = null;
 let realtimeMode = false;
 let realtimeInterval = null;
 let currentSessionId = null;
-// Use window.sessionHistory directly instead of local variable
 let durationTimer = null;
-let expandedEntries = new Set(); // Track which entries are expanded
+let expandedEntries = new Set();
 let currentSearchQuery = '';
 let searchDebounceTimer = null;
 let originalMessages = [];
-let activeParticipantFilters = new Set(); // Active participant filters
-let allParticipants = []; // List of all participants
+let activeParticipantFilters = new Set();
+let allParticipants = [];
 
-// Consolidated session state object
 let sessionState = {
-    recordingStartTime: null,     // Current recording start timestamp
-    sessionStartTime: null,       // Original session start time for stable titles
-    totalDuration: 0,            // Total accumulated duration across pauses
-    isRecordingStopped: false,   // Flag to ignore background updates after recording stops
-    isRecordingPaused: false,    // Flag to track if recording is paused (vs completely stopped)
-    isRestorationInProgress: false  // Flag to prevent duplicate sessions during state restoration
+    recordingStartTime: null,
+    sessionStartTime: null,
+    totalDuration: 0,
+    isRecordingStopped: false,
+    isRecordingPaused: false,
+    isRestorationInProgress: false
 };
 
-
-/**
- * Set transcript data
- * @param {Object} data - Transcript data
- */
 function setTranscriptData(data) {
     transcriptData = data;
 }
 
-/**
- * Get transcript data
- * @returns {Object} Current transcript data
- */
 function getTranscriptData() {
     return transcriptData;
 }
 
-/**
- * Set realtime mode state
- * @param {boolean} active - Whether realtime mode is active
- */
 function setRealtimeMode(active) {
     realtimeMode = active;
 }
 
-/**
- * Get realtime mode state
- * @returns {boolean} Whether realtime mode is active
- */
 function getRealtimeMode() {
     return realtimeMode;
 }
 
 /**
- * Set current session ID with proper persistence
- * @param {string} sessionId - Session identifier
+ * Set current session ID with automatic persistence to storage
  */
 async function setCurrentSessionId(sessionId) {
     currentSessionId = sessionId;
     window.currentSessionId = sessionId;
 
-    // Automatically save to storage when currentSessionId changes
     if (sessionId) {
         try {
             await window.StorageManager.setStorageData({
                 [window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID]: sessionId
             });
-            console.log('🔄 [STATE DEBUG] currentSessionId saved to storage:', sessionId);
+            console.log('🔄 [STATE] currentSessionId saved to storage:', sessionId);
         } catch (error) {
             console.error('❌ [STATE] Failed to save currentSessionId:', sessionId, error);
-            // Non-fatal - state is in memory, will retry on next operation
         }
     }
 }
 
-/**
- * Get current session ID
- * @returns {string} Current session identifier
- */
 function getCurrentSessionId() {
     return currentSessionId;
 }
 
-// updateCurrentSessionId() method removed - use setCurrentSessionId() instead
-
-/**
- * Set recording start time
- * @param {Date} startTime - Recording start timestamp
- */
 function setRecordingStartTime(startTime) {
     sessionState.recordingStartTime = startTime;
 }
 
-/**
- * Get recording start time
- * @returns {Date} Recording start timestamp
- */
 function getRecordingStartTime() {
     return sessionState.recordingStartTime;
 }
 
-/**
- * Set session start time
- * @param {Date} startTime - Session start timestamp
- */
 function setSessionStartTime(startTime) {
     sessionState.sessionStartTime = startTime;
 }
 
-/**
- * Get session start time
- * @returns {Date} Session start timestamp
- */
 function getSessionStartTime() {
     return sessionState.sessionStartTime;
 }
 
-
-/**
- * Set session total duration
- * @param {number} duration - Total duration in seconds
- */
 function setSessionTotalDuration(duration) {
     sessionState.totalDuration = duration;
 }
 
-/**
- * Get session total duration
- * @returns {number} Total duration in seconds
- */
 function getSessionTotalDuration() {
     return sessionState.totalDuration;
 }
 
-/**
- * Set recording stopped flag
- * @param {boolean} stopped - Whether recording is stopped
- */
 function setRecordingStopped(stopped) {
     sessionState.isRecordingStopped = stopped;
 }
 
-/**
- * Get recording stopped flag
- * @returns {boolean} Whether recording is stopped
- */
 function getRecordingStopped() {
     return sessionState.isRecordingStopped;
 }
 
-/**
- * Set recording paused flag
- * @param {boolean} paused - Whether recording is paused
- */
 function setRecordingPaused(paused) {
     sessionState.isRecordingPaused = paused;
 }
 
-/**
- * Get recording paused flag
- * @returns {boolean} Whether recording is paused
- */
 function getRecordingPaused() {
     return sessionState.isRecordingPaused;
 }
 
-/**
- * Set restoration in progress flag
- * @param {boolean} inProgress - Whether state restoration is in progress
- */
 function setRestorationInProgress(inProgress) {
     sessionState.isRestorationInProgress = inProgress;
 }
 
-/**
- * Get restoration in progress flag
- * @returns {boolean} Whether state restoration is in progress
- */
 function isRestorationInProgress() {
     return sessionState.isRestorationInProgress;
 }
 
-/**
- * Set duration timer
- * @param {number} timer - Timer ID
- */
 function setDurationTimer(timer) {
     durationTimer = timer;
 }
 
-/**
- * Get duration timer
- * @returns {number} Timer ID
- */
 function getDurationTimer() {
     return durationTimer;
 }
 
-/**
- * Clear duration timer
- */
 function clearDurationTimer() {
     if (durationTimer) {
         clearInterval(durationTimer);
@@ -215,25 +126,14 @@ function clearDurationTimer() {
     }
 }
 
-/**
- * Set realtime interval
- * @param {number} interval - Interval ID
- */
 function setRealtimeInterval(interval) {
     realtimeInterval = interval;
 }
 
-/**
- * Get realtime interval
- * @returns {number} Interval ID
- */
 function getRealtimeInterval() {
     return realtimeInterval;
 }
 
-/**
- * Clear realtime interval
- */
 function clearRealtimeInterval() {
     if (realtimeInterval) {
         clearInterval(realtimeInterval);
@@ -241,13 +141,12 @@ function clearRealtimeInterval() {
     }
 }
 
-
 /**
- * Save UI state to storage
- * @param {Object} uiState - UI state object containing sidebar, search, filter states
+ * Save UI state to storage (both as consolidated object and individual keys)
  */
 async function saveUIState(uiState) {
     try {
+        const KEYS = window.AppConstants.STORAGE_KEYS;
         const stateToSave = {
             sidebarCollapsed: uiState.sidebarCollapsed || false,
             searchPanelOpen: uiState.searchPanelOpen || false,
@@ -257,59 +156,62 @@ async function saveUIState(uiState) {
             theme: uiState.theme || 'light',
             timestamp: Date.now()
         };
-        
+
         await window.StorageManager.setStorageData({
-            [window.AppConstants.STORAGE_KEYS.LAST_UI_STATE]: stateToSave,
-            [window.AppConstants.STORAGE_KEYS.SIDEBAR_COLLAPSED]: stateToSave.sidebarCollapsed,
-            [window.AppConstants.STORAGE_KEYS.SEARCH_PANEL_OPEN]: stateToSave.searchPanelOpen,
-            [window.AppConstants.STORAGE_KEYS.FILTER_PANEL_OPEN]: stateToSave.filterPanelOpen,
-            [window.AppConstants.STORAGE_KEYS.SEARCH_QUERY]: stateToSave.searchQuery,
-            [window.AppConstants.STORAGE_KEYS.ACTIVE_PARTICIPANT_FILTERS]: stateToSave.activeParticipantFilters,
-            [window.AppConstants.STORAGE_KEYS.THEME]: stateToSave.theme
+            [KEYS.LAST_UI_STATE]: stateToSave,
+            [KEYS.SIDEBAR_COLLAPSED]: stateToSave.sidebarCollapsed,
+            [KEYS.SEARCH_PANEL_OPEN]: stateToSave.searchPanelOpen,
+            [KEYS.FILTER_PANEL_OPEN]: stateToSave.filterPanelOpen,
+            [KEYS.SEARCH_QUERY]: stateToSave.searchQuery,
+            [KEYS.ACTIVE_PARTICIPANT_FILTERS]: stateToSave.activeParticipantFilters,
+            [KEYS.THEME]: stateToSave.theme
         });
-        
+
         console.log('💾 [UI STATE] Saved UI state:', stateToSave);
     } catch (error) {
-        console.error('💾 [UI STATE ERROR] Failed to save UI state:', error);
+        console.error('💾 [UI STATE] Failed to save UI state:', error);
     }
 }
 
 /**
- * Restore UI state from storage
- * @returns {Object} Restored UI state
+ * Restore UI state from storage, falling back to individual keys if consolidated state is missing
  */
 async function restoreUIState() {
+    const DEFAULT_UI_STATE = {
+        sidebarCollapsed: false,
+        searchPanelOpen: false,
+        filterPanelOpen: false,
+        searchQuery: '',
+        activeParticipantFilters: [],
+        theme: 'light'
+    };
+
     try {
+        const KEYS = window.AppConstants.STORAGE_KEYS;
         const result = await window.StorageManager.getStorageData([
-            window.AppConstants.STORAGE_KEYS.LAST_UI_STATE,
-            window.AppConstants.STORAGE_KEYS.SIDEBAR_COLLAPSED,
-            window.AppConstants.STORAGE_KEYS.SEARCH_PANEL_OPEN,
-            window.AppConstants.STORAGE_KEYS.FILTER_PANEL_OPEN,
-            window.AppConstants.STORAGE_KEYS.SEARCH_QUERY,
-            window.AppConstants.STORAGE_KEYS.ACTIVE_PARTICIPANT_FILTERS,
-            window.AppConstants.STORAGE_KEYS.THEME
+            KEYS.LAST_UI_STATE,
+            KEYS.SIDEBAR_COLLAPSED,
+            KEYS.SEARCH_PANEL_OPEN,
+            KEYS.FILTER_PANEL_OPEN,
+            KEYS.SEARCH_QUERY,
+            KEYS.ACTIVE_PARTICIPANT_FILTERS,
+            KEYS.THEME
         ]);
-        
-        // Use lastUIState if available, otherwise fallback to individual keys
-        const uiState = result[window.AppConstants.STORAGE_KEYS.LAST_UI_STATE] || {
-            sidebarCollapsed: result[window.AppConstants.STORAGE_KEYS.SIDEBAR_COLLAPSED] || false,
-            searchPanelOpen: result[window.AppConstants.STORAGE_KEYS.SEARCH_PANEL_OPEN] || false,
-            filterPanelOpen: result[window.AppConstants.STORAGE_KEYS.FILTER_PANEL_OPEN] || false,
-            searchQuery: result[window.AppConstants.STORAGE_KEYS.SEARCH_QUERY] || '',
-            activeParticipantFilters: result[window.AppConstants.STORAGE_KEYS.ACTIVE_PARTICIPANT_FILTERS] || [],
-            theme: result[window.AppConstants.STORAGE_KEYS.THEME] || 'light'
+
+        const uiState = result[KEYS.LAST_UI_STATE] || {
+            sidebarCollapsed: result[KEYS.SIDEBAR_COLLAPSED] || false,
+            searchPanelOpen: result[KEYS.SEARCH_PANEL_OPEN] || false,
+            filterPanelOpen: result[KEYS.FILTER_PANEL_OPEN] || false,
+            searchQuery: result[KEYS.SEARCH_QUERY] || '',
+            activeParticipantFilters: result[KEYS.ACTIVE_PARTICIPANT_FILTERS] || [],
+            theme: result[KEYS.THEME] || 'light'
         };
-        
+
         console.log('🔄 [UI STATE] Restored UI state:', uiState);
         return uiState;
     } catch (error) {
-        console.error('🔄 [UI STATE ERROR] Failed to restore UI state:', error);
-        return {
-            sidebarCollapsed: false,
-            searchPanelOpen: false,
-            filterPanelOpen: false,
-            theme: 'light'
-        };
+        console.error('🔄 [UI STATE] Failed to restore UI state:', error);
+        return DEFAULT_UI_STATE;
     }
 }
 
@@ -342,225 +244,160 @@ function initializeGlobalVariables() {
  * Expose state variables globally for backward compatibility
  */
 function exposeGlobalVariables() {
-    // Store previous values for comparison
-    const previousValues = {
-        transcriptData: window.transcriptData,
-        realtimeMode: window.realtimeMode,
-        currentSessionId: window.currentSessionId,
-        sessionHistoryLength: window.sessionHistory?.length || 0
-    };
-    
-    // Set new values
     window.transcriptData = transcriptData;
     window.realtimeMode = realtimeMode;
     window.currentSessionId = currentSessionId;
-    
-    console.log('🔄 [EXPOSE DEBUG] Exposing currentSessionId:', {
-        localCurrentSessionId: currentSessionId,
-        localCurrentSessionIdType: typeof currentSessionId,
-        windowCurrentSessionId: window.currentSessionId,
-        windowCurrentSessionIdType: typeof window.currentSessionId,
-        successful: window.currentSessionId === currentSessionId
-    });
-    
-    // Only set window.sessionHistory if it doesn't exist or is empty to prevent overwriting loaded data
+
+    // Preserve existing sessionHistory to prevent overwriting loaded data
     if (!window.sessionHistory || window.sessionHistory.length === 0) {
         window.sessionHistory = window.sessionHistory || [];
-        console.log('🔧 [STATE] Initialized empty sessionHistory');
-    } else {
-        console.log('🔧 [STATE] Preserving existing sessionHistory with', window.sessionHistory.length, 'sessions');
     }
-    
+
     window.expandedEntries = expandedEntries;
     window.currentSearchQuery = currentSearchQuery;
     window.originalMessages = originalMessages;
     window.activeParticipantFilters = activeParticipantFilters;
     window.allParticipants = allParticipants;
-    
-    // Detailed logging for debugging
-    const currentValues = {
+
+    console.log('🌐 [STATE] Global variables exposed:', {
         hasTranscriptData: !!window.transcriptData,
-        transcriptDataEntries: window.transcriptData?.messages?.length || 0,
         realtimeMode: window.realtimeMode,
         currentSessionId: window.currentSessionId,
         sessionHistoryLength: window.sessionHistory?.length || 0
-    };
-    
-    console.log('🌐 [STATE] Global variables exposed:', currentValues);
-    
-    // Log changes for debugging
-    if (previousValues.realtimeMode !== currentValues.realtimeMode) {
-        console.log('🔄 [STATE] RealtimeMode changed:', previousValues.realtimeMode, '->', currentValues.realtimeMode);
-    }
-    if (previousValues.currentSessionId !== currentValues.currentSessionId) {
-        console.log('🔄 [STATE] CurrentSessionId changed:', previousValues.currentSessionId, '->', currentValues.currentSessionId);
-    }
-    if (previousValues.sessionHistoryLength !== currentValues.sessionHistoryLength) {
-        console.log('🔄 [STATE] SessionHistory length changed:', previousValues.sessionHistoryLength, '->', currentValues.sessionHistoryLength);
-    }
+    });
 }
 
 // ========================================
 // RESTORATION HELPER FUNCTIONS
 // ========================================
 
-/**
- * Load all required storage data for restoration
- * @private
- * @returns {Promise<Object>} Storage data object
- */
-async function _loadStorageData() {
-    return await window.StorageManager.getStorageData([
-        window.AppConstants.STORAGE_KEYS.REALTIME_MODE,
-        window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME,
-        window.AppConstants.STORAGE_KEYS.SESSION_START_TIME,
-        window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA,
-        window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID,
-        window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION,
-        window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_DURATION,
-        window.AppConstants.STORAGE_KEYS.MEET_TAB_ID,
-        window.AppConstants.STORAGE_KEYS.SESSION_STATE,
-        window.AppConstants.STORAGE_KEYS.RECORDING_PAUSED,
-        window.AppConstants.STORAGE_KEYS.RECORDING_STOPPED
+function _loadStorageData() {
+    const KEYS = window.AppConstants.STORAGE_KEYS;
+    return window.StorageManager.getStorageData([
+        KEYS.REALTIME_MODE,
+        KEYS.RECORDING_START_TIME,
+        KEYS.SESSION_START_TIME,
+        KEYS.TRANSCRIPT_DATA,
+        KEYS.CURRENT_SESSION_ID,
+        KEYS.SESSION_TOTAL_DURATION,
+        KEYS.CURRENT_SESSION_DURATION,
+        KEYS.MEET_TAB_ID,
+        KEYS.SESSION_STATE,
+        KEYS.RECORDING_PAUSED,
+        KEYS.RECORDING_STOPPED
     ]);
 }
 
-/**
- * Check if storage contains an active recording
- * @private
- * @param {Object} result - Storage data
- * @returns {boolean} True if active recording
- */
 function _isActiveRecording(result) {
     return !!result[window.AppConstants.STORAGE_KEYS.REALTIME_MODE];
 }
 
-/**
- * Check if storage contains a paused session
- * @private
- * @param {Object} result - Storage data
- * @returns {boolean} True if paused session
- */
 function _isPausedSession(result) {
     return result[window.AppConstants.STORAGE_KEYS.SESSION_STATE] === window.AppConstants.SESSION_STATES.PAUSED_SESSION;
 }
 
-/**
- * Check if storage contains a historical session
- * @private
- * @param {Object} result - Storage data
- * @returns {boolean} True if historical session
- */
 function _isHistoricalSession(result) {
     return result[window.AppConstants.STORAGE_KEYS.SESSION_STATE] === window.AppConstants.SESSION_STATES.HISTORICAL_SESSION;
 }
 
 /**
- * Restore active recording state
- * @private
- * @param {Object} result - Storage data
- * @returns {Promise<Object>} Restoration result
+ * Parse a timestamp from storage into a valid Date, or return null
+ */
+function _parseValidDate(timestamp) {
+    if (!timestamp) return null;
+    const date = new Date(timestamp);
+    return isNaN(date.getTime()) ? null : date;
+}
+
+/**
+ * Restore recording start time with fallback regeneration from duration or session start
+ */
+function _restoreRecordingStartTime(result) {
+    const KEYS = window.AppConstants.STORAGE_KEYS;
+    const rawTimestamp = result[KEYS.RECORDING_START_TIME];
+
+    if (!rawTimestamp) {
+        console.log('ℹ️ [RESTORE] No recordingStartTime in storage (likely paused session)');
+        return;
+    }
+
+    const date = _parseValidDate(rawTimestamp);
+    if (date) {
+        sessionState.recordingStartTime = date;
+        console.log('🔄 [RESTORE] Restored recording start time:', date.toISOString());
+        return;
+    }
+
+    // Invalid date -- attempt regeneration from available data
+    console.error('❌ [RESTORE] Invalid recordingStartTime timestamp:', rawTimestamp);
+
+    const totalDuration = result[KEYS.SESSION_TOTAL_DURATION];
+    if (totalDuration > 0) {
+        const regenerated = new Date(Date.now() - (totalDuration * 1000));
+        sessionState.recordingStartTime = regenerated;
+        console.warn('⚠️ [RESTORE] Regenerated recordingStartTime from sessionTotalDuration:', regenerated.toISOString());
+        return;
+    }
+
+    const sessionStartDate = _parseValidDate(result[KEYS.SESSION_START_TIME]);
+    if (sessionStartDate) {
+        sessionState.recordingStartTime = sessionStartDate;
+        console.warn('⚠️ [RESTORE] Regenerated recordingStartTime from sessionStartTime:', sessionStartDate.toISOString());
+    } else {
+        console.error('❌ [RESTORE] Cannot regenerate recordingStartTime - no valid fallback available');
+    }
+}
+
+/**
+ * Restore active recording state from storage data
  */
 async function _restoreActiveRecording(result) {
+    const KEYS = window.AppConstants.STORAGE_KEYS;
     console.log('🔄 [RESTORE] Restoring recording state');
     realtimeMode = true;
 
-    // Restore transcript data
-    if (result[window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA]) {
-        transcriptData = result[window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA];
+    if (result[KEYS.TRANSCRIPT_DATA]) {
+        transcriptData = result[KEYS.TRANSCRIPT_DATA];
         console.log('🔄 [RESTORE] Restored transcript data:', transcriptData?.messages?.length || 0, 'messages');
     }
 
-    // Restore recording start time with validation
-    if (result[window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME]) {
-        const timestamp = result[window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME];
-        const date = new Date(timestamp);
-
-        // Validate the date is valid
-        if (!isNaN(date.getTime())) {
-            sessionState.recordingStartTime = date;
-            console.log('🔄 [RESTORE] Restored recording start time:', date.toISOString());
-        } else {
-            console.error('❌ [RESTORE] Invalid recordingStartTime timestamp:', timestamp);
-            console.error('❌ [RESTORE] Attempting to regenerate from sessionTotalDuration or sessionStartTime');
-
-            // Try to regenerate timestamp from sessionTotalDuration or sessionStartTime
-            const sessionTotalDuration = result[window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION];
-
-            if (sessionTotalDuration !== undefined && sessionTotalDuration > 0) {
-                // Option A: now - sessionTotalDuration
-                const regeneratedTime = new Date(Date.now() - (sessionTotalDuration * 1000));
-                sessionState.recordingStartTime = regeneratedTime;
-                console.warn('⚠️ [RESTORE] Regenerated recordingStartTime from sessionTotalDuration (' + sessionTotalDuration + 's):', regeneratedTime.toISOString());
-            } else {
-                // Option B: Fallback to sessionStartTime (if valid)
-                const sessionStartTimestamp = result[window.AppConstants.STORAGE_KEYS.SESSION_START_TIME];
-                if (sessionStartTimestamp) {
-                    const sessionStartDate = new Date(sessionStartTimestamp);
-                    if (!isNaN(sessionStartDate.getTime())) {
-                        sessionState.recordingStartTime = sessionStartDate;
-                        console.warn('⚠️ [RESTORE] Regenerated recordingStartTime from sessionStartTime:', sessionStartDate.toISOString());
-                    } else {
-                        console.error('❌ [RESTORE] Cannot regenerate - sessionStartTime is also invalid');
-                    }
-                } else {
-                    console.error('❌ [RESTORE] Cannot regenerate - no sessionStartTime available');
-                }
-            }
-        }
-    } else {
-        console.log('ℹ️ [RESTORE] No recordingStartTime in storage (likely paused session)');
-    }
+    _restoreRecordingStartTime(result);
 
     // Restore session start time with validation
-    if (result[window.AppConstants.STORAGE_KEYS.SESSION_START_TIME]) {
-        const timestamp = result[window.AppConstants.STORAGE_KEYS.SESSION_START_TIME];
-        const date = new Date(timestamp);
-
-        // Validate the date is valid
-        if (!isNaN(date.getTime())) {
-            sessionState.sessionStartTime = date;
-            console.log('🔄 [RESTORE] Restored session start time:', date.toISOString());
-        } else {
-            console.error('❌ [RESTORE] Invalid sessionStartTime timestamp:', timestamp);
-            // Don't set sessionStartTime - leave it undefined instead of Invalid Date
-        }
+    const sessionStartDate = _parseValidDate(result[KEYS.SESSION_START_TIME]);
+    if (sessionStartDate) {
+        sessionState.sessionStartTime = sessionStartDate;
+        console.log('🔄 [RESTORE] Restored session start time:', sessionStartDate.toISOString());
+    } else if (result[KEYS.SESSION_START_TIME]) {
+        console.error('❌ [RESTORE] Invalid sessionStartTime timestamp:', result[KEYS.SESSION_START_TIME]);
     }
 
     // Restore or generate session ID
-    if (result[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID]) {
-        currentSessionId = result[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID];
+    if (result[KEYS.CURRENT_SESSION_ID]) {
+        currentSessionId = result[KEYS.CURRENT_SESSION_ID];
         console.log('🔄 [RESTORE] Active recording - currentSessionId restored:', currentSessionId);
     } else {
-        console.log('🔄 [RESTORE] Active recording - No currentSessionId, generating new one');
         currentSessionId = window.generateSessionId ? window.generateSessionId() : 'session_' + Date.now();
         console.log('🔄 [RESTORE] Generated new currentSessionId:', currentSessionId);
 
-        // Save generated currentSessionId to storage
         try {
             await window.StorageManager.setStorageData({
-                [window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID]: currentSessionId
+                [KEYS.CURRENT_SESSION_ID]: currentSessionId
             });
-            console.log('🔄 [RESTORE] Saved generated currentSessionId to storage');
         } catch (error) {
             console.error('❌ [RESTORE] Failed to save generated currentSessionId:', error);
-            // Continue restoration - ID is in memory
         }
     }
 
-    // Restore session duration
-    if (result[window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION]) {
-        sessionState.totalDuration = result[window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION];
+    if (result[KEYS.SESSION_TOTAL_DURATION]) {
+        sessionState.totalDuration = result[KEYS.SESSION_TOTAL_DURATION];
     }
 
-    // Clear stale duration data
     await window.StorageManager.clearCurrentSessionDuration();
 
-    // Reset recording flags
     sessionState.isRecordingStopped = false;
     sessionState.isRecordingPaused = false;
 
-    // Expose global variables
     exposeGlobalVariables();
     setRestorationInProgress(false);
     console.log('🔄 [RESTORE] Restoration complete - active recording restored');
@@ -568,188 +405,157 @@ async function _restoreActiveRecording(result) {
     return {
         restored: true,
         realtimeMode: true,
-        meetTabId: result[window.AppConstants.STORAGE_KEYS.MEET_TAB_ID],
-        transcriptData: result[window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA],
-        currentSessionId: result[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID]
+        meetTabId: result[KEYS.MEET_TAB_ID],
+        transcriptData: result[KEYS.TRANSCRIPT_DATA],
+        currentSessionId: result[KEYS.CURRENT_SESSION_ID]
     };
 }
 
 /**
- * Restore paused session state
- * @private
- * @param {Object} result - Storage data
- * @returns {Object} Restoration result
+ * Restore paused session state from storage data
  */
 function _restorePausedSession(result) {
+    const KEYS = window.AppConstants.STORAGE_KEYS;
     console.log('⏸️ [RESTORE] Restoring paused session state');
 
-    if (result[window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA] && result[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID]) {
-        transcriptData = result[window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA];
-        currentSessionId = result[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID];
-        console.log('🔄 [RESTORE] Paused session - currentSessionId restored:', currentSessionId);
-
-        // Restore timing data
-        if (result[window.AppConstants.STORAGE_KEYS.SESSION_START_TIME]) {
-            sessionState.sessionStartTime = new Date(result[window.AppConstants.STORAGE_KEYS.SESSION_START_TIME]);
-        }
-        if (result[window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION]) {
-            sessionState.totalDuration = result[window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION];
-        }
-
-        // Restore pause/stop flags
-        if (result[window.AppConstants.STORAGE_KEYS.RECORDING_PAUSED]) {
-            sessionState.isRecordingPaused = result[window.AppConstants.STORAGE_KEYS.RECORDING_PAUSED];
-            console.log('🔄 [RESTORE] Paused session - recordingPaused flag restored:', sessionState.isRecordingPaused);
-        }
-        if (result[window.AppConstants.STORAGE_KEYS.RECORDING_STOPPED]) {
-            sessionState.isRecordingStopped = result[window.AppConstants.STORAGE_KEYS.RECORDING_STOPPED];
-            console.log('🔄 [RESTORE] Paused session - recordingStopped flag restored:', sessionState.isRecordingStopped);
-        }
-
-        exposeGlobalVariables();
-        setRestorationInProgress(false);
-        console.log('🔄 [RESTORE] Restoration complete - paused session restored with resume capability');
-
-        return {
-            restored: true,
-            realtimeMode: false,
-            sessionState: window.AppConstants.SESSION_STATES.PAUSED_SESSION,
-            transcriptData: transcriptData,
-            currentSessionId: currentSessionId,
-            sessionStartTime: result[window.AppConstants.STORAGE_KEYS.SESSION_START_TIME],
-            sessionTotalDuration: result[window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION],
-            recordingPaused: result[window.AppConstants.STORAGE_KEYS.RECORDING_PAUSED],
-            recordingStopped: result[window.AppConstants.STORAGE_KEYS.RECORDING_STOPPED]
-        };
+    if (!result[KEYS.TRANSCRIPT_DATA] || !result[KEYS.CURRENT_SESSION_ID]) {
+        return null;
     }
 
-    return null;
+    transcriptData = result[KEYS.TRANSCRIPT_DATA];
+    currentSessionId = result[KEYS.CURRENT_SESSION_ID];
+    console.log('🔄 [RESTORE] Paused session - currentSessionId restored:', currentSessionId);
+
+    if (result[KEYS.SESSION_START_TIME]) {
+        sessionState.sessionStartTime = new Date(result[KEYS.SESSION_START_TIME]);
+    }
+    if (result[KEYS.SESSION_TOTAL_DURATION]) {
+        sessionState.totalDuration = result[KEYS.SESSION_TOTAL_DURATION];
+    }
+    if (result[KEYS.RECORDING_PAUSED]) {
+        sessionState.isRecordingPaused = result[KEYS.RECORDING_PAUSED];
+    }
+    if (result[KEYS.RECORDING_STOPPED]) {
+        sessionState.isRecordingStopped = result[KEYS.RECORDING_STOPPED];
+    }
+
+    exposeGlobalVariables();
+    setRestorationInProgress(false);
+    console.log('🔄 [RESTORE] Restoration complete - paused session restored');
+
+    return {
+        restored: true,
+        realtimeMode: false,
+        sessionState: window.AppConstants.SESSION_STATES.PAUSED_SESSION,
+        transcriptData,
+        currentSessionId,
+        sessionStartTime: result[KEYS.SESSION_START_TIME],
+        sessionTotalDuration: result[KEYS.SESSION_TOTAL_DURATION],
+        recordingPaused: result[KEYS.RECORDING_PAUSED],
+        recordingStopped: result[KEYS.RECORDING_STOPPED]
+    };
 }
 
 /**
- * Restore historical session state
- * @private
- * @param {Object} result - Storage data
- * @returns {Object} Restoration result
+ * Restore historical session state from storage data
  */
 function _restoreHistoricalSession(result) {
+    const KEYS = window.AppConstants.STORAGE_KEYS;
     console.log('📜 [RESTORE] Restoring historical session state');
 
-    if (result[window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA] && result[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID]) {
-        transcriptData = result[window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA];
-        currentSessionId = result[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID];
-        console.log('🔄 [RESTORE] Historical session - currentSessionId restored:', currentSessionId);
-
-        exposeGlobalVariables();
-        setRestorationInProgress(false);
-        console.log('🔄 [RESTORE] Restoration complete - historical session restored');
-
-        return {
-            restored: true,
-            realtimeMode: false,
-            sessionState: window.AppConstants.SESSION_STATES.HISTORICAL_SESSION,
-            transcriptData: transcriptData,
-            currentSessionId: currentSessionId
-        };
+    if (!result[KEYS.TRANSCRIPT_DATA] || !result[KEYS.CURRENT_SESSION_ID]) {
+        return null;
     }
 
-    return null;
+    transcriptData = result[KEYS.TRANSCRIPT_DATA];
+    currentSessionId = result[KEYS.CURRENT_SESSION_ID];
+    console.log('🔄 [RESTORE] Historical session - currentSessionId restored:', currentSessionId);
+
+    exposeGlobalVariables();
+    setRestorationInProgress(false);
+    console.log('🔄 [RESTORE] Restoration complete - historical session restored');
+
+    return {
+        restored: true,
+        realtimeMode: false,
+        sessionState: window.AppConstants.SESSION_STATES.HISTORICAL_SESSION,
+        transcriptData,
+        currentSessionId
+    };
 }
 
 /**
  * Restore state from storage - Main state restoration function
+ * Tries restoration paths in priority order: active recording > paused > historical
  */
 async function restoreStateFromStorage() {
     try {
         console.log('🔄 [RESTORE] Restoring state from storage');
-
-        // Set restoration flag to prevent duplicate sessions
         setRestorationInProgress(true);
-        console.log('🔄 [RESTORE] Restoration in progress flag set to true');
 
-        // Load all storage data
         const result = await _loadStorageData();
+        const KEYS = window.AppConstants.STORAGE_KEYS;
 
-        // Debug logging
         console.log('🔄 [RESTORE] Storage contents:', {
-            realtimeMode: result[window.AppConstants.STORAGE_KEYS.REALTIME_MODE],
-            currentSessionId: result[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID],
-            hasTranscriptData: !!result[window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA],
-            sessionState: result[window.AppConstants.STORAGE_KEYS.SESSION_STATE],
-            meetTabId: result[window.AppConstants.STORAGE_KEYS.MEET_TAB_ID]
+            realtimeMode: result[KEYS.REALTIME_MODE],
+            currentSessionId: result[KEYS.CURRENT_SESSION_ID],
+            hasTranscriptData: !!result[KEYS.TRANSCRIPT_DATA],
+            sessionState: result[KEYS.SESSION_STATE],
+            meetTabId: result[KEYS.MEET_TAB_ID]
         });
 
-        // Try restoration paths in priority order
-
-        // Path 1: Active recording (highest priority)
         if (_isActiveRecording(result)) {
             return await _restoreActiveRecording(result);
         }
 
-        // Path 2: Paused session
         if (_isPausedSession(result)) {
             const pausedResult = _restorePausedSession(result);
             if (pausedResult) return pausedResult;
         }
 
-        // Path 3: Historical session
         if (_isHistoricalSession(result)) {
             const historicalResult = _restoreHistoricalSession(result);
             if (historicalResult) return historicalResult;
         }
 
-        // No state to restore
         setRestorationInProgress(false);
         console.log('🔄 [RESTORE] Restoration complete - no state to restore');
         return { restored: false };
-        
+
     } catch (error) {
-        console.error('🔄 [RESTORE ERROR] Failed to restore state:', error);
-        
-        // Clear restoration flag on error
+        console.error('🔄 [RESTORE] Failed to restore state:', error);
         setRestorationInProgress(false);
-        console.log('🔄 [RESTORE] Restoration flag cleared due to error');
-        
-        return { restored: false, error: error };
+        return { restored: false, error };
     } finally {
-        // Always clear restoration flag after ensuring sessionHistory is loaded
+        // Poll until sessionHistory is loaded, then clear the restoration flag
         const MAX_WAIT_TIME = window.AppConstants.TIMING.STATE_RESTORATION_MAX_WAIT;
         const CHECK_INTERVAL = window.AppConstants.TIMING.STATE_RESTORATION_CHECK_INTERVAL;
         const startTime = Date.now();
-        let checkCount = 0;
 
         const checkSessionHistoryLoaded = () => {
-            checkCount++;
             const elapsed = Date.now() - startTime;
 
-            // Force unlock after configured max wait time
             if (elapsed > MAX_WAIT_TIME) {
-                console.error(`⚠️ [RESTORE TIMEOUT] Forcing flag clear after ${MAX_WAIT_TIME}ms`);
+                console.error(`⚠️ [RESTORE] Forcing flag clear after ${MAX_WAIT_TIME}ms timeout`);
                 setRestorationInProgress(false);
-
-                // Initialize empty sessionHistory if still undefined
-                if (!window.sessionHistory || !Array.isArray(window.sessionHistory)) {
+                if (!Array.isArray(window.sessionHistory)) {
                     window.sessionHistory = [];
-                    console.warn('⚠️ [EMERGENCY] Initialized empty sessionHistory after timeout');
+                    console.warn('⚠️ [RESTORE] Initialized empty sessionHistory after timeout');
                 }
                 return;
             }
 
-            // Normal success path
-            if (window.sessionHistory && Array.isArray(window.sessionHistory)) {
+            if (Array.isArray(window.sessionHistory)) {
                 setRestorationInProgress(false);
                 console.log(`✅ [RESTORE] Flag cleared after ${elapsed}ms (${window.sessionHistory.length} sessions)`);
             } else {
-                console.log(`⏳ [RESTORE] Attempt ${checkCount}: sessionHistory not loaded, checking again in ${CHECK_INTERVAL}ms`);
                 setTimeout(checkSessionHistoryLoaded, CHECK_INTERVAL);
             }
         };
 
-        // Start checking after initial delay
         setTimeout(checkSessionHistoryLoaded, 1000);
     }
 }
-
 
 // Export all state management functions
 window.StateManager = {
@@ -798,9 +604,9 @@ window.StateManager = {
      * Validate that state restoration was successful
      */
     validateStateRestoration() {
-        console.log('🔍 [VALIDATION] Validating state restoration success...');
-        
-        // Check global variables
+        const sidebar = document.querySelector('.sidebar');
+        const hasActiveSession = !!(window.transcriptData || window.realtimeMode);
+
         const globalVarsStatus = {
             transcriptData: !!window.transcriptData,
             realtimeMode: typeof window.realtimeMode === 'boolean',
@@ -808,53 +614,23 @@ window.StateManager = {
             sessionHistory: Array.isArray(window.sessionHistory),
             sessionHistoryLength: window.sessionHistory?.length || 0
         };
-        
-        // Additional session validation
-        if (window.sessionHistory && window.sessionHistory.length > 0) {
-            console.log('📊 [VALIDATION] Session History Details:', {
-                totalSessions: window.sessionHistory.length,
-                sessionIdFormats: window.sessionHistory.slice(0, 3).map(s => ({
-                    id: s.id,
-                    idType: typeof s.id,
-                    hasTitle: !!s.title,
-                    hasTranscript: !!s.transcript
-                })),
-                allSessionIds: window.sessionHistory.map(s => s.id)
-            });
-        }
-        
-        // Check UI state
-        const sidebar = document.querySelector('.sidebar');
+
         const uiStateStatus = {
             sidebarExists: !!sidebar,
             sidebarCollapsed: sidebar?.classList.contains('collapsed') || false,
             theme: document.documentElement.getAttribute('data-theme') || 'light'
         };
-        
-        // Check if we have an active session
-        const hasActiveSession = window.transcriptData || window.realtimeMode;
-        
-        // Log validation results
-        console.log('✅ [VALIDATION] Global variables status:', globalVarsStatus);
-        console.log('✅ [VALIDATION] UI state status:', uiStateStatus);
-        console.log('✅ [VALIDATION] Has active session:', hasActiveSession);
-        
-        // Provide user feedback based on restored state
-        if (window.realtimeMode) {
-            console.log('🔴 [VALIDATION] Recording mode restored - background recording should be active');
-        } else if (window.transcriptData) {
-            console.log('📜 [VALIDATION] Historical session restored - transcript data available');
-        } else {
-            console.log('🆕 [VALIDATION] No session restored - starting with clean state');
-        }
-        
-        // Recovery mechanism for broken UI state
+
+        console.log('✅ [VALIDATION] State restoration:', {
+            globalVars: globalVarsStatus,
+            uiState: uiStateStatus,
+            hasActiveSession
+        });
+
         if (!sidebar) {
-            console.warn('⚠️ [RECOVERY] Sidebar element not found - UI may be broken');
+            console.warn('⚠️ [VALIDATION] Sidebar element not found - UI may be broken');
         }
-        
-        console.log('✅ [VALIDATION] State restoration validation complete');
-        
+
         return {
             globalVars: globalVarsStatus,
             uiState: uiStateStatus,

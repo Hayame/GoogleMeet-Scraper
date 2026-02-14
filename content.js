@@ -1,26 +1,11 @@
-// Override console.log to respect DEBUG_ENABLED setting
-const originalConsoleLog = console.log;
-console.log = function(...args) {
-    if (window.DEBUG_ENABLED) {
-        originalConsoleLog.apply(console, args);
-    }
-};
-
-// Potwierdzenie załadowania content script
 console.log('🚀 Google Meet Recorder - Content script loaded at:', window.location.href);
 
-// Sprawdź czy jesteśmy na właściwej stronie
 if (!window.location.href.includes('meet.google.com')) {
     console.error('❌ Not on Google Meet page');
-} else {
-    console.log('✅ On Google Meet page');
 }
 
-// Test Chrome API
 if (typeof chrome === 'undefined' || !chrome.runtime) {
     console.error('❌ Chrome API not available');
-} else {
-    console.log('✅ Chrome API available');
 }
 
 // User settings for display name customization
@@ -59,344 +44,193 @@ function detectGoogleUserName() {
 
 // Fallback detection with script tag parsing
 function detectGoogleUserNameFallback() {
-    console.log('🔄 [CONTENT] === STARTING FALLBACK DETECTION ===');
-    console.log('🔄 [CONTENT] Page URL:', window.location.href);
-    console.log('🔄 [CONTENT] Document ready state:', document.readyState);
-    
+    console.log('🔄 [CONTENT] Starting fallback detection');
+
     try {
-        // Method 1: Try script tag detection first
-        console.log('🔄 [CONTENT] === METHOD 1: SCRIPT TAG DETECTION ===');
         const scriptName = detectFromScriptTagsFallback();
         if (scriptName) {
             console.log('✅ [CONTENT] Fallback script tag detection successful:', scriptName);
             return scriptName;
         }
-        
-        // Method 2: Fallback to basic DOM detection (simplified)
-        console.log('🔄 [CONTENT] === METHOD 2: DOM DETECTION ===');
+
         const domName = detectFromDOMFallback();
         if (domName) {
             console.log('✅ [CONTENT] Fallback DOM detection successful:', domName);
             return domName;
         }
-        
-        console.log('❌ [CONTENT] === ALL FALLBACK METHODS FAILED ===');
+
+        console.log('❌ [CONTENT] All fallback methods failed');
         return null;
-        
     } catch (error) {
-        console.error('❌ [CONTENT] CRITICAL ERROR in fallback detection:', error);
-        console.error('❌ [CONTENT] Error stack:', error.stack);
+        console.error('❌ [CONTENT] Error in fallback detection:', error);
         return null;
     }
 }
 
 // Script tag detection fallback (simplified version)
 function detectFromScriptTagsFallback() {
-    console.log('📜 [CONTENT] === STARTING SCRIPT TAG ANALYSIS ===');
-    
     try {
-        // Test basic DOM access
-        console.log('📜 [CONTENT] Testing document access...');
-        if (!document) {
-            console.error('❌ [CONTENT] Document not available!');
-            return null;
-        }
-        
-        console.log('📜 [CONTENT] Querying for script tags...');
         const scriptTags = document.querySelectorAll('script');
-        console.log(`📜 [CONTENT] Found ${scriptTags.length} script tags to analyze`);
-        
-        if (scriptTags.length === 0) {
-            console.warn('⚠️ [CONTENT] No script tags found on page!');
-            return null;
-        }
-        
-        let scriptsWithCallback = 0;
-        let accessibleScripts = 0;
-        
-        for (let i = 0; i < scriptTags.length; i++) {
+        if (scriptTags.length === 0) return null;
+
+        for (const script of scriptTags) {
             try {
-                const script = scriptTags[i];
-                console.log(`📜 [CONTENT] Analyzing script ${i + 1}/${scriptTags.length}...`);
-                
-                // Test script access
-                let content;
-                try {
-                    content = script.textContent || script.innerHTML;
-                    accessibleScripts++;
-                } catch (accessError) {
-                    console.warn(`⚠️ [CONTENT] Cannot access script ${i + 1} content:`, accessError.message);
-                    continue;
+                const content = script.textContent || script.innerHTML;
+                if (!content || !content.includes('AF_initDataCallback')) continue;
+
+                const userName = extractNameDirectlyFromScriptFallback(content);
+                if (userName) {
+                    return cleanUserNameFallback(userName);
                 }
-                
-                if (!content) {
-                    console.log(`📜 [CONTENT] Script ${i + 1} has no content, skipping`);
-                    continue;
-                }
-                
-                console.log(`📜 [CONTENT] Script ${i + 1} content length: ${content.length}`);
-                
-                if (content.includes('AF_initDataCallback')) {
-                    scriptsWithCallback++;
-                    console.log(`📜 [CONTENT] ✅ Found AF_initDataCallback in script ${i + 1} (${scriptsWithCallback} total found)`);
-                    
-                    // Try direct name extraction (most reliable)
-                    console.log(`📜 [CONTENT] Attempting name extraction from script ${i + 1}...`);
-                    const userName = extractNameDirectlyFromScriptFallback(content);
-                    if (userName) {
-                        console.log(`✅ [CONTENT] Direct extraction successful from script ${i + 1}: "${userName}"`);
-                        const cleanedName = cleanUserNameFallback(userName);
-                        console.log(`✅ [CONTENT] Final cleaned name: "${cleanedName}"`);
-                        return cleanedName;
-                    } else {
-                        console.log(`📜 [CONTENT] No valid name found in script ${i + 1}`);
-                    }
-                } else {
-                    console.log(`📜 [CONTENT] Script ${i + 1} does not contain AF_initDataCallback`);
-                }
-                
             } catch (scriptError) {
-                console.error(`❌ [CONTENT] Error processing script ${i + 1}:`, scriptError);
                 continue;
             }
         }
-        
-        console.log(`📜 [CONTENT] === SCRIPT ANALYSIS COMPLETE ===`);
-        console.log(`📜 [CONTENT] Total scripts: ${scriptTags.length}`);
-        console.log(`📜 [CONTENT] Accessible scripts: ${accessibleScripts}`);
-        console.log(`📜 [CONTENT] Scripts with AF_initDataCallback: ${scriptsWithCallback}`);
-        console.log('📜 [CONTENT] No valid user name found in any script tag');
+
+        console.log('📜 [CONTENT] No valid user name found in script tags');
         return null;
-        
     } catch (error) {
-        console.error('❌ [CONTENT] CRITICAL ERROR in script tag detection:', error);
-        console.error('❌ [CONTENT] Error stack:', error.stack);
+        console.error('❌ [CONTENT] Error in script tag detection:', error);
         return null;
     }
 }
 
+/**
+ * Try matching a regex pattern against script content, returning the first valid name.
+ * @param {RegExp} pattern - Regex with a capture group for the name
+ * @param {string} content - Script content to search
+ * @param {number} nameGroup - Capture group index for the name (default 1)
+ * @param {number} maxAttempts - Maximum matches to try
+ * @returns {string|null}
+ */
+function findNameByPattern(pattern, content, nameGroup = 1, maxAttempts = 20) {
+    let match;
+    let attempts = 0;
+    while ((match = pattern.exec(content)) !== null && attempts < maxAttempts) {
+        attempts++;
+        const name = match[nameGroup];
+        if (isValidUserNameFallback(name)) {
+            return name;
+        }
+    }
+    return null;
+}
+
 // Direct name extraction from script content (fallback version)
 function extractNameDirectlyFromScriptFallback(scriptContent) {
-    console.log('📜 [CONTENT] Attempting direct name extraction...');
-    console.log('📜 [CONTENT] Script content length:', scriptContent.length);
-    
     try {
-        // Pattern 1: Look for email followed by name pattern (flexible URL handling)
-        // Example: "szlachtowski.lukasz@gmail.com","https://lh3.googleusercontent.com/a/ACg8ocJAZPiPB_Sgx9kdDHb_wZuS3PZZTGajVLsVfyHoqQh5uVs6HQ\u003ds192-c-mo","Łukasz Szlachtowski"
-        const emailNamePattern = /"([^"]+@[^"]+)","[^"]*","([^"]{2,50})"/g;
+        // Pattern 1: Email followed by URL followed by name
+        const result1 = findNameByPattern(
+            /"([^"]+@[^"]+)","[^"]*","([^"]{2,50})"/g,
+            scriptContent, 2
+        );
+        if (result1) return result1;
+
+        // Pattern 2: Gmail address, skip middle, then capitalized name
+        const result2 = findNameByPattern(
+            /"([^"]+@gmail\.com)"[^"]*"[^"]*"([A-ZĄŻĆĘŁŃÓŚŹŻ][^"]{2,49})"/g,
+            scriptContent, 2
+        );
+        if (result2) return result2;
+
+        // Pattern 3: Two-word Polish names with proper capitalization
+        const result3 = findNameByPattern(
+            /"([A-ZĄŻĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+\s+[A-ZĄŻĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+)"/g,
+            scriptContent
+        );
+        if (result3) return result3;
+
+        // Pattern 4: Broad capitalized string with Polish characters
+        const broadPattern = /"([A-ZĄŻĆĘŁŃÓŚŹŻ][A-Za-ząćęłńóśźż\s]{2,48}[a-ząćęłńóśźżA-Za-z])"/g;
         let match;
-        let patternAttempts = 0;
-        
-        console.log('📜 [CONTENT] Trying Pattern 1: Email-URL-Name pattern...');
-        while ((match = emailNamePattern.exec(scriptContent)) !== null && patternAttempts < 20) {
-            patternAttempts++;
-            const email = match[1];
-            const name = match[2];
-            
-            console.log(`📜 [CONTENT] Pattern 1 match ${patternAttempts}: "${email}" -> "${name}"`);
-            
-            if (isValidUserNameFallback(name)) {
-                console.log(`📜 [CONTENT] Pattern 1 success: "${name}"`);
-                return name;
-            } else {
-                console.log(`📜 [CONTENT] Pattern 1 rejected: "${name}" (failed validation)`);
-            }
-        }
-        
-        // Pattern 2: More flexible email-name pattern (skip middle part)
-        // Look for email, then any content, then a name-like string
-        console.log('📜 [CONTENT] Trying Pattern 2: Flexible email...name pattern...');
-        const flexibleEmailPattern = /"([^"]+@gmail\.com)"[^"]*"[^"]*"([A-ZĄŻĆĘŁŃÓŚŹŻ][^"]{2,49})"/g;
-        patternAttempts = 0;
-        
-        while ((match = flexibleEmailPattern.exec(scriptContent)) !== null && patternAttempts < 20) {
-            patternAttempts++;
-            const email = match[1];
-            const name = match[2];
-            
-            console.log(`📜 [CONTENT] Pattern 2 match ${patternAttempts}: "${email}" -> "${name}"`);
-            
-            if (isValidUserNameFallback(name)) {
-                console.log(`📜 [CONTENT] Pattern 2 success: "${name}"`);
-                return name;
-            } else {
-                console.log(`📜 [CONTENT] Pattern 2 rejected: "${name}" (failed validation)`);
-            }
-        }
-        
-        // Pattern 3: Look for Polish names with special characters anywhere
-        console.log('📜 [CONTENT] Trying Pattern 3: Polish names...');
-        const polishNamePattern = /"([A-ZĄŻĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+\s+[A-ZĄŻĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+)"/g;
-        patternAttempts = 0;
-        
-        while ((match = polishNamePattern.exec(scriptContent)) !== null && patternAttempts < 20) {
-            patternAttempts++;
+        let attempts = 0;
+        while ((match = broadPattern.exec(scriptContent)) !== null && attempts < 50) {
+            attempts++;
             const name = match[1];
-            
-            console.log(`📜 [CONTENT] Pattern 3 match ${patternAttempts}: "${name}"`);
-            
-            if (isValidUserNameFallback(name)) {
-                console.log(`📜 [CONTENT] Pattern 3 success: "${name}"`);
+            if ((name.includes('ł') || name.includes('Ł') || name.includes(' ')) && isValidUserNameFallback(name)) {
                 return name;
-            } else {
-                console.log(`📜 [CONTENT] Pattern 3 rejected: "${name}" (failed validation)`);
             }
         }
-        
-        // Pattern 4: Very broad name pattern - look for any quoted string that looks like a name
-        console.log('📜 [CONTENT] Trying Pattern 4: Broad name pattern...');
-        const broadNamePattern = /"([A-ZĄŻĆĘŁŃÓŚŹŻ][A-Za-ząćęłńóśźż\s]{2,48}[a-ząćęłńóśźżA-Za-z])"/g;
-        patternAttempts = 0;
-        
-        while ((match = broadNamePattern.exec(scriptContent)) !== null && patternAttempts < 50) {
-            patternAttempts++;
-            const name = match[1];
-            
-            // Only log promising candidates to avoid spam
-            if (name.includes('ł') || name.includes('Ł') || name.includes(' ')) {
-                console.log(`📜 [CONTENT] Pattern 4 match ${patternAttempts}: "${name}"`);
-                
-                if (isValidUserNameFallback(name)) {
-                    console.log(`📜 [CONTENT] Pattern 4 success: "${name}"`);
-                    return name;
-                }
-            }
-        }
-        
-        console.log('📜 [CONTENT] All patterns failed - no valid name found');
+
         return null;
-        
     } catch (error) {
         console.error('❌ [CONTENT] Error in direct extraction:', error);
         return null;
     }
 }
 
+// Blacklisted terms that indicate the string is not a person's name
+const NAME_BLACKLIST = [
+    'settings', 'account', 'profile', 'zamknij', 'close', 'menu', 'more', 'camera', 'microphone',
+    'apis.google.com', 'client.js', 'javascript', 'google.com', 'gstatic.com',
+    'accounts.google.com', 'googleapis.com', 'googleusercontent.com',
+    'undefined', 'null', 'true', 'false', 'callback', 'function', 'window', 'document',
+    'script', 'src', 'type', 'text', 'application', 'json', 'css', 'html',
+    'meet', 'hangouts', 'chrome', 'browser', 'android', 'ios',
+    'service', 'api', 'sdk', 'library', 'framework'
+];
+
 // Simple validation for fallback detection
 function isValidUserNameFallback(name) {
-    if (!name || typeof name !== 'string') {
-        console.log(`📜 [CONTENT] Validation failed: not a string`);
-        return false;
-    }
-    
+    if (!name || typeof name !== 'string') return false;
+
     const trimmed = name.trim();
-    
-    // Basic validation
-    if (trimmed.length < 2 || trimmed.length > 50) {
-        console.log(`📜 [CONTENT] Validation failed: invalid length ${trimmed.length}`);
-        return false;
-    }
-    
-    // Must contain letters
-    if (!/[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/.test(trimmed)) {
-        console.log(`📜 [CONTENT] Validation failed: no letters found`);
-        return false;
-    }
-    
-    // Should not be email or URL
-    if (trimmed.includes('@') || trimmed.includes('http') || trimmed.includes('://')) {
-        console.log(`📜 [CONTENT] Validation failed: contains email/URL patterns`);
-        return false;
-    }
-    
-    // Enhanced blacklist for script tag content
-    const blacklistedTerms = [
-        // UI terms
-        'settings', 'account', 'profile', 'zamknij', 'close', 'menu', 'more', 'camera', 'microphone',
-        // Google services and APIs
-        'apis.google.com', 'client.js', 'javascript', 'google.com', 'gstatic.com',
-        'accounts.google.com', 'googleapis.com', 'googleusercontent.com',
-        // Technical terms
-        'undefined', 'null', 'true', 'false', 'callback', 'function', 'window', 'document',
-        'script', 'src', 'type', 'text', 'application', 'json', 'css', 'html',
-        // Common false positives from scripts
-        'Meet', 'Hangouts', 'Chrome', 'Browser', 'Android', 'iOS',
-        'Service', 'API', 'SDK', 'Library', 'Framework'
-    ];
-    
+
+    if (trimmed.length < 2 || trimmed.length > 50) return false;
+    if (!/[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/.test(trimmed)) return false;
+    if (trimmed.includes('@') || trimmed.includes('http') || trimmed.includes('://')) return false;
+
     const lowerName = trimmed.toLowerCase();
-    for (const term of blacklistedTerms) {
-        if (lowerName.includes(term.toLowerCase())) {
-            console.log(`📜 [CONTENT] Validation failed: contains blacklisted term "${term}"`);
-            return false;
-        }
-    }
-    
-    // Should look like a name (has space and proper capitalization)
+    if (NAME_BLACKLIST.some(term => lowerName.includes(term))) return false;
+
+    // Multi-word name with proper capitalization (e.g., "FirstName LastName")
     if (trimmed.includes(' ')) {
         const words = trimmed.split(' ');
-        // Check if it looks like "FirstName LastName"
-        const looksLikeName = words.length >= 2 && 
-                             words.every(word => /^[A-ZĄŻĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+$/.test(word));
-        
-        if (looksLikeName) {
-            console.log(`📜 [CONTENT] Validation passed: looks like proper name "${trimmed}"`);
-            return true;
-        }
+        const looksLikeName = words.length >= 2 &&
+            words.every(word => /^[A-ZĄŻĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+$/.test(word));
+        if (looksLikeName) return true;
     }
-    
-    // Single names are less reliable but allow them if they contain Polish characters
-    if (/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/.test(trimmed)) {
-        console.log(`📜 [CONTENT] Validation passed: contains Polish characters "${trimmed}"`);
-        return true;
-    }
-    
-    console.log(`📜 [CONTENT] Validation failed: doesn't look like a name "${trimmed}"`);
+
+    // Single names with Polish characters are acceptable
+    if (/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/.test(trimmed)) return true;
+
     return false;
 }
 
-// Basic DOM detection fallback (very simple)
+// Basic DOM detection fallback
 function detectFromDOMFallback() {
-    console.log('🔍 [CONTENT] Starting basic DOM detection fallback...');
-    
-    // Only try a few safe selectors to avoid picking up "Zamknij"
     const safeSelectors = [
         '[aria-label*="Google Account"] .gb_Ab',
         '.gb_B [role="button"] span:not(.gb_D)',
         '.gb_b .gb_db'
     ];
-    
+
     for (const selector of safeSelectors) {
         try {
-            const elements = document.querySelectorAll(selector);
-            console.log(`🔍 [CONTENT] Trying selector: "${selector}" - found ${elements.length} elements`);
-            
-            for (const element of elements) {
+            for (const element of document.querySelectorAll(selector)) {
                 const text = element.textContent?.trim();
                 if (text && isValidUserNameFallback(text)) {
-                    console.log(`🔍 [CONTENT] Found valid name: "${text}"`);
                     return cleanUserNameFallback(text);
                 }
             }
         } catch (error) {
-            console.warn(`⚠️ [CONTENT] Error with selector "${selector}":`, error);
+            // Selector may not be supported, continue to next
         }
     }
-    
-    console.log('🔍 [CONTENT] Basic DOM detection failed');
+
     return null;
 }
 
 // Simple name cleaning for fallback
 function cleanUserNameFallback(name) {
     if (!name) return null;
-    
-    // Basic cleaning
-    let cleaned = name.trim();
-    
-    // Remove email in parentheses
-    cleaned = cleaned.replace(/\s*\([^()]*@[^()]*\)\s*$/, '');
-    
-    // Remove extra whitespace
-    cleaned = cleaned.replace(/\s+/g, ' ').trim();
-    
-    console.log(`🧹 [CONTENT] Cleaned name: "${name}" -> "${cleaned}"`);
-    
-    if (cleaned.length >= 2 && cleaned.length <= 50) {
-        return cleaned;
-    }
-    
-    return null;
+
+    let cleaned = name.trim()
+        .replace(/\s*\([^()]*@[^()]*\)\s*$/, '')  // Remove email in parentheses
+        .replace(/\s+/g, ' ')                       // Collapse whitespace
+        .trim();
+
+    return (cleaned.length >= 2 && cleaned.length <= 50) ? cleaned : null;
 }
 
 // ============================================================================
@@ -521,10 +355,7 @@ async function enableCaptionsIfNeeded() {
 // Initialize user settings
 loadUserSettings();
 
-// Google user name detection is now automatically handled by GoogleUserDetector module
-// The module starts continuous detection when it initializes
-
-// Nasłuchuj wiadomości z popup
+// Listen for messages from popup and background script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'scrapeTranscript') {
         try {
@@ -541,66 +372,31 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         loadUserSettings(); // Reload settings to stay in sync
         sendResponse({ success: true });
     } else if (request.action === 'manualDetectGoogleName') {
-        // Manual Google name detection triggered from settings
         console.log('👤 [CONTENT] Manual Google name detection requested');
-        console.log('👤 [CONTENT] Current page URL:', window.location.href);
-        console.log('👤 [CONTENT] GoogleUserDetector available:', !!window.GoogleUserDetector);
-        
+
         try {
-            let userName = null;
-            
-            if (window.GoogleUserDetector) {
-                console.log('👤 [CONTENT] Using GoogleUserDetector for manual detection');
-                
-                // Get debug info before detection
-                const debugInfo = window.GoogleUserDetector.getDebugInfo();
-                console.log('👤 [CONTENT] GoogleUserDetector debug info:', debugInfo);
-                
-                userName = window.GoogleUserDetector.manualDetect();
-                console.log('👤 [CONTENT] GoogleUserDetector result:', userName);
-                
-                // Get additional debug info after detection
-                const postDebugInfo = window.GoogleUserDetector.getDebugInfo();
-                console.log('👤 [CONTENT] GoogleUserDetector post-detection info:', postDebugInfo);
-                
-            } else {
-                console.log('👤 [CONTENT] Fallback to detectGoogleUserName function');
-                userName = detectGoogleUserName();
-                console.log('👤 [CONTENT] detectGoogleUserName result:', userName);
-            }
-            
+            const userName = window.GoogleUserDetector
+                ? window.GoogleUserDetector.manualDetect()
+                : detectGoogleUserName();
+
             if (userName) {
-                // Test the cleaning process
-                console.log('👤 [CONTENT] Raw detected name:', userName);
-                
                 userSettings.googleUserName = userName;
+                console.log('✅ [CONTENT] Manual detection successful:', userName);
                 sendResponse({ success: true, userName: userName });
-                console.log('✅ [CONTENT] Manual detection successful, final name:', userName);
             } else {
-                // Provide more detailed error information
-                const errorDetails = {
-                    pageUrl: window.location.href,
-                    detectorAvailable: !!window.GoogleUserDetector,
-                    userSettings: userSettings,
-                    detectorState: window.GoogleUserDetector ? window.GoogleUserDetector.state : null
-                };
-                
-                console.log('❌ [CONTENT] Manual detection failed - debug details:', errorDetails);
-                sendResponse({ 
-                    success: false, 
+                console.log('❌ [CONTENT] Manual detection failed');
+                sendResponse({
+                    success: false,
                     error: 'No Google name detected',
-                    debug: errorDetails
+                    debug: {
+                        pageUrl: window.location.href,
+                        detectorAvailable: !!window.GoogleUserDetector
+                    }
                 });
             }
         } catch (error) {
             console.error('❌ [CONTENT] Manual detection error:', error);
-            console.error('❌ [CONTENT] Error stack:', error.stack);
-            
-            sendResponse({
-                success: false,
-                error: error.message,
-                stack: error.stack
-            });
+            sendResponse({ success: false, error: error.message });
         }
     } else if (request.action === 'enableCaptions') {
         // Auto-enable captions handler
@@ -621,111 +417,66 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
         return true; // Keep message channel open for async response
     }
-    return true; // Wskazuje, że odpowiedź będzie asynchroniczna
+    return true; // Keep message channel open for async responses
 });
 
+function createEmptyResult() {
+    return {
+        messages: [],
+        scrapedAt: new Date().toISOString(),
+        meetingUrl: window.location.href
+    };
+}
+
 function scrapeTranscript() {
-    const messages = [];
-    
-    console.log('🔍 [CONTENT DEBUG] Starting transcript scrape at:', new Date().toISOString());
-    
-    // Szukaj głównego kontenera transkrypcji
     const mainContainer = document.querySelector('div[jscontroller="D1tHje"]');
-    console.log('🔍 [CONTENT DEBUG] Main container found:', !!mainContainer);
-    
-    if (!mainContainer) {
-        console.log('🔍 [CONTENT DEBUG] No main container, returning empty');
-        return {
-            messages: [],
-            scrapedAt: new Date().toISOString(),
-            meetingUrl: window.location.href
-        };
-    }
-    
-    // Znajdź kontener z napisami (główny kontener z aria-label="Napisy")
-    const captionsContainer = mainContainer.querySelector('div[aria-label="Napisy"]') || 
-                             mainContainer.querySelector('div[aria-label="Captions"]') || 
+    if (!mainContainer) return createEmptyResult();
+
+    const captionsContainer = mainContainer.querySelector('div[aria-label="Napisy"]') ||
+                             mainContainer.querySelector('div[aria-label="Captions"]') ||
                              mainContainer.querySelector('[aria-label*="captions"], [aria-label*="napisy"]');
-    
-    console.log('🔍 [CONTENT DEBUG] Captions container found:', !!captionsContainer);
-    
-    if (!captionsContainer) {
-        console.log('🔍 [CONTENT DEBUG] No captions container found, returning empty');
-        return {
-            messages: [],
-            scrapedAt: new Date().toISOString(),
-            meetingUrl: window.location.href
-        };
-    }
-    
-    // Znajdź wszystkie wiadomości w kontenerze - każda ma klasę nMcdL
+    if (!captionsContainer) return createEmptyResult();
+
     const messageElements = captionsContainer.querySelectorAll('.nMcdL');
-    console.log('🔍 [CONTENT DEBUG] Message elements found:', messageElements.length);
-    
-    if (messageElements.length === 0) {
-        console.log('🔍 [CONTENT DEBUG] No message elements found, returning empty');
-        return {
-            messages: [],
-            scrapedAt: new Date().toISOString(),
-            meetingUrl: window.location.href
-        };
-    }
-    
-    // Przetwarzaj każdy element z wiadomością
+    if (messageElements.length === 0) return createEmptyResult();
+
+    const messages = [];
+
     messageElements.forEach((messageElement, index) => {
         try {
-            // Wyciągnij nazwę osoby mówiącej
             const speakerElement = messageElement.querySelector('.NWpY1d');
             let speaker = speakerElement ? speakerElement.textContent.trim() : 'Nieznany';
-            
-            // Replace "Ty" with custom display name if set
+
             if (speaker === 'Ty') {
                 speaker = userSettings.displayName;
-                console.log('👤 [CONTENT] Replaced "Ty" with custom name:', speaker);
             }
-            
-            // Wyciągnij tekst transkrypcji
+
             const textElement = messageElement.querySelector('.ygicle.VbkSUe');
             const text = textElement ? textElement.textContent.trim() : '';
-            
-            console.log(`🔍 [CONTENT DEBUG] Element ${index}: speaker="${speaker}", text="${text.substring(0, 50)}..."`);
-            
-            // Waliduj i dodaj wpis
+
             if (text && isValidTranscriptText(text, speaker)) {
                 const sanitizedText = sanitizeTranscriptText(text);
-                
                 if (sanitizedText && isValidTranscriptText(sanitizedText, speaker)) {
-                    const message = {
+                    messages.push({
                         index: index,
                         speaker: speaker,
                         text: sanitizedText,
                         hash: generateHash(speaker, sanitizedText)
-                    };
-                    messages.push(message);
-                    console.log(`✅ [CONTENT DEBUG] Added message ${index}`);
-                } else {
-                    console.log(`❌ [CONTENT DEBUG] Rejected message ${index} after sanitization`);
+                    });
                 }
-            } else {
-                console.log(`❌ [CONTENT DEBUG] Rejected message ${index} - invalid text or too short`);
             }
         } catch (error) {
-            console.error(`❌ Błąd przetwarzania elementu ${index + 1}:`, error);
+            console.error(`❌ Error processing element ${index + 1}:`, error);
         }
     });
-    
-    const result = {
+
+    console.log('🔍 [CONTENT] Scrape completed:', messages.length, 'messages');
+
+    return {
         messages: messages,
         scrapedAt: new Date().toISOString(),
         meetingUrl: window.location.href
     };
-    
-    console.log('🔍 [CONTENT DEBUG] Scrape completed, messages found:', messages.length);
-    if (messages.length > 0) {
-        console.log('🔍 [CONTENT DEBUG] First message:', messages[0]);
-    }
-    
-    return result;
 }
 
 function generateHash(speaker, text) {
@@ -741,17 +492,15 @@ function generateHash(speaker, text) {
 }
 
 function isLanguageSelectionText(text) {
-    // Sprawdź czy tekst to CAŁE menu językowe (bardzo długi tekst z wieloma językami)
-    const isFullLanguageMenu = text.includes('afrikaans (Republika Południowej Afryki)') && 
-                              text.includes('albański (Albania)') && 
-                              text.includes('polski (Polska)') && 
-                              text.length > 500; // Menu językowe jest bardzo długie
-    
-    if (isFullLanguageMenu) {
+    // Full language selection menu (very long text with many languages)
+    if (text.includes('afrikaans (Republika Południowej Afryki)') &&
+        text.includes('albański (Albania)') &&
+        text.includes('polski (Polska)') &&
+        text.length > 500) {
         return true;
     }
-    
-    // Wzorce dla KRÓTKICH tekstów, które to definitywnie elementy UI
+
+    // Short UI element texts
     const shortUIPatterns = [
         /^\s*format_size\s*$/i,
         /^\s*circle\s*$/i,
@@ -767,42 +516,15 @@ function isLanguageSelectionText(text) {
         /^\s*Wielkie\s*$/i,
         /^\s*Olbrzymie\s*$/i
     ];
-    
-    // Sprawdź tylko krótkie teksty UI
-    const isShortUI = shortUIPatterns.some(pattern => pattern.test(text));
-    if (isShortUI) {
-        return true;
-    }
-    
-    return false;
+
+    return shortUIPatterns.some(pattern => pattern.test(text));
 }
 
 function isValidTranscriptText(text, speaker) {
-    // Sprawdź czy tekst nie jest z menu wyboru języka
-    if (isLanguageSelectionText(text)) {
-        return false;
-    }
-    
-    // Sprawdź czy tekst nie jest pusty
-    if (text.length === 0) {
-        return false;
-    }
-    
-    // Sprawdź czy tekst nie składa się tylko z cyfr i znaków specjalnych
-    if (/^[\d\s\-\(\)\[\]]+$/.test(text)) {
-        return false;
-    }
-    
-    // Sprawdź czy tekst to pojedyncze słowa UI (ale nie odrzucaj jeśli są częścią dłuższego tekstu)
-    if (text.length < 20 && /^(settings|arrow_downward|circle|format_size)$/i.test(text)) {
-        return false;
-    }
-    
-    // Bardziej restrykcyjnie sprawdź czy to menu językowe - tylko jeśli zawiera wiele języków
-    if (text.includes('polski (Polska)') && text.includes('afrikaans (Republika') && text.length > 200) {
-        return false;
-    }
-    
+    if (text.length === 0) return false;
+    if (isLanguageSelectionText(text)) return false;
+    if (/^[\d\s\-\(\)\[\]]+$/.test(text)) return false;
+    if (text.length < 20 && /^(settings|arrow_downward|circle|format_size)$/i.test(text)) return false;
     return true;
 }
 

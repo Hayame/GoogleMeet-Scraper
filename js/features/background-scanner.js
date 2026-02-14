@@ -45,11 +45,11 @@ window.BackgroundScanner = {
     async scheduleMerge(data, priority = 0, onComplete = null) {
         const operation = {
             id: ++this._mergeSequence,
-            data: data,
-            priority: priority,
+            data,
+            priority,
             timestamp: Date.now(),
             retryCount: 0,
-            onComplete: onComplete
+            onComplete
         };
 
         // Queue size protection - prevent memory leak
@@ -74,13 +74,12 @@ window.BackgroundScanner = {
      * @private
      */
     async _processMergeQueue() {
-        // Already processing
         if (this._isMerging) {
-            console.log('🔄 [MERGE QUEUE] Already processing');
             return;
         }
 
-        // Process all queued operations
+        const MAX_RETRIES = 3;
+
         while (this._mergeQueue.length > 0) {
             this._isMerging = true;
             const operation = this._mergeQueue.shift();
@@ -91,28 +90,21 @@ window.BackgroundScanner = {
                 await this._performMerge(operation.data);
                 console.log(`✅ [MERGE] Completed #${operation.id}`);
 
-                // Notify completion callback if provided
-                if (operation.onComplete && typeof operation.onComplete === 'function') {
+                if (typeof operation.onComplete === 'function') {
                     try {
                         await operation.onComplete();
-                        console.log(`📢 [MERGE] Callback executed for #${operation.id}`);
                     } catch (callbackError) {
                         console.error(`❌ [MERGE] Callback failed for #${operation.id}:`, callbackError);
                     }
                 }
-
             } catch (error) {
                 console.error(`❌ [MERGE] Failed #${operation.id}:`, error);
 
-                // Retry logic: Re-queue with lower priority
-                const MAX_RETRIES = 3;
                 if (operation.retryCount < MAX_RETRIES) {
                     operation.retryCount++;
-                    operation.priority = Math.max(0, operation.priority - 10); // Lower priority
-
+                    operation.priority = Math.max(0, operation.priority - 10);
                     this._mergeQueue.push(operation);
                     this._mergeQueue.sort((a, b) => b.priority - a.priority);
-
                     console.log(`🔄 [MERGE] Re-queued #${operation.id} (retry ${operation.retryCount}/${MAX_RETRIES})`);
                 } else {
                     console.error(`💀 [MERGE] Dropped #${operation.id} after ${MAX_RETRIES} retries`);
@@ -121,7 +113,6 @@ window.BackgroundScanner = {
         }
 
         this._isMerging = false;
-        console.log('✅ [MERGE QUEUE] Queue processing complete');
     },
 
     /**
@@ -130,57 +121,34 @@ window.BackgroundScanner = {
      * @param {Object} data - Transcript data to merge
      */
     async _performMerge(data) {
-        console.log('🔄 [MERGE] Performing merge operation');
-
-        if (!data || !data.messages) {
+        if (!data?.messages) {
             console.log('🔄 [MERGE] Invalid data structure');
             return;
         }
 
-        const exportTxtBtn = document.getElementById('exportTxtBtn');
-
-        // Get current transcript state
         const currentMessages = window.transcriptData?.messages || [];
         const newMessages = data.messages;
 
-        // Protect against data loss from CC close/reopen
-        // If new data is empty but we have existing data, it means CC was closed - ignore
+        // Protect against data loss: empty scan with existing data means CC was closed
         if (newMessages.length === 0 && currentMessages.length > 0) {
-            console.warn('⚠️ [MERGE] Ignoring empty scan - likely CC was closed. Preserving existing data.');
-            console.warn('⚠️ [MERGE] Current data preserved:', currentMessages.length, 'messages');
+            console.warn('⚠️ [MERGE] Ignoring empty scan - preserving existing', currentMessages.length, 'messages');
             return;
         }
 
-        console.log('🔄 [MERGE] Comparing data:', {
-            currentMessagesCount: currentMessages.length,
-            newMessagesCount: newMessages.length
-        });
-
-        // Detect changes using hash comparison
         const changes = this.detectChanges(currentMessages, newMessages);
 
-        console.log('🔄 [MERGE] Detected changes:', {
-            added: changes.added.length,
-            updated: changes.updated.length,
-            removed: changes.removed.length
-        });
-
-        // If no changes, skip merge
         if (changes.added.length === 0 && changes.updated.length === 0) {
-            console.log('✅ [MERGE] No new messages, data up to date');
             return;
         }
 
         // Initialize or update transcriptData
         if (!window.transcriptData) {
-            console.log('🔄 [MERGE] Initializing transcript data');
             window.transcriptData = {
                 messages: newMessages,
                 scrapedAt: data.scrapedAt,
                 meetingUrl: data.meetingUrl
             };
         } else {
-            console.log('🔄 [MERGE] Updating existing data');
             window.transcriptData.messages = newMessages;
             window.transcriptData.scrapedAt = data.scrapedAt;
             if (data.meetingUrl) {
@@ -188,27 +156,15 @@ window.BackgroundScanner = {
             }
         }
 
-        // Update display with incremental changes
-        if (window.displayTranscript) {
-            window.displayTranscript(window.transcriptData, changes);
-        }
+        window.displayTranscript?.(window.transcriptData, changes);
+        window.updateStats?.(window.transcriptData);
+        window.SearchFilterManager?.completePendingRestoration?.();
 
-        // Update stats
-        if (window.updateStats) {
-            window.updateStats(window.transcriptData);
-        }
-
-        // Complete pending filter restoration
-        if (window.SearchFilterManager && window.SearchFilterManager.completePendingRestoration) {
-            window.SearchFilterManager.completePendingRestoration();
-        }
-
-        // Enable export button
+        const exportTxtBtn = document.getElementById('exportTxtBtn');
         if (exportTxtBtn) {
             exportTxtBtn.disabled = false;
         }
 
-        // Save atomically using TransactionCoordinator
         const saveResult = await window.TransactionCoordinator.saveRecordingState({
             transcriptData: window.transcriptData,
             currentSessionId: window.currentSessionId,
@@ -219,145 +175,104 @@ window.BackgroundScanner = {
             throw new Error(`Save failed: ${saveResult.error}`);
         }
 
-        // Auto-save session
         try {
-            if (window.SessionHistoryManager && window.SessionHistoryManager.autoSaveCurrentSession) {
-                await window.SessionHistoryManager.autoSaveCurrentSession();
-            }
+            await window.SessionHistoryManager?.autoSaveCurrentSession();
         } catch (error) {
             console.error('❌ [BACKGROUND] Auto-save failed:', error);
-            // Session data remains in memory - will retry on next update
         }
 
-        // Update status
-        if (window.updateStatus) {
-            window.updateStatus(
-                `Restored ${changes.added.length} new entries (${window.transcriptData.messages.length} total)`,
-                'success'
-            );
-        }
+        window.updateStatus?.(
+            `Restored ${changes.added.length} new entries (${window.transcriptData.messages.length} total)`,
+            'success'
+        );
 
-        console.log('✅ [MERGE] Merge completed successfully:', {
-            totalMessages: window.transcriptData.messages.length,
-            newlyAdded: changes.added.length
-        });
+        console.log('✅ [MERGE] Merge completed:', changes.added.length, 'added,', window.transcriptData.messages.length, 'total');
     },
 
     /**
      * Initialize background scan message listener
      */
     initializeMessageListener() {
-        // Listen for background scan updates
-        chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {        
+        chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             if (request.action === 'backgroundScanUpdate') {
-                console.log('🔄 Background scan update received');
                 this.handleBackgroundScanUpdate(request.data);
             }
-            
             return true;
+        });
+    },
+
+    /**
+     * Send a runtime message and return a Promise
+     * @private
+     * @param {Object} message - Message to send
+     * @param {string} errorText - Error message on failure
+     * @returns {Promise<Object>} Response from the runtime
+     */
+    _sendRuntimeMessage(message, errorText) {
+        return new Promise((resolve, reject) => {
+            chrome.runtime.sendMessage(message, (response) => {
+                if (response && response.success) {
+                    resolve(response);
+                } else {
+                    reject(new Error(errorText));
+                }
+            });
         });
     },
 
     /**
      * Start background scanning for a specific tab
      * @param {number} tabId - The tab ID to start scanning on
-     * @returns {Promise} Promise that resolves when scanning starts
+     * @returns {Promise<Object>} Response when scanning starts
      */
     async startBackgroundScanning(tabId) {
-        return new Promise((resolve, reject) => {
-            chrome.runtime.sendMessage({
-                action: 'startBackgroundScanning',
-                tabId: tabId
-            }, (response) => {
-                if (response && response.success) {
-                    console.log('🟢 Background scanning started for tab:', tabId);
-                    resolve(response);
-                } else {
-                    console.error('❌ Failed to start background scanning for tab:', tabId);
-                    reject(new Error('Failed to start background scanning'));
-                }
-            });
-        });
+        const response = await this._sendRuntimeMessage(
+            { action: 'startBackgroundScanning', tabId },
+            'Failed to start background scanning'
+        );
+        console.log('🟢 Background scanning started for tab:', tabId);
+        return response;
     },
 
     /**
      * Stop background scanning
-     * @returns {Promise} Promise that resolves when scanning stops
+     * @returns {Promise<Object>} Response when scanning stops
      */
     async stopBackgroundScanning() {
-        return new Promise((resolve, reject) => {
-            chrome.runtime.sendMessage({
-                action: 'stopBackgroundScanning'
-            }, (response) => {
-                if (response && response.success) {
-                    console.log('✅ Background scanning stopped');
-                    resolve(response);
-                } else {
-                    console.error('❌ Failed to stop background scanning');
-                    reject(new Error('Failed to stop background scanning'));
-                }
-            });
-        });
+        const response = await this._sendRuntimeMessage(
+            { action: 'stopBackgroundScanning' },
+            'Failed to stop background scanning'
+        );
+        console.log('✅ Background scanning stopped');
+        return response;
     },
-
-    // ========================================
-    // REACTIVATION HELPER FUNCTIONS
-    // ========================================
 
     /**
      * Find or verify Meet tab for reactivation
+     * Tries stored tab ID first, then falls back to searching all tabs
      * @private
      * @returns {Promise<number|null>} Meet tab ID or null
      */
     async _findOrVerifyMeetTab() {
-        let meetTabId = null;
-
-        // Try to get stored MEET_TAB_ID
         const result = await window.StorageManager.getStorageData([window.AppConstants.STORAGE_KEYS.MEET_TAB_ID]);
         const storedTabId = result[window.AppConstants.STORAGE_KEYS.MEET_TAB_ID];
 
-        if (storedTabId) {
-            console.log('🔍 [REACTIVATE] Found stored MEET_TAB_ID:', storedTabId);
-
-            // Verify tab still exists and is a Meet tab
-            const tabValid = await this.verifyMeetTab(storedTabId);
-
-            if (tabValid) {
-                meetTabId = storedTabId;
-                console.log('✅ [REACTIVATE] Stored tab is still active');
-            } else {
-                console.warn('⚠️ [REACTIVATE] Stored tab no longer exists or is not a Meet tab');
-            }
+        if (storedTabId && await this.verifyMeetTab(storedTabId)) {
+            console.log('✅ [REACTIVATE] Stored Meet tab verified:', storedTabId);
+            return storedTabId;
         }
 
-        // Fallback: If no stored ID or tab invalid, find active Meet tab
-        if (!meetTabId) {
-            console.log('🔍 [REACTIVATE] Searching for active Meet tab as fallback...');
-            meetTabId = await this.findActiveMeetTab();
+        console.log('🔍 [REACTIVATE] Searching for active Meet tab...');
+        const meetTabId = await this.findActiveMeetTab();
 
-            if (meetTabId) {
-                console.log('✅ [REACTIVATE] Found active Meet tab:', meetTabId);
-
-                // Save newly found ID to storage
-                await window.StorageManager.setStorageData({
-                    [window.AppConstants.STORAGE_KEYS.MEET_TAB_ID]: meetTabId
-                });
-                console.log('💾 [REACTIVATE] Saved new MEET_TAB_ID to storage');
-            }
+        if (meetTabId) {
+            await window.StorageManager.setStorageData({
+                [window.AppConstants.STORAGE_KEYS.MEET_TAB_ID]: meetTabId
+            });
+            console.log('✅ [REACTIVATE] Found and saved Meet tab:', meetTabId);
         }
 
         return meetTabId;
-    },
-
-    /**
-     * Handle case when no Meet tab is found
-     * @private
-     */
-    _handleNoMeetTab() {
-        console.error('❌ [REACTIVATE] No Google Meet tab found');
-        if (window.updateStatus) {
-            window.updateStatus('Nie znaleziono aktywnej karty Google Meet', 'error');
-        }
     },
 
     /**
@@ -368,147 +283,75 @@ window.BackgroundScanner = {
      */
     async _recoverAccumulatedData(tabId) {
         const accumulatedData = await this.retrieveAccumulatedScanData(tabId);
-
         if (!accumulatedData) {
-            console.log('📭 [REACTIVATE] No accumulated data to recover');
             return false;
         }
-
-        console.log('📦 [REACTIVATE] Found accumulated data, merging...');
 
         try {
             await this.mergeAccumulatedData(accumulatedData);
-
-            // Only remove from storage if merge succeeded
-            const storageKey = `backgroundScan_${tabId}`;
-            await window.StorageManager.removeStorageData([storageKey]);
-            console.log('🧹 [REACTIVATE] Data merged and cleaned from storage');
-
+            await window.StorageManager.removeStorageData([`backgroundScan_${tabId}`]);
+            console.log('✅ [REACTIVATE] Data merged and cleaned from storage');
             return true;
-
         } catch (mergeError) {
-            console.error('❌ [REACTIVATE] Merge failed, keeping data in storage for retry:', mergeError);
-
-            // Keep data in storage - can retry later
-            if (window.updateStatus) {
-                window.updateStatus('Częściowy błąd przywracania danych - dane zachowane', 'warning');
-            }
-
+            console.error('❌ [REACTIVATE] Merge failed, keeping data for retry:', mergeError);
+            window.updateStatus?.('Częściowy błąd przywracania danych - dane zachowane', 'warning');
             return false;
-        }
-    },
-
-    /**
-     * Restart background scanning for tab
-     * @private
-     * @param {number} tabId - Meet tab ID
-     * @returns {Promise<boolean>} Success status
-     */
-    async _restartBackgroundScanning(tabId) {
-        console.log('🔄 [REACTIVATE] Restarting background scanning for tab:', tabId);
-        return await this.startBackgroundScanningWithRetry(tabId);
-    },
-
-    /**
-     * Handle successful reactivation
-     * @private
-     * @param {boolean} success - Reactivation success status
-     */
-    _handleReactivationResult(success) {
-        if (success) {
-            console.log('✅ [REACTIVATE] ===== REACTIVATION COMPLETED SUCCESSFULLY =====');
-            if (window.updateStatus) {
-                window.updateStatus('Skanowanie w tle wznowione pomyślnie', 'success');
-            }
-        } else {
-            console.error('❌ [REACTIVATE] ===== REACTIVATION FAILED =====');
-            if (window.updateStatus) {
-                window.updateStatus('Nie udało się wznowić skanowania w tle', 'error');
-            }
-        }
-    },
-
-    /**
-     * Handle reactivation error
-     * @private
-     * @param {Error} error - Error object
-     */
-    _handleReactivationError(error) {
-        console.error('❌ [REACTIVATE] Critical error during reactivation:', error);
-        if (window.updateStatus) {
-            window.updateStatus('Błąd reaktywacji: ' + error.message, 'error');
         }
     },
 
     /**
      * Reactivate background scanner after popup opens
      * Handles multiple failure modes with proper fallbacks and retry logic
-     *
      * @returns {Promise<Object>} Result object with success status and details
      */
     async reactivateAfterRestore() {
         try {
-            console.log('🔄 [REACTIVATE] ===== STARTING REACTIVATION =====');
+            console.log('🔄 [REACTIVATE] Starting reactivation');
 
-            // Phase 0: Find Meet tab (with fallback)
             const meetTabId = await this._findOrVerifyMeetTab();
-
             if (!meetTabId) {
-                this._handleNoMeetTab();
+                console.error('❌ [REACTIVATE] No Google Meet tab found');
+                window.updateStatus?.('Nie znaleziono aktywnej karty Google Meet', 'error');
                 return { success: false, reason: 'NO_MEET_TAB' };
             }
 
-            // Phase 1: Recover accumulated data (blocks until merge complete)
             const mergeSuccess = await this._recoverAccumulatedData(meetTabId);
-            console.log(`✅ [REACTIVATE] Merge phase complete (success: ${mergeSuccess})`);
+            const restartSuccess = await this.startBackgroundScanningWithRetry(meetTabId);
 
-            // Phase 2: Restart background scanning
-            const restartSuccess = await this._restartBackgroundScanning(meetTabId);
+            if (restartSuccess) {
+                console.log('✅ [REACTIVATE] Reactivation completed successfully');
+                window.updateStatus?.('Skanowanie w tle wznowione pomyślnie', 'success');
+            } else {
+                console.error('❌ [REACTIVATE] Reactivation failed');
+                window.updateStatus?.('Nie udało się wznowić skanowania w tle', 'error');
+            }
 
-            // Handle result
-            this._handleReactivationResult(restartSuccess);
-
-            return {
-                success: true,
-                mergeSuccess: mergeSuccess,
-                restartSuccess: restartSuccess
-            };
-
+            return { success: true, mergeSuccess, restartSuccess };
         } catch (error) {
-            this._handleReactivationError(error);
+            console.error('❌ [REACTIVATE] Critical error:', error);
+            window.updateStatus?.('Błąd reaktywacji: ' + error.message, 'error');
             return { success: false, error: error.message };
         }
     },
 
+    /** Maximum age for accumulated scan data: 1 hour */
+    _MAX_DATA_AGE: 60 * 60 * 1000,
+
     /**
      * Retrieve accumulated scan data with multi-path recovery
-     * Tries: Primary → Checkpoints → Meeting URL match
-     *
+     * Tries: Primary key, Checkpoints, Meeting URL match
      * @param {number} tabId - Meet tab ID
      * @returns {Promise<Object|null>} Accumulated transcript data or null
      */
     async retrieveAccumulatedScanData(tabId) {
         console.log('🔍 [RETRIEVE] Searching for accumulated data, tabId:', tabId);
 
-        // Recovery path 1: Primary storage key
-        const primaryData = await this._tryPrimaryKey(tabId);
-        if (primaryData) {
-            console.log('✅ [RETRIEVE] Found data via primary key');
-            return primaryData;
-        }
+        const data = await this._tryPrimaryKey(tabId)
+            || await this._tryCheckpoints(tabId)
+            || await this._tryMeetingUrlMatch();
 
-        // Recovery path 2: Checkpoints (if primary failed or outdated)
-        const checkpointData = await this._tryCheckpoints(tabId);
-        if (checkpointData) {
-            console.log('✅ [RETRIEVE] Found data via checkpoint');
-            return checkpointData;
-        }
-
-        // Recovery path 3: Meeting URL match (tab ID reuse protection)
-        const urlMatchData = await this._tryMeetingUrlMatch();
-        if (urlMatchData) {
-            console.log('✅ [RETRIEVE] Found data via meeting URL match');
-            return urlMatchData;
+        if (data) {
+            return data;
         }
 
         console.log('⚠️ [RETRIEVE] No accumulated data found');
@@ -516,17 +359,14 @@ window.BackgroundScanner = {
     },
 
     /**
-     * Merge accumulated data with existing transcript
-     * Now uses priority queue system (priority: 100 = restoration is critical)
+     * Merge accumulated data with existing transcript using high-priority queue
      * @param {Object} accumulatedData - Accumulated transcript data from storage
      * @param {Function|null} onComplete - Optional callback fired after merge completes
      * @returns {Promise<void>} Promise that resolves when merge completes
      */
     async mergeAccumulatedData(accumulatedData, onComplete = null) {
-        console.log('🔄 [MERGE] Scheduling accumulated data merge (high priority)');
-
         return new Promise((resolve) => {
-            const completionCallback = async () => {
+            this.scheduleMerge(accumulatedData, 100, async () => {
                 if (onComplete) {
                     try {
                         await onComplete();
@@ -534,10 +374,8 @@ window.BackgroundScanner = {
                         console.error('❌ [MERGE] Custom callback failed:', error);
                     }
                 }
-                resolve(); // Always resolve Promise after merge
-            };
-
-            this.scheduleMerge(accumulatedData, 100, completionCallback);
+                resolve();
+            });
         });
     },
 
@@ -553,16 +391,12 @@ window.BackgroundScanner = {
             const result = await window.StorageManager.getStorageData([storageKey]);
             const scanData = result[storageKey];
 
-            if (!scanData || !scanData.data) {
+            if (!scanData?.data) {
                 return null;
             }
 
-            // Check age (1 hour max)
-            const dataAge = Date.now() - scanData.timestamp;
-            const MAX_AGE = 60 * 60 * 1000;
-
-            if (dataAge > MAX_AGE) {
-                console.warn(`⚠️ [RETRIEVE] Primary data too old (${Math.round(dataAge / 60000)} minutes)`);
+            if (Date.now() - scanData.timestamp > this._MAX_DATA_AGE) {
+                console.warn(`⚠️ [RETRIEVE] Primary data too old (${Math.round((Date.now() - scanData.timestamp) / 60000)} min)`);
                 return null;
             }
 
@@ -585,7 +419,7 @@ window.BackgroundScanner = {
             const checkpointKeys = Object.keys(allData)
                 .filter(k => k.startsWith(`checkpoint_${tabId}_`))
                 .sort()
-                .reverse(); // Most recent first
+                .reverse();
 
             if (checkpointKeys.length === 0) {
                 return null;
@@ -593,19 +427,14 @@ window.BackgroundScanner = {
 
             const latestCheckpoint = allData[checkpointKeys[0]];
 
-            // Verify checkpoint age
-            const checkpointAge = Date.now() - latestCheckpoint.timestamp;
-            const MAX_AGE = 60 * 60 * 1000;
-
-            if (checkpointAge > MAX_AGE) {
-                console.warn(`⚠️ [RETRIEVE] Checkpoint too old (${Math.round(checkpointAge / 60000)} minutes)`);
+            if (Date.now() - latestCheckpoint.timestamp > this._MAX_DATA_AGE) {
+                console.warn('⚠️ [RETRIEVE] Checkpoint too old, removing');
                 await chrome.storage.local.remove(checkpointKeys);
                 return null;
             }
 
             console.log(`💾 [RETRIEVE] Using checkpoint (${latestCheckpoint.data.messages.length} messages)`);
             return latestCheckpoint.data;
-
         } catch (error) {
             console.error('❌ [RETRIEVE] Checkpoint recovery failed:', error);
             return null;
@@ -620,30 +449,24 @@ window.BackgroundScanner = {
     async _tryMeetingUrlMatch() {
         try {
             const currentMeetingUrl = window.transcriptData?.meetingUrl;
-
             if (!currentMeetingUrl) {
-                console.log('⚠️ [RETRIEVE] No current meeting URL for matching');
                 return null;
             }
 
             const allData = await chrome.storage.local.get(null);
 
-            // Search all backgroundScan_* keys for matching URL
             for (const [key, value] of Object.entries(allData)) {
-                if (key.startsWith('backgroundScan_') && value.meetingUrl === currentMeetingUrl) {
-                    console.log(`🔗 [RETRIEVE] Found data by URL match: ${key}`);
-
-                    // Verify age
-                    const dataAge = Date.now() - value.timestamp;
-                    const MAX_AGE = 60 * 60 * 1000;
-
-                    if (dataAge > MAX_AGE) {
-                        console.warn('⚠️ [RETRIEVE] URL-matched data too old');
-                        return null;
-                    }
-
-                    return value.data;
+                if (!key.startsWith('backgroundScan_') || value.meetingUrl !== currentMeetingUrl) {
+                    continue;
                 }
+
+                if (Date.now() - value.timestamp > this._MAX_DATA_AGE) {
+                    console.warn('⚠️ [RETRIEVE] URL-matched data too old');
+                    return null;
+                }
+
+                console.log(`🔗 [RETRIEVE] Found data by URL match: ${key}`);
+                return value.data;
             }
 
             return null;
@@ -659,32 +482,24 @@ window.BackgroundScanner = {
      */
     async flushPendingData() {
         try {
-            console.log('💾 [FLUSH] Flushing pending background scan data');
-
-            const meetTabId = await window.StorageManager.getStorageData([
+            const result = await window.StorageManager.getStorageData([
                 window.AppConstants.STORAGE_KEYS.MEET_TAB_ID
             ]);
+            const tabId = result[window.AppConstants.STORAGE_KEYS.MEET_TAB_ID];
 
-            if (!meetTabId.meetTabId) {
-                console.log('⚠️ [FLUSH] No meet tab ID found');
+            if (!tabId) {
                 return;
             }
 
-            const accumulatedData = await this.retrieveAccumulatedScanData(meetTabId.meetTabId);
-
-            if (accumulatedData && accumulatedData.messages?.length > 0) {
-                console.log(`💾 [FLUSH] Found ${accumulatedData.messages.length} messages to merge`);
-
-                // Force merge even if popup closing
-                await this.mergeAccumulatedData(accumulatedData);
-
-                // Cleanup storage after successful merge
-                await this._cleanupBackgroundScanData(meetTabId.meetTabId);
-
-                console.log('✅ [FLUSH] Data flushed successfully');
-            } else {
-                console.log('💾 [FLUSH] No pending data to flush');
+            const accumulatedData = await this.retrieveAccumulatedScanData(tabId);
+            if (!accumulatedData?.messages?.length) {
+                return;
             }
+
+            console.log(`💾 [FLUSH] Merging ${accumulatedData.messages.length} pending messages`);
+            await this.mergeAccumulatedData(accumulatedData);
+            await this._cleanupBackgroundScanData(tabId);
+            console.log('✅ [FLUSH] Data flushed successfully');
         } catch (error) {
             console.error('❌ [FLUSH] Failed to flush data:', error);
         }
@@ -727,57 +542,35 @@ window.BackgroundScanner = {
     async verifyMeetTab(tabId) {
         return new Promise((resolve) => {
             chrome.tabs.get(tabId, (tab) => {
-                if (chrome.runtime.lastError) {
-                    console.log('🔍 [VERIFY] Karta nie istnieje:', chrome.runtime.lastError.message);
+                if (chrome.runtime.lastError || !tab?.url) {
                     resolve(false);
                     return;
                 }
-
-                if (!tab || !tab.url) {
-                    console.log('🔍 [VERIFY] Karta nie ma URL');
-                    resolve(false);
-                    return;
-                }
-
-                const isMeetTab = tab.url.includes('meet.google.com');
-                console.log('🔍 [VERIFY] Karta', tabId, isMeetTab ? 'JEST' : 'NIE JEST', 'kartą Meet');
-                resolve(isMeetTab);
+                resolve(tab.url.includes('meet.google.com'));
             });
         });
     },
 
     /**
      * Find active Google Meet tab as fallback
-     * Used when MEET_TAB_ID doesn't exist in storage or is invalid
+     * Tries active tab in current window first, then any Meet tab
      * @returns {Promise<number|null>} Meet tab ID or null
      */
     async findActiveMeetTab() {
         try {
-            // Try 1: Find active tab in current window
-            const activeTabs = await chrome.tabs.query({
-                active: true,
-                currentWindow: true,
-                url: 'https://meet.google.com/*'
-            });
+            const meetUrl = 'https://meet.google.com/*';
 
-            if (activeTabs && activeTabs.length > 0) {
-                console.log('🔍 [FIND] Znaleziono aktywną kartę Meet w bieżącym oknie:', activeTabs[0].id);
+            const activeTabs = await chrome.tabs.query({ active: true, currentWindow: true, url: meetUrl });
+            if (activeTabs?.length > 0) {
                 return activeTabs[0].id;
             }
 
-            // Try 2: Find ANY Meet tab (even inactive)
-            const anyMeetTabs = await chrome.tabs.query({
-                url: 'https://meet.google.com/*'
-            });
-
-            if (anyMeetTabs && anyMeetTabs.length > 0) {
-                console.log('🔍 [FIND] Znaleziono kartę Meet (nieaktywna):', anyMeetTabs[0].id);
+            const anyMeetTabs = await chrome.tabs.query({ url: meetUrl });
+            if (anyMeetTabs?.length > 0) {
                 return anyMeetTabs[0].id;
             }
 
-            console.log('🔍 [FIND] Nie znaleziono żadnej karty Meet');
             return null;
-
         } catch (error) {
             console.error('❌ [FIND] Error finding Meet tab:', error);
             return null;
@@ -793,26 +586,17 @@ window.BackgroundScanner = {
     async startBackgroundScanningWithRetry(tabId, maxRetries = 3) {
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             try {
-                console.log(`🔄 [RETRY] Próba ${attempt}/${maxRetries} restart skanowania...`);
-
                 await this.startBackgroundScanning(tabId);
-
-                console.log(`✅ [RETRY] Sukces na próbie ${attempt}`);
                 return true;
-
             } catch (error) {
-                console.warn(`⚠️ [RETRY] Próba ${attempt} nieudana:`, error.message);
-
+                console.warn(`⚠️ [RETRY] Attempt ${attempt}/${maxRetries} failed:`, error.message);
                 if (attempt < maxRetries) {
-                    console.log(`🔄 [RETRY] Oczekiwanie 1 sekundę przed następną próbą...`);
                     await new Promise(resolve => setTimeout(resolve, 1000));
-                } else {
-                    console.error(`❌ [RETRY] Wszystkie ${maxRetries} próby wyczerpane`);
-                    return false;
                 }
             }
         }
 
+        console.error(`❌ [RETRY] All ${maxRetries} attempts exhausted`);
         return false;
     },
 
@@ -823,113 +607,60 @@ window.BackgroundScanner = {
      * @returns {Object} Object with added, updated, and removed arrays
      */
     detectChanges(oldMessages, newMessages) {
-        const changes = {
-            added: [],
-            updated: [],
-            removed: []
-        };
-        
-        // Debug: log input parameters
-        console.log('🔍 [DEBUG] detectChanges input:', {
-            oldCount: oldMessages ? oldMessages.length : 0,
-            newCount: newMessages ? newMessages.length : 0
-        });
-        
-        // Handle null/empty cases
+        const changes = { added: [], updated: [], removed: [] };
+
         if (!oldMessages || oldMessages.length === 0) {
-            // All new messages are added
-            if (newMessages && newMessages.length > 0) {
+            if (newMessages?.length > 0) {
                 changes.added = [...newMessages];
-                console.log('🔍 [DEBUG] No old messages, all new messages added:', changes.added.length);
             }
             return changes;
         }
-        
+
         if (!newMessages || newMessages.length === 0) {
-            // All old messages are removed
             changes.removed = [...oldMessages];
-            console.log('🔍 [DEBUG] No new messages, all old messages removed:', changes.removed.length);
             return changes;
         }
-        
-        // Create hash maps for efficient lookups
+
+        // Build hash maps for efficient lookups
         const oldHashes = new Map();
         const newHashes = new Map();
-        
-        // Map old messages by hash for quick lookup
+
         oldMessages.forEach((msg, index) => {
             oldHashes.set(msg.hash, { ...msg, originalIndex: index });
         });
-        
-        // Map new messages by hash  
         newMessages.forEach((msg, index) => {
             newHashes.set(msg.hash, { ...msg, originalIndex: index });
         });
-        
-        console.log('🔍 [DEBUG] Hash comparison:', {
-            oldHashes: oldHashes.size,
-            newHashes: newHashes.size,
-            oldHashSample: Array.from(oldHashes.keys()).slice(0, 3),
-            newHashSample: Array.from(newHashes.keys()).slice(0, 3)
-        });
-        
+
         // First pass: Position-based comparison for updates (same position, same speaker, different text)
         const minLength = Math.min(oldMessages.length, newMessages.length);
         for (let i = 0; i < minLength; i++) {
             const oldMsg = oldMessages[i];
             const newMsg = newMessages[i];
-            
-            if (oldMsg.speaker === newMsg.speaker && oldMsg.hash !== newMsg.hash) {
-                // Same speaker at same position but different hash = update
-                changes.updated.push({
-                    ...newMsg,
-                    index: i,  // Preserve position index
-                    previousText: oldMsg.text
-                });
-                console.log(`🔍 [DEBUG] Updated message at position ${i}:`, newMsg.speaker, `"${oldMsg.text.substring(0, 20)}" -> "${newMsg.text.substring(0, 20)}"`);
-                
-                // Remove from hash maps to avoid double-processing
+
+            if (oldMsg.hash === newMsg.hash) {
                 oldHashes.delete(oldMsg.hash);
                 newHashes.delete(newMsg.hash);
-            } else if (oldMsg.hash === newMsg.hash) {
-                // Identical messages - remove from hash maps
+            } else if (oldMsg.speaker === newMsg.speaker) {
+                changes.updated.push({ ...newMsg, index: i, previousText: oldMsg.text });
                 oldHashes.delete(oldMsg.hash);
                 newHashes.delete(newMsg.hash);
             }
         }
-        
+
         // Second pass: Hash-based comparison for additions/removals
-        // Find new messages (in new but not in old)
-        newHashes.forEach((newMsg, hash) => {
+        for (const [hash, newMsg] of newHashes) {
             if (!oldHashes.has(hash)) {
                 changes.added.push(newMsg);
-                console.log(`🔍 [DEBUG] Added new message:`, newMsg.speaker, newMsg.text.substring(0, 30));
             }
-        });
-        
-        // Find removed messages (in old but not in new)
-        oldHashes.forEach((oldMsg, hash) => {
+        }
+        for (const [hash, oldMsg] of oldHashes) {
             if (!newHashes.has(hash)) {
                 changes.removed.push(oldMsg);
-                console.log(`🔍 [DEBUG] Removed message:`, oldMsg.speaker, oldMsg.text.substring(0, 30));
             }
-        });
-        
-        console.log('🔍 [DEBUG] detectChanges final result:', {
-            added: changes.added.length,
-            updated: changes.updated.length,
-            removed: changes.removed.length
-        });
-        
-        // Log samples for debugging
-        if (changes.updated.length > 0) {
-            console.log('🔍 [DEBUG] Updated message sample:', {
-                speaker: changes.updated[0].speaker,
-                oldText: changes.updated[0].previousText?.substring(0, 30),
-                newText: changes.updated[0].text.substring(0, 30)
-            });
         }
-        
+
+        console.log('🔍 [CHANGES] added:', changes.added.length, 'updated:', changes.updated.length, 'removed:', changes.removed.length);
         return changes;
     },
 
@@ -938,9 +669,7 @@ window.BackgroundScanner = {
      */
     initialize() {
         this.initializeMessageListener();
-        // Expose detectChanges globally for backward compatibility
         window.detectChanges = this.detectChanges.bind(this);
-        
-        console.log('🔄 Background Scanner initialized');
+        console.log('🔄 [SCANNER] BackgroundScanner initialized');
     }
 };

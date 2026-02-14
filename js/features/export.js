@@ -7,36 +7,34 @@
 window.ExportManager = {
 
     /**
-     * Initialize export modal and setup event handlers
+     * Replace an element with a fresh clone to remove all existing event listeners,
+     * then return the new element by re-querying the DOM.
      */
-    initializeExportModal() {    
-        // Set up export button handlers directly on existing buttons
-        this.setupExportButtonHandlers();
+    _replaceWithClone(elementId) {
+        const el = document.getElementById(elementId);
+        if (!el) return null;
+        el.replaceWith(el.cloneNode(true));
+        return document.getElementById(elementId);
     },
 
     /**
      * Setup export button event handlers
      */
-    setupExportButtonHandlers() {    
-        const exportTxtBtn = document.getElementById('exportTxtBtn');
-        const exportClipboardBtn = document.getElementById('exportClipboardBtn');
+    setupExportButtonHandlers() {
         const exportAsLLMPrompt = document.getElementById('exportAsLLMPrompt');
-        
+
+        const exportTxtBtn = this._replaceWithClone('exportTxtBtn');
         if (exportTxtBtn) {
-            // Remove existing event listeners to prevent duplication
-            exportTxtBtn.replaceWith(exportTxtBtn.cloneNode(true));
-            const newExportTxtBtn = document.getElementById('exportTxtBtn');
-            
-            newExportTxtBtn.addEventListener('click', async () => {
+            exportTxtBtn.addEventListener('click', async () => {
                 if (!window.transcriptData) {
                     this._updateStatus('Brak danych do eksportu', 'error');
                     return;
                 }
-                
+
                 const shouldWrapInPrompt = exportAsLLMPrompt?.checked ?? true;
                 const content = await this.prepareExportContent(shouldWrapInPrompt);
                 const filename = shouldWrapInPrompt ? 'transkrypcja-z-promptem.txt' : 'transkrypcja-google-meet.txt';
-                
+
                 this.downloadFile(content, filename, 'text/plain');
                 this._updateStatus('Wyeksportowano do pliku!', 'success');
                 this._hideModal('exportModal');
@@ -44,21 +42,18 @@ window.ExportManager = {
         } else {
             console.error('Export TXT button not found');
         }
-        
+
+        const exportClipboardBtn = this._replaceWithClone('exportClipboardBtn');
         if (exportClipboardBtn) {
-            // Remove existing event listeners to prevent duplication
-            exportClipboardBtn.replaceWith(exportClipboardBtn.cloneNode(true));
-            const newExportClipboardBtn = document.getElementById('exportClipboardBtn');
-            
-            newExportClipboardBtn.addEventListener('click', async () => {
+            exportClipboardBtn.addEventListener('click', async () => {
                 if (!window.transcriptData) {
                     this._updateStatus('Brak danych do eksportu', 'error');
                     return;
                 }
-                
+
                 const shouldWrapInPrompt = exportAsLLMPrompt?.checked ?? true;
                 const content = await this.prepareExportContent(shouldWrapInPrompt);
-                
+
                 await this.copyToClipboard(content);
                 this._hideModal('exportModal');
             });
@@ -68,28 +63,20 @@ window.ExportManager = {
     },
 
     /**
-     * Create immutable snapshot of transcript data
-     * Prevents data corruption during export if background scanner updates
+     * Create immutable snapshot of transcript data.
+     * Deep clones to prevent data corruption if background scanner updates during export.
      * @returns {Object} Deep cloned snapshot of transcript data
      */
     createDataSnapshot() {
-        if (!window.transcriptData) {
-            return {
-                messages: [],
-                scrapedAt: new Date().toISOString(),
-                meetingUrl: '',
-                exportedAt: new Date().toISOString(),
-                messageCount: 0
-            };
-        }
+        const now = new Date().toISOString();
+        const messages = window.transcriptData?.messages || [];
 
-        // Deep clone to prevent reference sharing
         return {
-            messages: JSON.parse(JSON.stringify(window.transcriptData.messages || [])),
-            scrapedAt: window.transcriptData.scrapedAt,
-            meetingUrl: window.transcriptData.meetingUrl,
-            exportedAt: new Date().toISOString(),
-            messageCount: window.transcriptData.messages?.length || 0
+            messages: JSON.parse(JSON.stringify(messages)),
+            scrapedAt: window.transcriptData?.scrapedAt || now,
+            meetingUrl: window.transcriptData?.meetingUrl || '',
+            exportedAt: now,
+            messageCount: messages.length
         };
     },
 
@@ -98,42 +85,46 @@ window.ExportManager = {
      * @param {Object} dataSnapshot - Immutable snapshot of transcript data
      */
     generateTxtContent(dataSnapshot) {
-        if (!dataSnapshot || !dataSnapshot.messages) {
+        if (!dataSnapshot?.messages) {
             console.error('No transcript data available in snapshot');
             return '';
         }
 
-        let txtContent = `Transkrypcja Google Meet\n`;
-        txtContent += `Data eksportu: ${new Date(dataSnapshot.exportedAt).toLocaleString('pl-PL')}\n`;
-        txtContent += `URL spotkania: ${dataSnapshot.meetingUrl || 'Nieznany'}\n`;
-        txtContent += `Liczba wiadomości: ${dataSnapshot.messageCount}\n`;
-        txtContent += `=====================================\n\n`;
+        const lines = [
+            'Transkrypcja Google Meet',
+            `Data eksportu: ${new Date(dataSnapshot.exportedAt).toLocaleString('pl-PL')}`,
+            `URL spotkania: ${dataSnapshot.meetingUrl || 'Nieznany'}`,
+            `Liczba wiadomości: ${dataSnapshot.messageCount}`,
+            '=====================================',
+            ''
+        ];
 
-        dataSnapshot.messages.forEach(entry => {
-            txtContent += `${entry.speaker}`;
-            if (entry.timestamp) {
-                txtContent += ` [${entry.timestamp}]`;
-            }
-            txtContent += `:\n${entry.text}\n\n`;
-        });
+        for (const entry of dataSnapshot.messages) {
+            const timestamp = entry.timestamp ? ` [${entry.timestamp}]` : '';
+            lines.push(`${entry.speaker}${timestamp}:\n${entry.text}\n`);
+        }
 
-        return txtContent;
+        return lines.join('\n');
     },
 
+    FALLBACK_PROMPT: `# Prompt: Stwórz szczegółowe podsumowanie konwersacji
+
+Na podstawie poniższej transkrypcji stwórz szczegółowe podsumowanie w formacie Markdown.
+
+### Input transkrypcji:`,
+
     /**
-     * Prepare export content based on user preferences
-     * Creates immutable snapshot to prevent corruption during active recording
+     * Prepare export content based on user preferences.
+     * Creates immutable snapshot to prevent corruption during active recording.
      */
     async prepareExportContent(shouldWrapInPrompt) {
-        // CREATE IMMUTABLE SNAPSHOT - prevents data corruption if background updates during export
         const dataSnapshot = this.createDataSnapshot();
         const transcriptContent = this.generateTxtContent(dataSnapshot);
 
-        if (shouldWrapInPrompt) {
-            return await this.wrapWithLLMPrompt(transcriptContent);
-        } else {
+        if (!shouldWrapInPrompt) {
             return transcriptContent;
         }
+        return await this.wrapWithLLMPrompt(transcriptContent);
     },
 
     /**
@@ -142,37 +133,31 @@ window.ExportManager = {
     async wrapWithLLMPrompt(transcriptContent) {
         try {
             const promptTemplate = await this.getPromptTemplate();
-            
-            // Add transcript after the prompt template
             return promptTemplate + '\n' + transcriptContent;
         } catch (error) {
             console.error('Error reading prompt template:', error);
-            // Fallback: return transcript with basic prompt
-            return `# Prompt: Stwórz szczegółowe podsumowanie konwersacji
-
-Na podstawie poniższej transkrypcji stwórz szczegółowe podsumowanie w formacie Markdown.
-
-### Input transkrypcji:
-
-${transcriptContent}`;
+            return this.FALLBACK_PROMPT + '\n\n' + transcriptContent;
         }
+    },
+
+    /**
+     * Fetch the default prompt.md bundled with the extension
+     */
+    async fetchDefaultPrompt() {
+        const response = await fetch(chrome.runtime.getURL('prompt.md'));
+        return await response.text();
     },
 
     /**
      * Get the appropriate prompt template (custom or default)
      */
     async getPromptTemplate() {
-        // Check if we should use default prompt
         const settings = await this.getPromptSettings();
-        
+
         if (settings.useDefaultPrompt) {
-            // Use default prompt.md
-            const response = await fetch(chrome.runtime.getURL('prompt.md'));
-            return await response.text();
-        } else {
-            // Use custom prompt from settings
-            return settings.customPrompt || await this.getDefaultPromptFallback();
+            return await this.fetchDefaultPrompt();
         }
+        return settings.customPrompt || await this.fetchDefaultPrompt();
     },
 
     /**
@@ -182,28 +167,11 @@ ${transcriptContent}`;
         return new Promise((resolve) => {
             chrome.storage.sync.get(['useDefaultPrompt', 'customPrompt'], (result) => {
                 resolve({
-                    useDefaultPrompt: result.useDefaultPrompt !== undefined ? result.useDefaultPrompt : true,
+                    useDefaultPrompt: result.useDefaultPrompt ?? true,
                     customPrompt: result.customPrompt || ''
                 });
             });
         });
-    },
-
-    /**
-     * Get default prompt as fallback
-     */
-    async getDefaultPromptFallback() {
-        try {
-            const response = await fetch(chrome.runtime.getURL('prompt.md'));
-            return await response.text();
-        } catch (error) {
-            console.error('Error loading default prompt fallback:', error);
-            return `# Prompt: Stwórz szczegółowe podsumowanie konwersacji
-
-Na podstawie poniższej transkrypcji stwórz szczegółowe podsumowanie w formacie Markdown.
-
-### Input transkrypcji:`;
-        }
     },
 
     /**
@@ -256,11 +224,8 @@ Na podstawie poniższej transkrypcji stwórz szczegółowe podsumowanie w formac
             return;
         }
 
-        // Create toast element
         const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;
-        
-        // Create toast content
         const icon = type === 'success' ? '✓' : '✕';
         toast.innerHTML = `
             <div class="toast-icon">${icon}</div>
@@ -268,48 +233,34 @@ Na podstawie poniższej transkrypcji stwórz szczegółowe podsumowanie w formac
             <button class="toast-close" onclick="this.parentElement.remove()">×</button>
         `;
 
-        // Add toast to container
         toastContainer.appendChild(toast);
 
-        // Trigger animation
-        setTimeout(() => {
-            toast.classList.add('toast-show');
-        }, 10);
+        // Trigger entrance animation after DOM insertion
+        setTimeout(() => toast.classList.add('toast-show'), 10);
 
-        // Auto-remove after 3 seconds
+        // Auto-remove after 3 seconds with fade-out
         setTimeout(() => {
-            if (toast.parentElement) {
-                toast.classList.remove('toast-show');
-                setTimeout(() => {
-                    if (toast.parentElement) {
-                        toast.remove();
-                    }
-                }, 300);
-            }
+            if (!toast.parentElement) return;
+            toast.classList.remove('toast-show');
+            setTimeout(() => toast.remove(), 300);
         }, 3000);
     },
 
     /**
      * Download file using Chrome downloads API
      */
-    downloadFile(content, filename, mimeType) {    
+    downloadFile(content, filename, mimeType) {
         try {
             const blob = new Blob([content], { type: mimeType });
             const url = URL.createObjectURL(blob);
-            
-            chrome.downloads.download({
-                url: url,
-                filename: filename,
-                saveAs: true
-            }, (downloadId) => {
+
+            chrome.downloads.download({ url, filename, saveAs: true }, (downloadId) => {
                 if (chrome.runtime.lastError) {
                     console.error('Download failed:', chrome.runtime.lastError);
                     this._updateStatus('Błąd podczas pobierania pliku', 'error');
                 } else {
                     console.log('Download started with ID:', downloadId);
                 }
-                
-                // Clean up the object URL
                 setTimeout(() => URL.revokeObjectURL(url), 1000);
             });
         } catch (error) {
@@ -317,7 +268,6 @@ Na podstawie poniższej transkrypcji stwórz szczegółowe podsumowanie w formac
             this._updateStatus('Błąd podczas tworzenia pliku do pobrania', 'error');
         }
     },
-
 
     /**
      * Helper function to update status (delegates to global function if available)
@@ -349,6 +299,6 @@ Na podstawie poniższej transkrypcji stwórz szczegółowe podsumowanie w formac
      */
     initialize() {
         console.log('📤 [EXPORT] ExportManager initialized');
-        this.initializeExportModal();
+        this.setupExportButtonHandlers();
     }
 };

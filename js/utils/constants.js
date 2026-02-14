@@ -75,19 +75,16 @@ const LOG_LEVELS = {
     DEBUG: 'debug'
 };
 
-// Debug configuration - Global console.log control
-// Aby włączyć logi debugowania, zmień ENABLE_CONSOLE_LOGS na true
+// Debug configuration - global console.log control
 const DEBUG_CONFIG = {
-    ENABLE_CONSOLE_LOGS: false, // Zmień na true aby włączyć wszystkie logi
+    ENABLE_CONSOLE_LOGS: false,
     LOG_LEVELS: {
-        ERROR: true,   // Zawsze pokazuj błędy
-        WARN: true,    // Zawsze pokazuj ostrzeżenia  
-        INFO: false,   // Ukryj logi informacyjne
-        DEBUG: false   // Ukryj logi debugowania
+        ERROR: true,
+        WARN: true,
+        INFO: false,
+        DEBUG: false
     }
 };
-
-// Console override is now handled by debug-config.js (loaded first in all contexts)
 
 // Export all constants
 window.AppConstants = {

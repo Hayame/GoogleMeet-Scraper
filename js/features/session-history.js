@@ -5,37 +5,36 @@
 
 window.SessionHistoryManager = {
     /**
+     * Reset all session-related state in StateManager
+     * @private
+     */
+    _resetSessionState() {
+        window.StateManager?.setRecordingStartTime(null);
+        window.StateManager?.setSessionStartTime(null);
+        window.StateManager?.setSessionTotalDuration(0);
+        window.StateManager?.setRecordingStopped(false);
+        window.StateManager?.setRecordingPaused(false);
+    },
+
+    /**
      * Initialize session history from storage
      */
     async initializeSessionHistory() {
         try {
-            // Load session history from storage using StorageManager
             const result = await window.StorageManager.getStorageData(['sessionHistory']);
             window.sessionHistory = result.sessionHistory || [];
             console.log('📁 [HISTORY] Loaded session history:', window.sessionHistory.length, 'sessions');
-
-            // Render the session history UI
-            if (window.SessionUIManager && window.SessionUIManager.renderSessionHistory) {
-                window.SessionUIManager.renderSessionHistory();
-            }
-
-            // Add event listeners for history UI
-            const newSessionBtn = document.getElementById('newSessionBtn');
-            if (newSessionBtn) {
-                // Remove existing event listeners to prevent duplicates
-                newSessionBtn.removeEventListener('click', window.createNewSession);
-                newSessionBtn.addEventListener('click', window.createNewSession);
-                console.log('📁 [HISTORY] New session button event listener added');
-            } else {
-                console.error('New session button not found');
-            }
-
         } catch (error) {
             console.error('❌ [HISTORY] Error loading session history:', error);
             window.sessionHistory = [];
-            if (window.SessionUIManager && window.SessionUIManager.renderSessionHistory) {
-                window.SessionUIManager.renderSessionHistory();
-            }
+        }
+
+        window.SessionUIManager?.renderSessionHistory?.();
+
+        const newSessionBtn = document.getElementById('newSessionBtn');
+        if (newSessionBtn) {
+            newSessionBtn.removeEventListener('click', window.createNewSession);
+            newSessionBtn.addEventListener('click', window.createNewSession);
         }
     },
 
@@ -43,12 +42,11 @@ window.SessionHistoryManager = {
      * Auto-save current session to history
      * Automatically persists the current transcript session to history
      */
-    async autoSaveCurrentSession(data = null) {
-        if (!window.transcriptData || window.transcriptData.messages.length === 0) {
+    async autoSaveCurrentSession() {
+        if (!window.transcriptData?.messages?.length) {
             return;
         }
 
-        // Skip auto-save during state restoration to prevent duplicate sessions
         if (window.StateManager?.isRestorationInProgress()) {
             console.log('🔄 [SESSION AUTOSAVE] Skipping - state restoration in progress');
             return;
@@ -58,20 +56,14 @@ window.SessionHistoryManager = {
         const sessionId = window.currentSessionId || window.generateSessionId();
         const uniqueParticipants = new Set(validMessages.map(m => m.speaker)).size;
 
-        // If session history isn't loaded yet, check storage directly to prevent duplicates
-        if (!window.sessionHistory || window.sessionHistory.length === 0) {
-            console.log('🔄 [SESSION AUTOSAVE] Session history not loaded, checking storage directly');
-
+        // If session history is not loaded, check storage to prevent duplicates
+        if (!window.sessionHistory?.length) {
             const result = await window.StorageManager.getStorageData(['sessionHistory']);
             const storageHistory = result.sessionHistory || [];
-            const existsInStorage = storageHistory.find(s => s.id === sessionId);
-
-            if (existsInStorage) {
-                console.log('🔄 [SESSION AUTOSAVE] Session already exists in storage, skipping duplicate creation');
+            if (storageHistory.find(s => s.id === sessionId)) {
+                console.log('🔄 [SESSION AUTOSAVE] Session already exists in storage, skipping');
                 return;
             }
-            await this._performAutoSave(sessionId, validMessages, uniqueParticipants);
-            return;
         }
 
         await this._performAutoSave(sessionId, validMessages, uniqueParticipants);
@@ -85,56 +77,36 @@ window.SessionHistoryManager = {
      */
     async _performAutoSave(sessionId, validMessages, uniqueParticipants) {
         const existingIndex = window.sessionHistory.findIndex(s => s.id === sessionId);
-
-        // Preserve original metadata if updating, or generate new metadata for new session
-        const originalDate = existingIndex >= 0 ? window.sessionHistory[existingIndex].date : new Date().toISOString();
-        const originalTitle = existingIndex >= 0 ? window.sessionHistory[existingIndex].title : window.generateSessionTitle();
-
-        // Calculate current total duration using TimerManager
-        const currentTotalDuration = window.TimerManager ?
-            window.TimerManager.getTotalDuration() :
-            (window.StateManager?.getSessionTotalDuration() || 0);
-
-        const filteredTranscriptData = {
-            messages: validMessages,
-            scrapedAt: window.transcriptData.scrapedAt,
-            meetingUrl: window.transcriptData.meetingUrl
-        };
+        const isUpdate = existingIndex >= 0;
 
         const session = {
             id: sessionId,
-            title: originalTitle,
-            date: originalDate,
+            title: isUpdate ? window.sessionHistory[existingIndex].title : window.generateSessionTitle(),
+            date: isUpdate ? window.sessionHistory[existingIndex].date : new Date().toISOString(),
             participantCount: uniqueParticipants,
             entryCount: validMessages.length,
-            transcript: filteredTranscriptData,
-            totalDuration: currentTotalDuration
+            transcript: {
+                messages: validMessages,
+                scrapedAt: window.transcriptData.scrapedAt,
+                meetingUrl: window.transcriptData.meetingUrl
+            },
+            totalDuration: window.TimerManager?.getTotalDuration()
+                ?? (window.StateManager?.getSessionTotalDuration() || 0)
         };
 
-        if (existingIndex >= 0) {
+        if (isUpdate) {
             window.sessionHistory[existingIndex] = session;
-            console.log('🔄 [SESSION AUTOSAVE] Updated existing session in history');
         } else {
             window.sessionHistory.unshift(session);
-            console.log('🔄 [SESSION AUTOSAVE] Added new session to history');
         }
-        
-        // Limit history to 50 sessions
+
         if (window.sessionHistory.length > 50) {
             window.sessionHistory = window.sessionHistory.slice(0, 50);
         }
 
-        // Save to storage using TransactionCoordinator for atomic operations
-        // This ensures sessionHistory and currentSessionId are saved together
         const saveResult = await window.TransactionCoordinator.executeTransaction([
-            {
-                key: window.AppConstants.STORAGE_KEYS.SESSION_HISTORY,
-                value: window.sessionHistory
-            },
-            {
-                key: window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID,
-                value: window.currentSessionId
-            }
+            { key: window.AppConstants.STORAGE_KEYS.SESSION_HISTORY, value: window.sessionHistory },
+            { key: window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID, value: window.currentSessionId }
         ]);
 
         if (!saveResult.success) {
@@ -142,17 +114,8 @@ window.SessionHistoryManager = {
             return;
         }
 
-        console.log('✅ [SESSION AUTOSAVE] Session saved atomically in', saveResult.duration, 'ms');
-
-        // Update UI after successful save
-        if (window.SessionUIManager && window.SessionUIManager.renderSessionHistory) {
-            window.SessionUIManager.renderSessionHistory();
-        }
-
-        // Highlight the new/updated session if it's the current one
-        if (sessionId === window.currentSessionId && existingIndex < 0) {
-            // New session was added, it will be highlighted automatically by renderSessionHistory
-        }
+        console.log('✅ [SESSION AUTOSAVE] Session', isUpdate ? 'updated' : 'added', 'in', saveResult.duration, 'ms');
+        window.SessionUIManager?.renderSessionHistory?.();
     },
 
     /**
@@ -160,35 +123,24 @@ window.SessionHistoryManager = {
      * Handles session switching with recording state management
      */
     loadSessionFromHistory(sessionId) {
-        // Cancel any ongoing title editing before loading new session
-        if (window.UIManager && window.UIManager.cancelMeetingNameEdit) {
-            window.UIManager.cancelMeetingNameEdit();
-        }
+        window.UIManager?.cancelMeetingNameEdit?.();
 
         const session = window.sessionHistory?.find(s => s.id === sessionId);
-
         if (!session) {
             console.error('❌ [SESSION] Session not found:', sessionId);
-            window.updateStatus('Nie znaleziono sesji', 'error');
+            window.updateStatus?.('Nie znaleziono sesji', 'error');
             return;
         }
 
-        console.log('✅ [SESSION] Session found:', session.id, session.title);
-
-        // If user clicked on the currently recording session, ignore the click
         if (window.realtimeMode && sessionId === window.currentSessionId) {
-            console.log('User clicked on currently recording session - ignoring');
             return;
         }
 
-        // If recording is active for a different session, show confirmation dialog
         if (window.realtimeMode) {
             this.showStopRecordingConfirmation(sessionId);
             return;
         }
 
-        // Load the session directly if no recording is active
-        // Reset filters when user explicitly loads a different session
         this.performLoadSession(session, true);
     },
 
@@ -197,29 +149,21 @@ window.SessionHistoryManager = {
      * Loads historical session data and updates UI accordingly
      */
     async performLoadSession(session, shouldResetFilters = false) {
-        // Load the session data
         window.transcriptData = session.transcript;
         window.currentSessionId = session.id;
         window.StateManager?.setRecordingStartTime(null);
         window.StateManager?.setSessionStartTime(null);
         window.StateManager?.setSessionTotalDuration(session.totalDuration || 0);
 
-        // Reset search and filters only when explicitly requested (new session)
         if (shouldResetFilters) {
             window.resetSearch();
             window.resetParticipantFilters();
         }
 
-        // Stop any existing timer
         window.stopDurationTimer();
-
         window.displayTranscript(window.transcriptData);
         window.updateStats(window.transcriptData);
-
-        // Complete pending filter restoration now that transcript data is loaded
-        if (window.SearchFilterManager && window.SearchFilterManager.completePendingRestoration) {
-            window.SearchFilterManager.completePendingRestoration();
-        }
+        window.SearchFilterManager?.completePendingRestoration?.();
         window.updateDurationDisplay();
 
         const exportTxtBtn = document.getElementById('exportTxtBtn');
@@ -227,7 +171,6 @@ window.SessionHistoryManager = {
             exportTxtBtn.disabled = false;
         }
 
-        // Save historical session state to storage
         try {
             await window.StorageManager.setStorageData({
                 [window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA]: window.transcriptData,
@@ -236,23 +179,14 @@ window.SessionHistoryManager = {
                 [window.AppConstants.STORAGE_KEYS.REALTIME_MODE]: false,
                 [window.AppConstants.STORAGE_KEYS.SESSION_STATE]: window.AppConstants.SESSION_STATES.HISTORICAL_SESSION
             });
-            console.log('✅ [SESSION] Historical session state saved to storage');
         } catch (error) {
             console.error('❌ [SESSION] Failed to save historical session state:', error);
         }
 
-        // Update UI for historical session
         window.showMeetingName(session.title, session.id);
         window.updateButtonVisibility('HISTORICAL');
-
-        if (window.updateClearButtonState) {
-            window.updateClearButtonState();
-        }
-
-        // Refresh session list to update highlighting
-        if (window.SessionUIManager && window.SessionUIManager.renderSessionHistory) {
-            window.SessionUIManager.renderSessionHistory();
-        }
+        window.updateClearButtonState?.();
+        window.SessionUIManager?.renderSessionHistory?.();
     },
 
     /**
@@ -320,75 +254,50 @@ window.SessionHistoryManager = {
      */
     async performDeleteSession(sessionId) {
         window.sessionHistory = window.sessionHistory.filter(s => s.id !== sessionId);
-        
-        // If deleting current session, clear it and show empty session
+
         if (window.currentSessionId === sessionId) {
-            // Stop recording if active
             if (window.realtimeMode) {
-                console.log('🔴 [DELETE] Stopping active recording due to session deletion');
-                window.deactivateRealtimeMode();
+                window.deactivateRealtimeMode?.();
             }
-            
+
             window.transcriptData = null;
             window.currentSessionId = null;
             window.displayTranscript({ messages: [] });
             window.updateStats({ messages: [] });
-            
+
             const exportTxtBtn = document.getElementById('exportTxtBtn');
             if (exportTxtBtn) {
                 exportTxtBtn.disabled = true;
             }
-            
-            // Reset timer and duration
-            window.StateManager?.setRecordingStartTime(null);
-            window.StateManager?.setSessionStartTime(null);
-            window.StateManager?.setSessionTotalDuration(0);
+
+            this._resetSessionState();
             window.stopDurationTimer();
-            
-            // Update duration display to show 0:00
+
             const durationElement = document.getElementById('duration');
             if (durationElement) {
                 durationElement.textContent = '0:00';
             }
-            
-            // Update UI for new session state
+
             window.updateButtonVisibility('NEW');
             window.hideMeetingName();
 
-            // Remove current session from storage
+            const SK = window.AppConstants.STORAGE_KEYS;
             try {
                 await window.StorageManager.removeStorageData([
-                    window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA,
-                    window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID,
-                    window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME,
-                    window.AppConstants.STORAGE_KEYS.SESSION_START_TIME,
-                    window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION,
-                    window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_DURATION,
-                    window.AppConstants.STORAGE_KEYS.MEET_TAB_ID
+                    SK.TRANSCRIPT_DATA, SK.CURRENT_SESSION_ID,
+                    SK.RECORDING_START_TIME, SK.SESSION_START_TIME,
+                    SK.SESSION_TOTAL_DURATION, SK.CURRENT_SESSION_DURATION, SK.MEET_TAB_ID
                 ]);
-                console.log('✅ [DELETE] Removed current session from storage');
             } catch (error) {
                 console.error('❌ [DELETE] Failed to remove session keys:', error);
-                // Non-fatal - continue with deletion
             }
         }
 
-        // Save updated history
         try {
             await window.StorageManager.saveSessionHistory(window.sessionHistory);
-
-            // Update UI after successful save
-            if (window.SessionUIManager && window.SessionUIManager.renderSessionHistory) {
-                window.SessionUIManager.renderSessionHistory();
-            }
-
-            // Update clear button state after deletion
-            if (window.updateClearButtonState) {
-                window.updateClearButtonState();
-            }
-
+            window.SessionUIManager?.renderSessionHistory?.();
+            window.updateClearButtonState?.();
             window.updateStatus('Sesja usunięta', 'success');
-            console.log('✅ [DELETE] Session deleted and history updated');
         } catch (error) {
             console.error('❌ [DELETE] Failed to save updated history:', error);
             window.updateStatus('Błąd podczas usuwania sesji', 'error');
@@ -470,16 +379,9 @@ window.SessionHistoryManager = {
      * Stops active recording (if any) and creates a new empty session
      */
     createNewSession() {
-        console.log('🆕 [NEW SESSION] createNewSession() called');
-
-        // Stop recording if active (auto-save will handle the session)
         if (window.realtimeMode) {
-            console.log('🆕 [NEW SESSION] Stopping active recording first');
-            if (window.deactivateRealtimeMode) {
-                window.deactivateRealtimeMode();
-            }
+            window.deactivateRealtimeMode?.();
         }
-
         this.performNewSessionCreation();
     },
 
@@ -488,63 +390,29 @@ window.SessionHistoryManager = {
      * Clears current session data and initializes new empty session
      */
     async performNewSessionCreation() {
-        // Clear current data and generate new session ID
         window.transcriptData = null;
         window.currentSessionId = window.generateSessionId ? window.generateSessionId() : 'session_' + Date.now();
 
-        // Reset session state using StateManager
-        window.StateManager?.setRecordingStartTime(null);
-        window.StateManager?.setSessionStartTime(null);
-        window.StateManager?.setSessionTotalDuration(0);
-        window.StateManager?.setRecordingStopped(false);
-        window.StateManager?.setRecordingPaused(false);
+        this._resetSessionState();
 
         console.log('🆕 [NEW SESSION] Created new session ID:', window.currentSessionId);
 
-        // Refresh session list to remove highlighting from previous session
-        if (window.SessionUIManager && window.SessionUIManager.renderSessionHistory) {
-            window.SessionUIManager.renderSessionHistory();
-        }
+        window.SessionUIManager?.renderSessionHistory?.();
+        window.stopDurationTimer?.();
+        window.resetSearch?.();
+        window.resetParticipantFilters?.();
+        window.hideMeetingName?.();
+        window.displayTranscript?.({ messages: [] });
+        window.updateStats?.({ messages: [] });
+        window.updateDurationDisplay?.();
 
-        // Stop any existing timer
-        if (window.stopDurationTimer) {
-            window.stopDurationTimer();
-        }
-
-        // Reset search and filters for clean new session
-        if (window.resetSearch) {
-            window.resetSearch();
-        }
-        if (window.resetParticipantFilters) {
-            window.resetParticipantFilters();
-        }
-        if (window.hideMeetingName) {
-            window.hideMeetingName();
-        }
-
-        // Clear transcript display and update stats
-        if (window.displayTranscript) {
-            window.displayTranscript({ messages: [] });
-        }
-        if (window.updateStats) {
-            window.updateStats({ messages: [] });
-        }
-        if (window.updateDurationDisplay) {
-            window.updateDurationDisplay();
-        }
-
-        // Disable export button for new empty session
         const exportTxtBtn = document.getElementById('exportTxtBtn');
         if (exportTxtBtn) {
             exportTxtBtn.disabled = true;
         }
 
-        // Update UI for new session state
-        if (window.updateButtonVisibility) {
-            window.updateButtonVisibility('NEW');
-        }
+        window.updateButtonVisibility?.('NEW');
 
-        // Clear storage for new session
         try {
             await window.StorageManager.removeStorageData([
                 window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA,
@@ -554,28 +422,18 @@ window.SessionHistoryManager = {
                 window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION,
                 window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_DURATION
             ]);
-            console.log('✅ [NEW SESSION] Cleared storage for new session');
         } catch (error) {
             console.error('❌ [NEW SESSION] Failed to clear storage:', error);
         }
-
-        console.log('🆕 [NEW SESSION] New session created successfully');
     },
 
     /**
      * Initialize SessionHistoryManager module
      */
     async initialize() {
-        console.log('📚 [SESSION] SessionHistoryManager initializing...');
-
-        // Load session history from storage
         await this.initializeSessionHistory();
-        console.log('📚 [SESSION] Session history loaded successfully');
-
-        // Set up global aliases for backward compatibility
         this.setupGlobalAliases();
-
-        console.log('📚 [SESSION] SessionHistoryManager initialization complete');
+        console.log('📚 [SESSION] SessionHistoryManager initialized');
     },
 
     /**
@@ -584,54 +442,29 @@ window.SessionHistoryManager = {
      */
     async clearCurrentTranscript() {
         console.log('🧹 [CLEAR] Clearing current transcript');
-        
-        // Stop recording if active
-        if (window.realtimeMode && window.deactivateRealtimeMode) {
-            window.deactivateRealtimeMode();
-        }
-        
-        // Stop any active timer
-        if (window.TimerManager && window.TimerManager.stopDurationTimer) {
-            window.TimerManager.stopDurationTimer();
-        }
-        
-        // Reset ALL transcript-related variables using StateManager
-        window.transcriptData = null;
-        window.currentSessionId = null;
-        window.StateManager?.setRecordingStartTime(null);
-        window.StateManager?.setSessionStartTime(null);
-        window.StateManager?.setSessionTotalDuration(0);
-        window.StateManager?.setRecordingStopped(false);
-        window.StateManager?.setRecordingPaused(false);
-        
-        // Update UI
-        if (window.displayTranscript) window.displayTranscript({ messages: [] });
-        if (window.updateStats) window.updateStats({ messages: [] });
-        if (window.TimerManager && window.TimerManager.updateDurationDisplay) {
-            window.TimerManager.updateDurationDisplay();
-        }
-        
-        // Disable export button
-        const exportTxtBtn = document.getElementById('exportTxtBtn');
-        if (exportTxtBtn) exportTxtBtn.disabled = true;
-        
-        // Update status
-        if (window.UIManager && window.UIManager.updateStatus) {
-            window.UIManager.updateStatus('Transkrypcja wyczyszczona', 'info');
-        }
-        
-        // Show record button for new session
-        const recordBtn = document.getElementById('recordBtn');
-        if (recordBtn) {
-            recordBtn.style.display = 'flex';
-        }
-        
-        // Update button visibility for new session
-        if (window.UIManager) {
-            window.UIManager.updateButtonVisibility('NEW');
+
+        if (window.realtimeMode) {
+            window.deactivateRealtimeMode?.();
         }
 
-        // Clear from storage
+        window.TimerManager?.stopDurationTimer();
+
+        window.transcriptData = null;
+        window.currentSessionId = null;
+        this._resetSessionState();
+
+        window.displayTranscript?.({ messages: [] });
+        window.updateStats?.({ messages: [] });
+        window.TimerManager?.updateDurationDisplay();
+
+        const exportTxtBtn = document.getElementById('exportTxtBtn');
+        if (exportTxtBtn) {
+            exportTxtBtn.disabled = true;
+        }
+
+        window.UIManager?.updateStatus('Transkrypcja wyczyszczona', 'info');
+        window.UIManager?.updateButtonVisibility('NEW');
+
         try {
             await window.StorageManager.removeStorageData([
                 window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA,
@@ -640,10 +473,8 @@ window.SessionHistoryManager = {
                 window.AppConstants.STORAGE_KEYS.SESSION_START_TIME,
                 window.AppConstants.STORAGE_KEYS.MEET_TAB_ID
             ]);
-            console.log('✅ [CLEAR] Transcript data cleared from storage');
         } catch (error) {
             console.error('❌ [CLEAR] Failed to clear storage:', error);
-            // UI already cleared, storage cleanup is best-effort
         }
     },
 
@@ -654,70 +485,29 @@ window.SessionHistoryManager = {
     showEmptySession() {
         console.log('🆕 [EMPTY SESSION] Showing empty session');
 
-        // Cancel any ongoing title editing before showing empty session
-        if (window.UIManager && window.UIManager.cancelMeetingNameEdit) {
-            window.UIManager.cancelMeetingNameEdit();
-        }
+        window.UIManager?.cancelMeetingNameEdit?.();
 
-        // Clear session data using StateManager
         window.transcriptData = null;
         window.currentSessionId = null;
-        window.StateManager?.setRecordingStartTime(null);
-        window.StateManager?.setSessionStartTime(null);
-        window.StateManager?.setSessionTotalDuration(0);
-        window.StateManager?.setRecordingStopped(false);
-        window.StateManager?.setRecordingPaused(false);
+        this._resetSessionState();
 
-        // Reset search and filters
-        if (window.SearchFilterManager) {
-            window.SearchFilterManager.resetSearch();
-            window.SearchFilterManager.resetParticipantFilters();
-        }
-
-        // Hide meeting name
-        if (window.UIManager) {
-            window.UIManager.hideMeetingName();
-        }
-
-        // Stop any existing timer
-        if (window.TimerManager) {
-            window.TimerManager.stopDurationTimer();
-        }
-
-        // Update UI to empty state
-        if (window.displayTranscript && window.updateStats) {
-            window.displayTranscript({ messages: [] });
-            window.updateStats({ messages: [] });
-        }
-
-        // Update participant count clickability for empty session (0 participants = non-clickable)
-        if (window.TranscriptManager && window.TranscriptManager.updateParticipantCountClickability) {
-            window.TranscriptManager.updateParticipantCountClickability(0);
-        }
-
-        // Reset duration display
-        if (window.TimerManager) {
-            window.TimerManager.updateDurationDisplay();
-        }
-
-        // Update button visibility for new session
-        if (window.UIManager) {
-            window.UIManager.updateButtonVisibility('NEW');
-        }
+        window.SearchFilterManager?.resetSearch();
+        window.SearchFilterManager?.resetParticipantFilters();
+        window.UIManager?.hideMeetingName();
+        window.TimerManager?.stopDurationTimer();
+        window.displayTranscript?.({ messages: [] });
+        window.updateStats?.({ messages: [] });
+        window.TranscriptManager?.updateParticipantCountClickability(0);
+        window.TimerManager?.updateDurationDisplay();
+        window.UIManager?.updateButtonVisibility('NEW');
     },
 
-    /**
-     * Set up global function aliases for backward compatibility
-     * Exposes session functions globally for other modules
-     */
     setupGlobalAliases() {
         window.createNewSession = this.createNewSession.bind(this);
         window.showEmptySession = this.showEmptySession.bind(this);
         window.performNewSessionCreation = this.performNewSessionCreation.bind(this);
         window.clearCurrentTranscript = this.clearCurrentTranscript.bind(this);
         window.clearCurrentSession = this.clearCurrentSession.bind(this);
-
-        console.log('🔗 [SESSION] Global session function aliases created for backward compatibility');
     },
 
     /**
@@ -725,139 +515,15 @@ window.SessionHistoryManager = {
      * Handles clearing the currently active session via delete confirmation
      */
     clearCurrentSession(event) {
-        // Prevent execution if recording is active
         if (window.realtimeMode) {
-            console.log('🔍 [CLEAR] Disabled - recording active');
-            if (window.UIManager && window.UIManager.updateStatus) {
-                window.UIManager.updateStatus('Nie można usunąć sesji podczas nagrywania', 'error');
-            }
+            window.UIManager?.updateStatus('Nie można usunąć sesji podczas nagrywania', 'error');
             return;
         }
-        
-        // Use the same function as delete buttons in session list to avoid code duplication
-        if (window.currentSessionId && this.deleteSessionFromHistory) {
+
+        if (window.currentSessionId) {
             this.deleteSessionFromHistory(window.currentSessionId, event || new Event('click'));
         } else {
-            console.log('🔍 [CLEAR] No current session to delete');
-            if (window.UIManager && window.UIManager.updateStatus) {
-                window.UIManager.updateStatus('Brak aktywnej sesji do usunięcia', 'info');
-            }
-        }
-    },
-
-    // ========================================
-    // CLEAR ALL SESSIONS HELPER FUNCTIONS
-    // ========================================
-
-    /**
-     * Capture current session state before clearing
-     * @private
-     * @returns {Object} Session state snapshot
-     */
-    _captureCurrentSessionState() {
-        return {
-            sessionCount: window.sessionHistory ? window.sessionHistory.length : 0,
-            wasRecording: window.realtimeMode,
-            hadActiveSession: !!(window.currentSessionId && window.transcriptData)
-        };
-    },
-
-    /**
-     * Stop active recording if currently recording
-     * @private
-     * @param {Object} state - Session state snapshot
-     */
-    _stopActiveRecording(state) {
-        if (state.wasRecording && window.deactivateRealtimeMode) {
-            console.log('🔴 [HISTORY] Stopping active recording during clear all');
-            window.deactivateRealtimeMode();
-        }
-    },
-
-    /**
-     * Clear active session data and update UI
-     * @private
-     * @param {Object} state - Session state snapshot
-     */
-    _clearActiveSessionData(state) {
-        if (!state.hadActiveSession) return;
-
-        // Clear session data
-        window.transcriptData = null;
-        window.currentSessionId = null;
-
-        // Update transcript UI
-        if (window.displayTranscript) {
-            window.displayTranscript({ messages: [] });
-        }
-        if (window.updateStats) {
-            window.updateStats({ messages: [] });
-        }
-
-        // Reset timer and duration
-        if (window.StateManager) {
-            window.StateManager.setRecordingStartTime(null);
-            window.StateManager.setSessionStartTime(null);
-            window.StateManager.setSessionTotalDuration(0);
-        }
-        if (window.stopDurationTimer) {
-            window.stopDurationTimer();
-        }
-
-        // Update duration display
-        const durationElement = document.getElementById('duration');
-        if (durationElement) {
-            durationElement.textContent = '0:00';
-        }
-
-        // Update button visibility for new session
-        if (window.updateButtonVisibility) {
-            window.updateButtonVisibility('NEW');
-        }
-        if (window.hideMeetingName) {
-            window.hideMeetingName();
-        }
-
-        // Disable export button
-        const exportTxtBtn = document.getElementById('exportTxtBtn');
-        if (exportTxtBtn) {
-            exportTxtBtn.disabled = true;
-        }
-    },
-
-    /**
-     * Clear storage data
-     * @private
-     * @returns {Promise<void>}
-     */
-    async _clearStorageData() {
-        const keysToRemove = [
-            window.AppConstants.STORAGE_KEYS.SESSION_HISTORY,
-            window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA,
-            window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID,
-            window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME,
-            window.AppConstants.STORAGE_KEYS.SESSION_START_TIME,
-            window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION,
-            window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_DURATION,
-            window.AppConstants.STORAGE_KEYS.MEET_TAB_ID
-        ];
-
-        try {
-            await window.StorageManager.removeStorageData(keysToRemove);
-            console.log(`✅ [CLEANUP] Removed ${keysToRemove.length} storage keys`);
-        } catch (error) {
-            console.error('❌ [CLEANUP] Failed to remove storage keys:', error);
-            throw error; // Re-throw to maintain error propagation
-        }
-    },
-
-    /**
-     * Update UI after clearing sessions
-     * @private
-     */
-    _updateUIAfterClear() {
-        if (window.SessionUIManager && window.SessionUIManager.renderSessionHistory) {
-            window.SessionUIManager.renderSessionHistory();
+            window.UIManager?.updateStatus('Brak aktywnej sesji do usunięcia', 'info');
         }
     },
 
@@ -869,32 +535,50 @@ window.SessionHistoryManager = {
         try {
             console.log('🗑️ [HISTORY] Clearing all sessions from history...');
 
-            // Step 1: Capture current state
-            const state = this._captureCurrentSessionState();
+            const sessionCount = window.sessionHistory?.length || 0;
+            const wasRecording = window.realtimeMode;
+            const hadActiveSession = !!(window.currentSessionId && window.transcriptData);
 
-            // Step 2: Stop active recording if needed
-            this._stopActiveRecording(state);
+            if (wasRecording) {
+                window.deactivateRealtimeMode?.();
+            }
 
-            // Step 3: Clear active session data and UI
-            this._clearActiveSessionData(state);
+            if (hadActiveSession) {
+                window.transcriptData = null;
+                window.currentSessionId = null;
 
-            // Step 4: Clear session history array
+                window.displayTranscript?.({ messages: [] });
+                window.updateStats?.({ messages: [] });
+                this._resetSessionState();
+                window.stopDurationTimer?.();
+
+                const durationElement = document.getElementById('duration');
+                if (durationElement) {
+                    durationElement.textContent = '0:00';
+                }
+
+                window.updateButtonVisibility?.('NEW');
+                window.hideMeetingName?.();
+
+                const exportTxtBtn = document.getElementById('exportTxtBtn');
+                if (exportTxtBtn) {
+                    exportTxtBtn.disabled = true;
+                }
+            }
+
             window.sessionHistory = [];
 
-            // Step 5: Clear storage data
-            await this._clearStorageData();
+            const SK = window.AppConstants.STORAGE_KEYS;
+            await window.StorageManager.removeStorageData([
+                SK.SESSION_HISTORY, SK.TRANSCRIPT_DATA, SK.CURRENT_SESSION_ID,
+                SK.RECORDING_START_TIME, SK.SESSION_START_TIME,
+                SK.SESSION_TOTAL_DURATION, SK.CURRENT_SESSION_DURATION, SK.MEET_TAB_ID
+            ]);
 
-            // Step 6: Update UI
-            this._updateUIAfterClear();
+            window.SessionUIManager?.renderSessionHistory?.();
 
-            console.log(`✅ [HISTORY] Cleared ${state.sessionCount} sessions and storage data`);
-
-            return {
-                clearedSessionCount: state.sessionCount,
-                wasRecording: state.wasRecording,
-                hadActiveSession: state.hadActiveSession
-            };
-
+            console.log(`✅ [HISTORY] Cleared ${sessionCount} sessions`);
+            return { clearedSessionCount: sessionCount, wasRecording, hadActiveSession };
         } catch (error) {
             console.error('❌ [HISTORY] Error in clearAllSessionsFromHistory:', error);
             throw error;

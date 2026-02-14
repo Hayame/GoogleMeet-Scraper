@@ -12,33 +12,21 @@ window.TranscriptManager = {
     displayTranscript(data, changes = null) {
         const previewDiv = document.getElementById('transcriptContent');
         if (!previewDiv) {
-            console.error('Transcript content div not found');
             return;
         }
-        
-        // Determine if we should do incremental update
+
         const hasChanges = changes && (changes.added.length > 0 || changes.updated.length > 0 || changes.removed.length > 0);
         const hasEmptyMessage = previewDiv.querySelector('.empty-transcript');
         const shouldIncrementalUpdate = hasChanges && previewDiv.children.length > 0 && !hasEmptyMessage;
-        
-        console.log('🔍 [DEBUG] displayTranscript update decision:', {
-            hasChanges,
-            hasChildren: previewDiv.children.length > 0,
-            hasEmptyMessage: !!hasEmptyMessage,
-            shouldIncrementalUpdate
-        });
-        
+
         if (!shouldIncrementalUpdate) {
             previewDiv.innerHTML = '';
         }
 
         const dataToDisplay = data.messages || [];
-        
-        // Store original messages for search functionality
-        if (window.SearchFilterManager) {
-            window.SearchFilterManager.setOriginalMessages(dataToDisplay);
-        }
-        
+
+        window.SearchFilterManager?.setOriginalMessages(dataToDisplay);
+
         if (!data || dataToDisplay.length === 0) {
             previewDiv.innerHTML = `
                 <div class="empty-transcript">
@@ -52,45 +40,37 @@ window.TranscriptManager = {
         }
 
         let messagesToDisplay = dataToDisplay;
-        
-        // Apply participant filters first (delegate to SearchFilterManager)
+
         if (window.SearchFilterManager) {
             messagesToDisplay = window.SearchFilterManager.applyFilters(messagesToDisplay);
         }
 
-        // Check if no messages after filtering
         if (messagesToDisplay.length === 0) {
             this._showEmptyState(previewDiv);
             return;
         }
 
-        // Use shared color mapping function
         const speakerColors = this.getSpeakerColorMap(messagesToDisplay);
 
-        // Handle incremental updates if we have changes
         if (shouldIncrementalUpdate) {
             this.handleIncrementalUpdate(changes, messagesToDisplay, speakerColors, previewDiv);
             return;
         }
 
-        // Full render - show all entries
-        const entriesToShow = messagesToDisplay;
         const transitionDuration = window.AppConstants.TIMING.ANIMATION_TRANSITION_DURATION;
         const staggerDelay = window.AppConstants.TIMING.ANIMATION_STAGGER_DELAY;
 
-        entriesToShow.forEach((entry, index) => {
+        messagesToDisplay.forEach((entry, index) => {
             const entryDiv = this.createMessageElement(entry, speakerColors);
             previewDiv.appendChild(entryDiv);
 
-            // Animate entry appearance
             setTimeout(() => {
                 entryDiv.style.transition = `all ${transitionDuration}ms ease`;
                 entryDiv.style.opacity = '1';
                 entryDiv.style.transform = 'translateY(0)';
-            }, index * staggerDelay); // Stagger animation
+            }, index * staggerDelay);
         });
 
-        // Reinitialize enhanced interactions for new elements
         this.reinitializeEnhancedInteractions();
     },
 
@@ -98,70 +78,33 @@ window.TranscriptManager = {
      * Handle incremental updates for better performance with long conversations
      */
     handleIncrementalUpdate(changes, messagesToDisplay, speakerColors, previewDiv) {
-        console.log('🔄 Incremental update:', {
-            added: changes.added.length,
-            updated: changes.updated.length,
-            removed: changes.removed.length
-        });
-        
-        // Debug: log samples
-        if (changes.updated.length > 0) {
-            console.log('🔄 [DEBUG] Updated messages sample:', changes.updated.slice(0, 2).map(m => ({
-                index: m.index,
-                speaker: m.speaker,
-                newText: m.text.substring(0, 30),
-                prevText: m.previousText?.substring(0, 30)
-            })));
-        }
-        
         // Remove deleted messages
-        changes.removed.forEach(removedMessage => {
-            const existingElement = previewDiv.querySelector(`[data-message-hash="${removedMessage.hash}"]`);
-            if (existingElement) {
-                existingElement.remove();
-            }
-        });
-        
+        for (const removedMessage of changes.removed) {
+            const el = previewDiv.querySelector(`[data-message-hash="${removedMessage.hash}"]`);
+            el?.remove();
+        }
+
         // Update existing messages
-        changes.updated.forEach((updatedMessage, updateIndex) => {
-            // Find existing element by position (index) since hash may have changed
+        const allMessageElements = previewDiv.querySelectorAll('.transcript-entry');
+        for (const updatedMessage of changes.updated) {
             const messageIndex = updatedMessage.index;
-            const allMessageElements = previewDiv.querySelectorAll('.transcript-entry');
-            
-            console.log(`🔄 [DEBUG] Processing update ${updateIndex}:`, {
-                messageIndex,
-                totalElements: allMessageElements.length,
-                hasIndex: messageIndex !== undefined,
-                speaker: updatedMessage.speaker,
-                newText: updatedMessage.text.substring(0, 30)
-            });
-            
             if (messageIndex !== undefined && messageIndex < allMessageElements.length) {
                 const existingElement = allMessageElements[messageIndex];
-                // Update the element with new content
                 this.updateMessageElement(existingElement, updatedMessage, speakerColors);
-                // Update hash for future lookups
                 existingElement.setAttribute('data-message-hash', updatedMessage.hash);
-                console.log(`🔄 ✅ Updated message element at position ${messageIndex}:`, updatedMessage.speaker, updatedMessage.text.substring(0, 30));
-            } else {
-                console.warn(`🔄 ❌ Could not find message element at position ${messageIndex} for update (total elements: ${allMessageElements.length})`);
             }
-        });
-        
+        }
+
         // Add new messages
         changes.added.forEach((newMessage, index) => {
-            // Apply filters to check if message should be displayed
-            let shouldShow = true;
-            
-            if (window.SearchFilterManager) {
-                shouldShow = window.SearchFilterManager.shouldShowMessage(newMessage);
-            }
-            
+            const shouldShow = window.SearchFilterManager
+                ? window.SearchFilterManager.shouldShowMessage(newMessage)
+                : true;
+
             if (shouldShow) {
                 const entryDiv = this.createMessageElement(newMessage, speakerColors);
                 previewDiv.appendChild(entryDiv);
-                
-                // Animate new entry
+
                 setTimeout(() => {
                     entryDiv.style.transition = 'all 0.3s ease';
                     entryDiv.style.opacity = '1';
@@ -169,13 +112,11 @@ window.TranscriptManager = {
                 }, index * 50);
             }
         });
-        
-        // Scroll to bottom if new messages were added
+
         if (changes.added.length > 0) {
             previewDiv.scrollTop = previewDiv.scrollHeight;
         }
-        
-        // Reinitialize enhanced interactions for new elements
+
         this.reinitializeEnhancedInteractions();
     },
 
@@ -355,37 +296,23 @@ window.TranscriptManager = {
         const statsDiv = document.getElementById('transcriptStats');
         const entryCountSpan = document.getElementById('entryCount');
         const participantCountSpan = document.getElementById('participantCount');
-        const durationSpan = document.getElementById('duration');
 
-        if (!statsDiv || !entryCountSpan || !participantCountSpan || !durationSpan) {
-            console.error('Stats elements not found');
+        if (!statsDiv || !entryCountSpan || !participantCountSpan) {
             return;
         }
 
-        if (!data || !data.messages) {
-            console.error('Invalid data provided to updateStats');
+        if (!data?.messages) {
             return;
         }
 
-        // Simplified: just use all messages from data
         const uniqueParticipants = new Set(data.messages.map(m => m.speaker)).size;
 
-        // Update stats with all data
         entryCountSpan.textContent = data.messages.length;
         participantCountSpan.textContent = uniqueParticipants;
-        
-        // Update participant count clickability based on count
         this.updateParticipantCountClickability(uniqueParticipants);
-        
-        // Duration is handled by the continuous timer for recording sessions
-        // For historical sessions, duration is updated when loading session data
-        
         statsDiv.style.display = 'block';
-        
-        // Update participant filters list
-        if (window.SearchFilterManager) {
-            window.SearchFilterManager.updateParticipantFiltersList();
-        }
+
+        window.SearchFilterManager?.updateParticipantFiltersList();
     },
 
     /**
@@ -461,15 +388,12 @@ window.TranscriptManager = {
      */
     getSpeakerColorMap(messages) {
         const speakerColors = new Map();
-        let colorIndex = 1;
-        
-        // Get unique speakers and assign colors consistently
         const speakers = [...new Set(messages.map(msg => msg.speaker))].sort();
-        speakers.forEach(speaker => {
-            speakerColors.set(speaker, colorIndex);
-            colorIndex = (colorIndex % 6) + 1;
+
+        speakers.forEach((speaker, index) => {
+            speakerColors.set(speaker, (index % 6) + 1);
         });
-        
+
         return speakerColors;
     },
 
@@ -502,24 +426,15 @@ window.TranscriptManager = {
      * Reinitialize enhanced interactions (ripple effects, hover) for newly created elements
      */
     reinitializeEnhancedInteractions() {
-        // Re-add ripple effects to newly created buttons
         document.querySelectorAll('.btn:not([data-ripple]), .record-button:not([data-ripple])').forEach(button => {
             button.setAttribute('data-ripple', 'true');
-            if (window.addRippleEffect) {
-                window.addRippleEffect(button);
-            }
+            window.addRippleEffect?.(button);
         });
-        
-        // Re-add hover effects to newly created avatars
+
         document.querySelectorAll('.avatar:not([data-hover])').forEach(avatar => {
             avatar.setAttribute('data-hover', 'true');
-            avatar.addEventListener('mouseenter', function() {
-                this.style.transform = 'scale(1.05)';
-            });
-            
-            avatar.addEventListener('mouseleave', function() {
-                this.style.transform = 'scale(1)';
-            });
+            avatar.addEventListener('mouseenter', function () { this.style.transform = 'scale(1.05)'; });
+            avatar.addEventListener('mouseleave', function () { this.style.transform = 'scale(1)'; });
         });
     },
 
@@ -535,55 +450,29 @@ window.TranscriptManager = {
         if (!window.expandedEntries) {
             window.expandedEntries = new Set();
         }
-        
+
         if (expanded) {
             window.expandedEntries.add(entryId);
         } else {
             window.expandedEntries.delete(entryId);
         }
-        
-        // Save to chrome.storage
-        this._saveExpandedState();
-    },
 
-    /**
-     * Save expanded state to chrome.storage
-     */
-    async _saveExpandedState() {
-        if (!window.expandedEntries) return;
-
-        try {
-            await window.StorageManager.saveExpandedEntries(window.expandedEntries);
-            console.log('✅ [TRANSCRIPT] Saved expanded entries state');
-        } catch (error) {
-            console.error('❌ [TRANSCRIPT] Failed to save expanded state:', error);
-            // Non-fatal - UI state preserved in memory
-        }
+        window.StorageManager?.saveExpandedEntries(window.expandedEntries)
+            .catch(error => console.error('❌ [TRANSCRIPT] Failed to save expanded state:', error));
     },
 
     /**
      * Initialize TranscriptManager module
      */
     initialize() {
-        console.log('📄 [TRANSCRIPT] TranscriptManager initialized');
-
-        // Initialize participant count as non-clickable for empty session
         this.updateParticipantCountClickability(0);
-        console.log('📄 [TRANSCRIPT] Initialized participant count as non-clickable for empty session');
-
-        // Set up global aliases for backward compatibility
         this.setupGlobalAliases();
+        console.log('📄 [TRANSCRIPT] TranscriptManager initialized');
     },
 
-    /**
-     * Set up global function aliases for backward compatibility with other modules
-     */
     setupGlobalAliases() {
-        // Expose transcript functions globally as expected by other modules
         window.displayTranscript = this.displayTranscript.bind(this);
         window.updateStats = this.updateStats.bind(this);
         window.getSpeakerColorMap = this.getSpeakerColorMap.bind(this);
-
-        console.log('🔗 [TRANSCRIPT] Global transcript function aliases created for backward compatibility');
     }
 };

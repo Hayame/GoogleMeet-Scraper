@@ -44,16 +44,16 @@ window.SettingsManager = {
             chrome.storage.sync.get(['userDisplayName', 'googleUserName', 'useDefaultPrompt', 'customPrompt'], (result) => {
                 this.userDisplayName = result.userDisplayName || '';
                 this.googleUserName = result.googleUserName || null;
-                this.useDefaultPrompt = result.useDefaultPrompt !== undefined ? result.useDefaultPrompt : true;
+                this.useDefaultPrompt = result.useDefaultPrompt ?? true;
                 this.customPrompt = result.customPrompt || '';
-                
+
                 console.log('⚙️ [SETTINGS] Loaded settings:', {
                     userDisplayName: this.userDisplayName,
                     googleUserName: this.googleUserName,
                     useDefaultPrompt: this.useDefaultPrompt,
                     customPrompt: this.customPrompt ? 'Custom prompt set' : 'No custom prompt'
                 });
-                
+
                 resolve();
             });
         });
@@ -75,70 +75,49 @@ window.SettingsManager = {
     },
     
     /**
-     * Get the display name to use for the user
+     * Get the display name to use for the user.
      * Priority: Custom name > "Ty (Google Name)" > "Ty"
      */
     getUserDisplayName() {
-        if (this.userDisplayName && this.userDisplayName.trim()) {
-            return this.userDisplayName.trim();
-        }
-        
-        if (this.googleUserName) {
-            return `Ty (${this.googleUserName})`;
-        }
-        
-        return 'Ty';
+        const trimmed = this.userDisplayName?.trim();
+        if (trimmed) return trimmed;
+        return this.getPlaceholderText();
     },
-    
+
     /**
-     * Get placeholder text for the settings input
+     * Get placeholder/fallback text (used for input placeholder and default display name)
      */
     getPlaceholderText() {
-        if (this.googleUserName) {
-            return `Ty (${this.googleUserName})`;
-        }
-        return 'Ty';
+        return this.googleUserName ? `Ty (${this.googleUserName})` : 'Ty';
     },
     
     /**
      * Save settings to chrome storage
      */
     async saveSettings(settings) {
-        // Validate and save settings
         const dataToSave = {
             userDisplayName: settings.userDisplayName || ''
         };
-        
-        // Add prompt settings if provided
+
         if (settings.useDefaultPrompt !== undefined) {
             dataToSave.useDefaultPrompt = settings.useDefaultPrompt;
         }
         if (settings.customPrompt !== undefined) {
             dataToSave.customPrompt = settings.customPrompt;
         }
-        
-        // Update local state
-        this.userDisplayName = dataToSave.userDisplayName;
-        if (dataToSave.useDefaultPrompt !== undefined) {
-            this.useDefaultPrompt = dataToSave.useDefaultPrompt;
-        }
-        if (dataToSave.customPrompt !== undefined) {
-            this.customPrompt = dataToSave.customPrompt;
-        }
-        
-        // Save to storage
+
+        // Update local state from what we are saving
+        Object.assign(this, dataToSave);
+
         return new Promise((resolve) => {
             chrome.storage.sync.set(dataToSave, () => {
                 console.log('⚙️ [SETTINGS] Settings saved:', dataToSave);
-                
-                // Update UI status
-                if (window.UIManager && window.UIManager.updateStatus) {
+
+                if (window.UIManager?.updateStatus) {
                     window.UIManager.updateStatus('Ustawienia zapisane', 'success');
                 }
-                
-                // Notify content script about the change
+
                 this.notifyContentScript();
-                
                 resolve();
             });
         });
@@ -266,8 +245,8 @@ window.SettingsManager = {
         // Update session count info
         this.updateSessionCountInfo();
         
-        // Hide tab footer initially (no changes yet)
-        this.updateTabFooterVisibility(false);
+        // Hide settings footer initially (no changes yet)
+        this.updateSettingsFooterVisibility(false);
         
         // Show modal using ModalManager
         if (window.ModalManager) {
@@ -300,95 +279,74 @@ window.SettingsManager = {
     },
     
     /**
-     * Setup input change listener for real-time change detection
+     * Setup input change listeners for real-time change detection.
+     * Uses stored bound references so listeners can be properly removed to avoid duplicates.
      */
     setupInputChangeListener() {
+        // Create stable bound references once so removeEventListener works
+        if (!this._boundHandleInputChange) {
+            this._boundHandleInputChange = this.handleInputChange.bind(this);
+        }
+        if (!this._boundHandlePromptSwitchChange) {
+            this._boundHandlePromptSwitchChange = this.handlePromptSwitchChange.bind(this);
+        }
+
         const userNameInput = document.getElementById('userDisplayName');
         if (userNameInput) {
-            // Remove existing listeners to avoid duplicates
-            userNameInput.removeEventListener('input', this.handleInputChange);
-            
-            // Add new listener
-            userNameInput.addEventListener('input', this.handleInputChange.bind(this));
+            userNameInput.removeEventListener('input', this._boundHandleInputChange);
+            userNameInput.addEventListener('input', this._boundHandleInputChange);
         }
-        
+
         const customPromptText = document.getElementById('customPromptText');
         if (customPromptText) {
-            // Remove existing listeners to avoid duplicates
-            customPromptText.removeEventListener('input', this.handleInputChange);
-            
-            // Add new listener
-            customPromptText.addEventListener('input', this.handleInputChange.bind(this));
+            customPromptText.removeEventListener('input', this._boundHandleInputChange);
+            customPromptText.addEventListener('input', this._boundHandleInputChange);
         }
-        
+
         const useDefaultPromptSwitch = document.getElementById('useDefaultPrompt');
         if (useDefaultPromptSwitch) {
-            // Remove existing listeners to avoid duplicates
-            useDefaultPromptSwitch.removeEventListener('change', this.handlePromptSwitchChange);
-            
-            // Add new listener
-            useDefaultPromptSwitch.addEventListener('change', this.handlePromptSwitchChange.bind(this));
+            useDefaultPromptSwitch.removeEventListener('change', this._boundHandlePromptSwitchChange);
+            useDefaultPromptSwitch.addEventListener('change', this._boundHandlePromptSwitchChange);
         }
     },
 
     /**
-     * Handle input changes and update button visibility
+     * Handle input changes and update footer visibility
      */
     handleInputChange() {
         const hasChanges = this.hasUnsavedChanges();
-        this.updateTabFooterVisibility(hasChanges);
-        
-        if (hasChanges) {
-            console.log('⚙️ [SETTINGS] Unsaved changes detected');
-        }
+        this.updateSettingsFooterVisibility(hasChanges);
     },
 
     /**
-     * Check if there are unsaved changes
+     * Check if there are unsaved changes across all settings fields
      */
     hasUnsavedChanges() {
-        // Check profile changes
         const userNameInput = document.getElementById('userDisplayName');
-        if (userNameInput) {
-            const currentValue = userNameInput.value.trim();
-            if (currentValue !== this.originalUserDisplayName) {
-                return true;
-            }
+        if (userNameInput && userNameInput.value.trim() !== this.originalUserDisplayName) {
+            return true;
         }
-        
-        // Check prompt changes
+
         const useDefaultPromptSwitch = document.getElementById('useDefaultPrompt');
-        const customPromptText = document.getElementById('customPromptText');
-        
         if (useDefaultPromptSwitch && useDefaultPromptSwitch.checked !== this.originalUseDefaultPrompt) {
             return true;
         }
-        
+
+        const customPromptText = document.getElementById('customPromptText');
         if (customPromptText && customPromptText.value.trim() !== this.originalCustomPrompt) {
             return true;
         }
-        
+
         return false;
     },
 
     /**
-     * Update tab footer visibility based on changes (legacy - redirect to settings footer)
-     */
-    updateTabFooterVisibility(visible) {
-        this.updateSettingsFooterVisibility(visible);
-    },
-    
-    /**
-     * Update settings footer visibility based on changes
+     * Update settings footer visibility based on whether changes exist
      */
     updateSettingsFooterVisibility(visible) {
         const settingsFooter = document.querySelector('.settings-footer');
         if (settingsFooter) {
-            if (visible) {
-                settingsFooter.classList.add('visible');
-            } else {
-                settingsFooter.classList.remove('visible');
-            }
+            settingsFooter.classList.toggle('visible', visible);
         }
     },
     
@@ -638,117 +596,85 @@ window.SettingsManager = {
     },
 
     /**
+     * Collect current form values into a settings object
+     */
+    _collectFormValues() {
+        const settings = {};
+
+        const userNameInput = document.getElementById('userDisplayName');
+        if (userNameInput) settings.userDisplayName = userNameInput.value.trim();
+
+        const useDefaultPromptSwitch = document.getElementById('useDefaultPrompt');
+        if (useDefaultPromptSwitch) settings.useDefaultPrompt = useDefaultPromptSwitch.checked;
+
+        const customPromptText = document.getElementById('customPromptText');
+        if (customPromptText) settings.customPrompt = customPromptText.value.trim();
+
+        return settings;
+    },
+
+    /**
+     * Close settings modal and hide the footer
+     */
+    _closeSettingsModal() {
+        this.updateSettingsFooterVisibility(false);
+        if (window.ModalManager) {
+            window.ModalManager.hideModal('settingsModal');
+        }
+    },
+
+    /**
      * Handle save all settings button click
      */
     async handleSaveAllSettings() {
-        const newSettings = {};
-        
-        // Get profile settings
-        const userNameInput = document.getElementById('userDisplayName');
-        if (userNameInput) {
-            newSettings.userDisplayName = userNameInput.value.trim();
-        }
-        
-        // Get prompt settings
-        const useDefaultPromptSwitch = document.getElementById('useDefaultPrompt');
-        const customPromptText = document.getElementById('customPromptText');
-        
-        if (useDefaultPromptSwitch) {
-            newSettings.useDefaultPrompt = useDefaultPromptSwitch.checked;
-        }
-        
-        if (customPromptText) {
-            newSettings.customPrompt = customPromptText.value.trim();
-        }
-        
-        // Save all settings
-        await this.saveSettings(newSettings);
-        
-        // Update original values
+        await this.saveSettings(this._collectFormValues());
+
+        // Sync original values so change detection resets
         this.originalUserDisplayName = this.userDisplayName;
         this.originalUseDefaultPrompt = this.useDefaultPrompt;
         this.originalCustomPrompt = this.customPrompt;
-        
-        // Hide the settings footer
-        this.updateSettingsFooterVisibility(false);
-        
-        // Close the modal
-        if (window.ModalManager) {
-            window.ModalManager.hideModal('settingsModal');
-        }
+
+        this._closeSettingsModal();
     },
 
     /**
-     * Handle cancel all settings button click
+     * Handle cancel all settings button click -- restores original values and closes
      */
     handleCancelAllSettings() {
-        console.log('⚙️ [SETTINGS] Canceling all settings changes');
-        
-        // Restore profile values
         const userNameInput = document.getElementById('userDisplayName');
-        if (userNameInput) {
-            userNameInput.value = this.originalUserDisplayName;
-        }
-        
-        // Restore prompt values
+        if (userNameInput) userNameInput.value = this.originalUserDisplayName;
+
         const useDefaultPromptSwitch = document.getElementById('useDefaultPrompt');
+        if (useDefaultPromptSwitch) useDefaultPromptSwitch.checked = this.originalUseDefaultPrompt;
+
         const customPromptText = document.getElementById('customPromptText');
+        if (customPromptText) customPromptText.value = this.originalCustomPrompt;
+
         const customPromptGroup = document.getElementById('customPromptGroup');
-        
-        if (useDefaultPromptSwitch) {
-            useDefaultPromptSwitch.checked = this.originalUseDefaultPrompt;
-        }
-        
-        if (customPromptText) {
-            customPromptText.value = this.originalCustomPrompt;
-        }
-        
-        // Update visibility based on restored switch state
         if (customPromptGroup && useDefaultPromptSwitch) {
             customPromptGroup.style.display = useDefaultPromptSwitch.checked ? 'none' : 'block';
         }
-        
-        // Hide the settings footer since changes are canceled
-        this.updateSettingsFooterVisibility(false);
-        
-        // Close the modal
-        if (window.ModalManager) {
-            window.ModalManager.hideModal('settingsModal');
-        }
-    },
-    
-    /**
-     * Handle save settings button click (legacy)
-     */
-    async handleSaveSettings() {
-        // Redirect to unified handler
-        return this.handleSaveAllSettings();
+
+        this._closeSettingsModal();
     },
 
-    /**
-     * Handle cancel settings button click (legacy)
-     */
-    handleCancelSettings() {
-        // Redirect to unified handler
-        return this.handleCancelAllSettings();
-    },
+    /** Legacy alias */
+    async handleSaveSettings() { return this.handleSaveAllSettings(); },
+
+    /** Legacy alias */
+    handleCancelSettings() { return this.handleCancelAllSettings(); },
     
     /**
      * Handle clear all sessions button click
      */
     async handleClearAllSessions() {
-        // Get current session count
-        const sessionCount = window.sessionHistory ? window.sessionHistory.length : 0;
-        
+        const sessionCount = window.sessionHistory?.length || 0;
+
         if (sessionCount === 0) {
-            // Show info if no sessions to clear
-            if (window.ModalManager && window.ModalManager.showToast) {
-                window.ModalManager.showToast('Brak sesji do usunięcia', 'info');
-            }
+            window.ModalManager?.showToast?.('Brak sesji do usunięcia', 'info');
             return;
         }
-        
-        // Show confirmation modal
+
         this.showClearAllSessionsConfirmation(sessionCount);
     },
     
@@ -792,36 +718,24 @@ window.SettingsManager = {
         confirmOk.className = 'btn btn-danger';
         confirmCancel.textContent = 'Anuluj';
         
-        // Remove any existing event listeners
+        // Replace buttons with clones to remove existing listeners
         const newConfirmOk = confirmOk.cloneNode(true);
         confirmOk.parentNode.replaceChild(newConfirmOk, confirmOk);
-        
-        // Add new event listener
-        newConfirmOk.addEventListener('click', () => {
-            this.executeClearAllSessions();
-            if (window.ModalManager && window.ModalManager.hideModal) {
-                window.ModalManager.hideModal('confirmModal');
-            }
-        });
-        
-        // Handle cancel button to return to settings modal
+
         const newConfirmCancel = confirmCancel.cloneNode(true);
         confirmCancel.parentNode.replaceChild(newConfirmCancel, confirmCancel);
-        
-        newConfirmCancel.addEventListener('click', () => {
-            if (window.ModalManager && window.ModalManager.hideModal) {
-                window.ModalManager.hideModal('confirmModal');
-                // Show settings modal again
-                setTimeout(() => {
-                    this.showSettingsModal();
-                }, 100);
-            }
+
+        newConfirmOk.addEventListener('click', () => {
+            this.executeClearAllSessions();
+            window.ModalManager?.hideModal('confirmModal');
         });
-        
-        // Show modal
-        if (window.ModalManager && window.ModalManager.showModal) {
-            window.ModalManager.showModal('confirmModal');
-        }
+
+        newConfirmCancel.addEventListener('click', () => {
+            window.ModalManager?.hideModal('confirmModal');
+            setTimeout(() => this.showSettingsModal(), 100);
+        });
+
+        window.ModalManager?.showModal('confirmModal');
     },
     
     /**
@@ -830,31 +744,20 @@ window.SettingsManager = {
     async executeClearAllSessions() {
         try {
             console.log('🗑️ [SETTINGS] Clearing all sessions...');
-            
-            // Call session history manager to clear all sessions
-            if (window.SessionHistoryManager && window.SessionHistoryManager.clearAllSessionsFromHistory) {
-                await window.SessionHistoryManager.clearAllSessionsFromHistory();
-                
-                // Update session count info in settings
-                this.updateSessionCountInfo();
-                
-                // Show success toast
-                if (window.ModalManager && window.ModalManager.showToast) {
-                    window.ModalManager.showToast('Wszystkie sesje zostały usunięte', 'success');
-                }
-                
-                console.log('✅ [SETTINGS] All sessions cleared successfully');
-            } else {
+
+            if (!window.SessionHistoryManager?.clearAllSessionsFromHistory) {
                 console.error('❌ [SETTINGS] SessionHistoryManager not available');
-                if (window.ModalManager && window.ModalManager.showToast) {
-                    window.ModalManager.showToast('Błąd podczas usuwania sesji', 'error');
-                }
+                window.ModalManager?.showToast?.('Błąd podczas usuwania sesji', 'error');
+                return;
             }
+
+            await window.SessionHistoryManager.clearAllSessionsFromHistory();
+            this.updateSessionCountInfo();
+            window.ModalManager?.showToast?.('Wszystkie sesje zostały usunięte', 'success');
+            console.log('✅ [SETTINGS] All sessions cleared successfully');
         } catch (error) {
             console.error('❌ [SETTINGS] Error clearing sessions:', error);
-            if (window.ModalManager && window.ModalManager.showToast) {
-                window.ModalManager.showToast('Błąd podczas usuwania sesji', 'error');
-            }
+            window.ModalManager?.showToast?.('Błąd podczas usuwania sesji', 'error');
         }
     },
     
@@ -881,28 +784,22 @@ window.SettingsManager = {
     handlePromptSwitchChange() {
         const useDefaultPromptSwitch = document.getElementById('useDefaultPrompt');
         const customPromptGroup = document.getElementById('customPromptGroup');
-        const customPromptText = document.getElementById('customPromptText');
-        
+
         if (useDefaultPromptSwitch && customPromptGroup) {
-            if (useDefaultPromptSwitch.checked) {
-                // Hide custom prompt
-                customPromptGroup.style.display = 'none';
-            } else {
-                // Show custom prompt
-                customPromptGroup.style.display = 'block';
-                
-                // Load default prompt if textarea is empty
+            const useDefault = useDefaultPromptSwitch.checked;
+            customPromptGroup.style.display = useDefault ? 'none' : 'block';
+
+            if (!useDefault) {
+                const customPromptText = document.getElementById('customPromptText');
                 if (customPromptText && !customPromptText.value.trim()) {
                     this.loadDefaultPrompt();
                 }
             }
         }
-        
-        // Check for changes and update button visibility
+
         this.handleInputChange();
     },
 
-    
     /**
      * Setup global aliases for backward compatibility
      */

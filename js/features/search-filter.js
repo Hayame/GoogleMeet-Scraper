@@ -124,100 +124,64 @@ window.SearchFilterManager = {
     },
 
     /**
+     * Refresh transcript display and search results if data is available
+     */
+    _refreshTranscriptDisplay() {
+        if (window.transcriptData?.messages && window.TranscriptManager) {
+            window.TranscriptManager.displayTranscript(window.transcriptData);
+            this.updateSearchResults();
+        }
+    },
+
+    /**
      * Perform search and update display
      */
     performSearch(query) {
         this._currentSearchQuery = query;
-        
-        // Update search button state
         this.updateSearchButtonState();
-        
-        if (window.transcriptData && window.transcriptData.messages) {
-            if (window.TranscriptManager) {
-                window.TranscriptManager.displayTranscript(window.transcriptData);
-                this.updateSearchResults();
-            }
-        }
-        
-        // Save filter state
+        this._refreshTranscriptDisplay();
         this.saveFilterState();
     },
 
     /**
-     * Clear search and hide search panel
+     * Clear search UI elements and internal debounce state
+     */
+    _resetSearchUI() {
+        const searchInput = document.getElementById("searchInput");
+        const searchPanel = document.getElementById("searchPanel");
+        const searchBtn = document.getElementById("searchBtn");
+
+        if (searchInput) searchInput.value = "";
+        if (searchPanel) {
+            searchPanel.classList.remove("show");
+            searchPanel.style.display = "none";
+        }
+        if (searchBtn) searchBtn.classList.remove("active");
+
+        if (this._searchDebounceTimer) {
+            clearTimeout(this._searchDebounceTimer);
+            this._searchDebounceTimer = null;
+        }
+
+        this._currentSearchQuery = "";
+        this.updateSearchButtonState();
+    },
+
+    /**
+     * Clear search, refresh transcript display, and save state
      */
     clearSearch() {
-        const searchInput = document.getElementById("searchInput");
-        const searchPanel = document.getElementById("searchPanel");
-        const searchBtn = document.getElementById("searchBtn");
-        
-        if (searchInput) {
-            searchInput.value = "";
-        }
-        
-        if (searchPanel) {
-            searchPanel.classList.remove("show");
-            searchPanel.style.display = "none";
-        }
-        
-        // Remove active state from search button
-        if (searchBtn) {
-            searchBtn.classList.remove("active");
-        }
-        
-        if (this._searchDebounceTimer) {
-            clearTimeout(this._searchDebounceTimer);
-            this._searchDebounceTimer = null;
-        }
-        
-        this._currentSearchQuery = "";
-        
-        // Update search button state
-        this.updateSearchButtonState();
-        
-        if (window.transcriptData && window.transcriptData.messages) {
-            if (window.TranscriptManager) {
-                window.TranscriptManager.displayTranscript(window.transcriptData);
-                this.updateSearchResults();
-            }
-        }
-        
-        // Save filter state
+        this._resetSearchUI();
+        this._refreshTranscriptDisplay();
         this.saveFilterState();
     },
 
     /**
-     * Reset search state
+     * Reset search state completely (used when starting a new session)
      */
     resetSearch() {
-        const searchInput = document.getElementById("searchInput");
-        const searchPanel = document.getElementById("searchPanel");
-        const searchBtn = document.getElementById("searchBtn");
-        
-        if (searchInput) {
-            searchInput.value = "";
-        }
-        
-        if (searchPanel) {
-            searchPanel.classList.remove("show");
-            searchPanel.style.display = "none";
-        }
-        
-        // Remove active state from search button
-        if (searchBtn) {
-            searchBtn.classList.remove("active");
-        }
-        
-        if (this._searchDebounceTimer) {
-            clearTimeout(this._searchDebounceTimer);
-            this._searchDebounceTimer = null;
-        }
-        
-        this._currentSearchQuery = "";
+        this._resetSearchUI();
         this._originalMessages = [];
-        
-        // Update search button state
-        this.updateSearchButtonState();
     },
 
     /**
@@ -467,50 +431,37 @@ window.SearchFilterManager = {
     updateFilterBadge() {
         const filterBtn = document.getElementById('filterBtn');
         if (!filterBtn) return;
-        
-        // Remove existing badge
+
         const existingBadge = filterBtn.querySelector('.filter-badge');
-        if (existingBadge) {
-            existingBadge.remove();
-        }
-        
-        // Remove active classes
+        if (existingBadge) existingBadge.remove();
+
         filterBtn.classList.remove('has-filters', 'filter-active');
-        
-        // Add badge based on filter state
-        if (this._allParticipants.length > 0) {
-            if (this._allParticipants.length > 0 && this._activeParticipantFilters.size === 0) {
-                // No participants selected - show "0"
-                const badge = document.createElement('span');
-                badge.className = 'filter-badge';
-                badge.textContent = '0';
-                filterBtn.appendChild(badge);
-                filterBtn.classList.add('filter-active');
-            } else if (this._activeParticipantFilters.size < this._allParticipants.length) {
-                // Some participants selected - show count of selected
-                const badge = document.createElement('span');
-                badge.className = 'filter-badge';
-                badge.textContent = this._activeParticipantFilters.size;
-                filterBtn.appendChild(badge);
-                filterBtn.classList.add('filter-active');
-            } else {
-                // All participants selected (no filtering) - neutral appearance
-                filterBtn.classList.remove('filter-active');
-            }
-        } else {
-            // Empty session - remove active state for neutral appearance
-            filterBtn.classList.remove('active', 'filter-active');
+
+        const totalParticipants = this._allParticipants.length;
+        const selectedCount = this._activeParticipantFilters.size;
+
+        if (totalParticipants === 0) {
+            filterBtn.classList.remove('active');
+            return;
         }
+
+        // All selected means no filtering is active -- neutral appearance
+        if (selectedCount >= totalParticipants) return;
+
+        // Some or none selected -- show badge with count
+        const badge = document.createElement('span');
+        badge.className = 'filter-badge';
+        badge.textContent = selectedCount;
+        filterBtn.appendChild(badge);
+        filterBtn.classList.add('filter-active');
     },
 
     /**
      * Apply participant filters to transcript display
      */
     applyParticipantFilters() {
-        if (window.transcriptData && window.transcriptData.messages) {
-            if (window.TranscriptManager) {
-                window.TranscriptManager.displayTranscript(window.transcriptData);
-            }
+        if (window.transcriptData?.messages && window.TranscriptManager) {
+            window.TranscriptManager.displayTranscript(window.transcriptData);
         }
     },
 
@@ -547,72 +498,48 @@ window.SearchFilterManager = {
     },
 
     /**
-     * Apply all filters (participant and search) to messages
-     * Used by TranscriptManager.displayTranscript()
+     * Check if a single message passes current participant and search filters.
      *
-     * Filtering logic:
-     * 1. Apply participant filters first
-     *    - If recording with no participants yet: show all messages
-     *    - If no participants selected (but participants exist): show nothing
-     *    - If some participants selected: show only their messages
-     *    - If all participants selected: show all messages
-     * 2. Then apply search filter to remaining messages
-     */
-    applyFilters(messages) {
-        let filteredMessages = messages;
-
-        // Apply participant filters first
-        const isRealtimeMode = window.realtimeMode || false;
-        if (isRealtimeMode && this._allParticipants.length === 0) {
-            // Active recording with no participants yet - show all messages
-        } else if (this._activeParticipantFilters.size === 0 && this._allParticipants.length > 0) {
-            // No participants selected (but participants exist) - show no messages
-            filteredMessages = [];
-        } else if (this._activeParticipantFilters.size < this._allParticipants.length) {
-            // Some participants selected - show only their messages
-            filteredMessages = filteredMessages.filter(entry =>
-                this._activeParticipantFilters.has(entry.speaker)
-            );
-        }
-
-        // Apply search filter to remaining messages
-        // Searches both text content and speaker names (case-insensitive)
-        if (this._currentSearchQuery) {
-            filteredMessages = filteredMessages.filter(entry =>
-                entry.text.toLowerCase().includes(this._currentSearchQuery.toLowerCase()) ||
-                entry.speaker.toLowerCase().includes(this._currentSearchQuery.toLowerCase())
-            );
-        }
-
-        return filteredMessages;
-    },
-
-    /**
-     * Check if a message should be shown based on current filters
-     * Used by TranscriptManager for incremental updates
+     * Participant filter logic:
+     *   - Recording with no participants yet: show all
+     *   - No participants selected (but participants exist): show nothing
+     *   - Some participants selected: show only their messages
+     *   - All participants selected: show all
      *
-     * Applies the same filtering logic as applyFilters() but for a single message
+     * Search filter (applied after participant filter):
+     *   - Matches text content and speaker name (case-insensitive)
      */
     shouldShowMessage(message) {
-        const isRealtimeMode = window.realtimeMode || false;
-        let shouldShow = true;
+        const hasParticipants = this._allParticipants.length > 0;
+        const isRealtimeWithNoParticipants = (window.realtimeMode || false) && !hasParticipants;
 
         // Apply participant filter
-        if (isRealtimeMode && this._allParticipants.length === 0) {
-            // Active recording with no participants yet - show all messages
-        } else if (this._activeParticipantFilters.size === 0 && this._allParticipants.length > 0) {
-            shouldShow = false;
-        } else if (this._activeParticipantFilters.size < this._allParticipants.length) {
-            shouldShow = this._activeParticipantFilters.has(message.speaker);
+        if (!isRealtimeWithNoParticipants && hasParticipants) {
+            if (this._activeParticipantFilters.size === 0) {
+                return false;
+            }
+            if (this._activeParticipantFilters.size < this._allParticipants.length &&
+                !this._activeParticipantFilters.has(message.speaker)) {
+                return false;
+            }
         }
 
         // Apply search filter
-        if (shouldShow && this._currentSearchQuery) {
-            shouldShow = message.text.toLowerCase().includes(this._currentSearchQuery.toLowerCase()) ||
-                        message.speaker.toLowerCase().includes(this._currentSearchQuery.toLowerCase());
+        if (this._currentSearchQuery) {
+            const query = this._currentSearchQuery.toLowerCase();
+            return message.text.toLowerCase().includes(query) ||
+                   message.speaker.toLowerCase().includes(query);
         }
 
-        return shouldShow;
+        return true;
+    },
+
+    /**
+     * Apply all filters (participant and search) to a list of messages.
+     * Used by TranscriptManager.displayTranscript().
+     */
+    applyFilters(messages) {
+        return messages.filter(entry => this.shouldShowMessage(entry));
     },
 
     /**
@@ -661,30 +588,19 @@ window.SearchFilterManager = {
     updateSearchResults() {
         const searchResultsInfo = document.getElementById("searchResultsInfo");
         const searchResultsCount = document.getElementById("searchResultsCount");
-        
         if (!searchResultsInfo || !searchResultsCount) return;
-        
-        if (this._currentSearchQuery) {
-            // Count filtered messages
-            const filteredMessages = this.applyFilters(window.transcriptData.messages || []);
-            const resultCount = filteredMessages.length;
-            
-            searchResultsCount.textContent = resultCount;
+
+        const hasQuery = !!this._currentSearchQuery;
+        const clearButton = document.getElementById("searchClearBtn");
+
+        if (hasQuery) {
+            const filteredMessages = this.applyFilters(window.transcriptData?.messages || []);
+            searchResultsCount.textContent = filteredMessages.length;
             searchResultsInfo.style.display = "block";
-            
-            // Show clear button if there's a search query
-            const clearButton = document.getElementById("searchClearBtn");
-            if (clearButton) {
-                clearButton.classList.add("show");
-            }
+            if (clearButton) clearButton.classList.add("show");
         } else {
             searchResultsInfo.style.display = "none";
-            
-            // Hide clear button when no search
-            const clearButton = document.getElementById("searchClearBtn");
-            if (clearButton) {
-                clearButton.classList.remove("show");
-            }
+            if (clearButton) clearButton.classList.remove("show");
         }
     },
 
@@ -714,30 +630,29 @@ window.SearchFilterManager = {
     },
 
     /**
-     * Save current filter state to storage
-     * Debounced by 500ms to avoid excessive storage writes
+     * Save current filter state to storage.
+     * Debounced by 500ms to avoid excessive storage writes.
      */
-    async saveFilterState() {
-        try {
-            if (this._saveTimeout) {
-                clearTimeout(this._saveTimeout);
-            }
+    saveFilterState() {
+        if (this._saveTimeout) {
+            clearTimeout(this._saveTimeout);
+        }
 
-            // Debounce saves by 500ms to reduce storage write frequency
-            this._saveTimeout = setTimeout(async () => {
+        this._saveTimeout = setTimeout(async () => {
+            try {
                 const filterState = {
                     searchQuery: this._currentSearchQuery,
                     activeParticipantFilters: Array.from(this._activeParticipantFilters)
                 };
 
-                if (window.StateManager && window.StateManager.saveUIState) {
+                if (window.StateManager?.saveUIState) {
                     await window.StateManager.saveUIState(filterState);
                     console.log('💾 [SEARCH] Filter state saved:', filterState);
                 }
-            }, 500);
-        } catch (error) {
-            console.error('💾 [SEARCH ERROR] Failed to save filter state:', error);
-        }
+            } catch (error) {
+                console.error('💾 [SEARCH ERROR] Failed to save filter state:', error);
+            }
+        }, 500);
     },
 
     /**

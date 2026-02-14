@@ -1,40 +1,28 @@
 /**
  * Google Meet Transcript Scraper - Main Entry Point
- * Modularized version using extracted components
  */
 
 /**
  * Handle popup close - flush pending background scan data
  */
-window.addEventListener('beforeunload', async (event) => {
-    // Only flush if recording is active
+window.addEventListener('beforeunload', async () => {
     if (window.realtimeMode && window.BackgroundScanner) {
         console.log('⚠️ [POPUP] Popup closing during recording, flushing data');
-
         try {
-            // Force immediate flush of pending data
             await window.BackgroundScanner.flushPendingData();
             console.log('✅ [POPUP] Data flushed before close');
         } catch (error) {
             console.error('❌ [POPUP] Failed to flush data:', error);
-            // Data will be recovered on next open via checkpoint system
         }
     }
 });
 
-// Main initialization function
 document.addEventListener('DOMContentLoaded', async function() {
     try {
         console.log('🚀 [INIT] Initializing Google Meet Transcript Scraper');
-        
-        // Check for essential DOM elements
         validateEssentialElements();
-        
-        // Initialize all modules in the correct order
         await initializeApplication();
-        
         console.log('✅ [INIT] Application initialized successfully');
-        
     } catch (error) {
         console.error('❌ [INIT] Critical initialization error:', error);
         showInitializationError(error);
@@ -47,19 +35,19 @@ document.addEventListener('DOMContentLoaded', async function() {
 function validateGlobalFunctions() {
     const requiredFunctions = [
         'displayTranscript',
-        'updateStats', 
+        'updateStats',
         'detectChanges',
         'showEmptySession',
         'createNewSession'
     ];
-    
+
     const missingFunctions = requiredFunctions.filter(funcName => typeof window[funcName] !== 'function');
-    
+
     if (missingFunctions.length > 0) {
         console.error('❌ [VALIDATION] Missing global functions:', missingFunctions);
         throw new Error(`Critical global functions missing: ${missingFunctions.join(', ')}`);
     }
-    
+
     console.log('✅ [VALIDATION] All critical global functions available');
 }
 
@@ -67,18 +55,34 @@ function validateGlobalFunctions() {
  * Validate that essential DOM elements are present
  */
 function validateEssentialElements() {
-    const essentialElements = [
-        { id: 'recordBtn', name: 'Record button' },
-        { id: 'recordingStatus', name: 'Status div' },
-        { id: 'transcriptContent', name: 'Transcript content' },
-        { id: 'transcriptStats', name: 'Transcript stats' }
-    ];
-    
-    for (const element of essentialElements) {
-        if (!document.getElementById(element.id)) {
-            throw new Error(`${element.name} not found (ID: ${element.id})`);
+    const essentialIds = ['recordBtn', 'recordingStatus', 'transcriptContent', 'transcriptStats'];
+
+    for (const id of essentialIds) {
+        if (!document.getElementById(id)) {
+            throw new Error(`Essential element not found (ID: ${id})`);
         }
     }
+}
+
+/**
+ * Require a module to be present, throwing if missing
+ */
+function requireModule(name) {
+    if (!window[name]) {
+        throw new Error(`${name} not found`);
+    }
+    return window[name];
+}
+
+/**
+ * Initialize a module if it exists on window, returning whether it was found
+ */
+function initModule(name) {
+    if (window[name]) {
+        window[name].initialize();
+        return true;
+    }
+    return false;
 }
 
 /**
@@ -87,69 +91,31 @@ function validateEssentialElements() {
 async function initializeApplication() {
     console.log('🚀 [INIT] Starting application initialization sequence...');
 
-    // 1. Initialize transaction coordinator first (required by StorageManager)
-    if (window.TransactionCoordinator) {
-        window.TransactionCoordinator.initialize();
-    } else {
-        throw new Error('TransactionCoordinator not found');
-    }
+    // Required modules (will throw if missing)
+    requireModule('TransactionCoordinator').initialize();
+    requireModule('StorageManager').initialize();
+    requireModule('StateManager').initialize();
 
-    // 2. Initialize storage management
-    if (window.StorageManager) {
-        window.StorageManager.initialize();
-    } else {
-        throw new Error('StorageManager not found');
-    }
+    // Optional core modules
+    initModule('UIManager');
+    initModule('TimerManager');
+    initModule('ModalManager');
 
-    // 3. Initialize core state management
-    if (window.StateManager) {
-        window.StateManager.initialize();
-    } else {
-        throw new Error('StateManager not found');
-    }
-
-    // 4. Initialize UI management
-    if (window.UIManager) {
-        window.UIManager.initialize();
-    }
-
-    // 5. Initialize timer management
-    if (window.TimerManager) {
-        window.TimerManager.initialize();
-    }
-
-    // 6. Initialize modal system
-    if (window.ModalManager) {
-        window.ModalManager.initialize();
-    }
-
-    // 7. Initialize settings manager
     if (window.SettingsManager) {
         await window.SettingsManager.initialize();
     }
 
-    // 8. Initialize background scanner
-    if (window.BackgroundScanner) {
-        window.BackgroundScanner.initialize();
-    }
+    initModule('BackgroundScanner');
+    initModule('TranscriptRefreshManager');
+    initModule('RecordingManager');
 
-    // 8.5. Initialize transcript refresh manager
-    if (window.TranscriptRefreshManager) {
-        window.TranscriptRefreshManager.initialize();
-    }
-
-    // 9. Initialize recording management
-    if (window.RecordingManager) {
-        window.RecordingManager.initialize();
-    }
-
-    // 10. Initialize session history
+    // Session history (both modules needed together)
     if (window.SessionHistoryManager && window.SessionUIManager) {
         await window.SessionHistoryManager.initialize();
         window.SessionUIManager.initialize();
     }
 
-    // 9.5. Data Integrity Verification (after session history loaded)
+    // Data integrity verification (after session history loaded)
     if (window.DataIntegrity) {
         window.DataIntegrity.initialize();
         const integrityIssues = await window.DataIntegrity.verifyStorageIntegrity();
@@ -162,52 +128,36 @@ async function initializeApplication() {
         }
     }
 
-    // 11. Initialize transcript features
-    if (window.TranscriptManager) {
-        window.TranscriptManager.initialize();
-    }
+    // Feature modules
+    initModule('TranscriptManager');
+    initModule('SearchFilterManager');
+    initModule('ExportManager');
 
-    // 12. Initialize search and filter
-    if (window.SearchFilterManager) {
-        window.SearchFilterManager.initialize();
-    }
-
-    // 13. Initialize export functionality
-    if (window.ExportManager) {
-        window.ExportManager.initialize();
-    }
-
-    // 14. Setup main event listeners
     setupMainEventListeners();
-
-    // 15. Setup message listener for background communication
     setupMessageListener();
 
-    // 16. Initialize theme system
-    if (window.ThemeManager) {
-        window.ThemeManager.initialize();
-    }
+    initModule('ThemeManager');
+    initModule('DebugManager');
 
-    // 17. Initialize debug manager
-    if (window.DebugManager) {
-        window.DebugManager.initialize();
-    }
-    
-    // 16. Validate critical global functions before state restoration
     validateGlobalFunctions();
-    
-    // 17. Restore application state
     await restoreCompleteApplicationState();
-    
-    // 18. Validate state restoration success
-    if (window.StateManager && window.StateManager.validateStateRestoration) {
+
+    if (window.StateManager.validateStateRestoration) {
         window.StateManager.validateStateRestoration();
     } else {
         console.warn('⚠️ [INIT] StateManager.validateStateRestoration not available');
     }
 }
 
-// validateStateRestorationSuccess() moved to StateManager.validateStateRestoration()
+/**
+ * Apply emergency fallback state when restoration fails
+ */
+function applyEmergencyFallback() {
+    if (window.StateManager) {
+        window.StateManager.exposeGlobalVariables();
+    }
+    document.documentElement.setAttribute('data-theme', 'light');
+}
 
 /**
  * Restore complete application state including UI and session data
@@ -215,65 +165,55 @@ async function initializeApplication() {
 async function restoreCompleteApplicationState() {
     try {
         console.log('🔄 [POPUP] Starting complete state restoration');
-        
-        // 1. Restore session/recording state
+
         const sessionState = await window.StateManager.restoreStateFromStorage();
-        
-        // 2. Restore UI state (sidebar, theme, search, filters)
         const uiState = await window.StateManager.restoreUIState();
-        
-        // 3. Apply UI state restoration with error handling
+
         try {
-            await applyUIStateRestoration(uiState);
+            if (window.UIManager && window.UIManager.restoreUIState) {
+                window.UIManager.restoreUIState(uiState);
+            }
         } catch (uiError) {
             console.error('❌ [RECOVERY] UI state restoration failed:', uiError);
-            console.log('🔧 [RECOVERY] Applying fallback UI state');
-            // Fallback: ensure basic UI state
             document.documentElement.setAttribute('data-theme', 'light');
         }
-        
-        // 4. Apply session state restoration with error handling
+
         try {
             await applySessionStateRestoration(sessionState);
         } catch (sessionError) {
             console.error('❌ [RECOVERY] Session state restoration failed:', sessionError);
-            console.log('🔧 [RECOVERY] Ensuring clean session state');
-            // Fallback: ensure clean state
             if (window.StateManager) {
                 window.StateManager.exposeGlobalVariables();
             }
         }
-        
+
         console.log('✅ [POPUP] Complete state restoration finished', { sessionState, uiState });
-        
     } catch (error) {
         console.error('❌ [POPUP] Critical state restoration failure:', error);
-        console.log('🔧 [RECOVERY] Attempting emergency recovery');
-        
-        // Emergency recovery: ensure basic functionality
         try {
-            if (window.StateManager) {
-                window.StateManager.exposeGlobalVariables();
-            }
-            document.documentElement.setAttribute('data-theme', 'light');
+            applyEmergencyFallback();
             console.log('✅ [RECOVERY] Emergency recovery completed');
         } catch (recoveryError) {
-            console.error('💥 [RECOVERY] Emergency recovery failed:', recoveryError);
+            console.error('❌ [RECOVERY] Emergency recovery failed:', recoveryError);
         }
     }
 }
 
 /**
- * Apply UI state restoration (sidebar, theme, search panels)
+ * Display transcript data, update stats, and update participant count clickability
  */
-async function applyUIStateRestoration(uiState) {
-    console.log('🎨 [POPUP] Applying UI state restoration:', uiState);
-    
-    // Use centralized UIManager for consistent state restoration
-    if (window.UIManager && window.UIManager.restoreUIState) {
-        window.UIManager.restoreUIState(uiState);
-    } else {
-        console.warn('⚠️ [POPUP] UIManager not available for state restoration');
+function displayTranscriptAndStats(transcriptData) {
+    if (!transcriptData) return;
+
+    if (window.displayTranscript) {
+        window.displayTranscript(transcriptData);
+    }
+    if (window.updateStats) {
+        window.updateStats(transcriptData);
+    }
+    if (window.TranscriptManager && window.TranscriptManager.updateParticipantCountClickability) {
+        const uniqueParticipants = new Set(transcriptData.messages?.map(m => m.speaker) || []).size;
+        window.TranscriptManager.updateParticipantCountClickability(uniqueParticipants);
     }
 }
 
@@ -285,11 +225,10 @@ async function applySessionStateRestoration(sessionState) {
         console.log('🔄 [POPUP] No session state to restore');
         return;
     }
-    
+
     console.log('📊 [POPUP] Applying session state restoration:', sessionState);
-    
+
     if (sessionState.realtimeMode) {
-        // Restore active recording state
         console.log('🔴 [POPUP] Restoring active recording state');
 
         // Reactivate background scanner (includes merge of accumulated data)
@@ -299,27 +238,10 @@ async function applySessionStateRestoration(sessionState) {
             console.log('✅ [POPUP] Background scanner reactivation completed:', reactivationResult);
         }
 
-        // Display transcript after merge completes
         // Use window.transcriptData (updated by merge) instead of sessionState.transcriptData (stale)
         const transcriptToDisplay = window.transcriptData || sessionState.transcriptData;
+        displayTranscriptAndStats(transcriptToDisplay);
 
-        if (transcriptToDisplay && window.displayTranscript) {
-            window.displayTranscript(transcriptToDisplay);
-            console.log('🔴 [POPUP] Displayed transcript after merge:', transcriptToDisplay.messages?.length || 0, 'messages');
-        }
-
-        // Update stats with merged data
-        if (transcriptToDisplay && window.updateStats) {
-            window.updateStats(transcriptToDisplay);
-        }
-
-        // Update participant count clickability
-        if (transcriptToDisplay && window.TranscriptManager && window.TranscriptManager.updateParticipantCountClickability) {
-            const uniqueParticipants = new Set(transcriptToDisplay.messages?.map(m => m.speaker) || []).size;
-            window.TranscriptManager.updateParticipantCountClickability(uniqueParticipants);
-        }
-
-        // Check for merge failure and show warning
         if (reactivationResult && !reactivationResult.mergeSuccess) {
             console.warn('⚠️ [POPUP] Merge failed, displaying stored data instead');
             if (window.updateStatus) {
@@ -327,7 +249,6 @@ async function applySessionStateRestoration(sessionState) {
             }
         }
 
-        // Update UI state
         if (window.UIManager) {
             window.UIManager.updateButtonVisibility('RECORDING');
         }
@@ -341,37 +262,18 @@ async function applySessionStateRestoration(sessionState) {
             console.warn('⚠️ [POPUP] Cannot start timer - recordingStartTime not available');
             if (window.TimerManager?.updateDurationDisplay) {
                 window.TimerManager.updateDurationDisplay();
-                console.log('⏰ [POPUP] Fallback: Displaying accumulated duration (static)');
             }
         }
-        
+
     } else if (sessionState.sessionState === window.AppConstants.SESSION_STATES.PAUSED_SESSION) {
-        // Restore paused session
         console.log('⏸️ [POPUP] Restoring paused session');
 
-        // Display transcript data for paused session
-        if (sessionState.transcriptData && window.displayTranscript) {
-            window.displayTranscript(sessionState.transcriptData);
-            console.log('⏸️ [POPUP] Restored transcript data for paused session:', sessionState.transcriptData.messages?.length || 0, 'messages');
-        }
+        displayTranscriptAndStats(sessionState.transcriptData);
 
-        // Update stats for paused session
-        if (sessionState.transcriptData && window.updateStats) {
-            window.updateStats(sessionState.transcriptData);
-        }
-
-        // Update participant count clickability
-        if (sessionState.transcriptData && window.TranscriptManager && window.TranscriptManager.updateParticipantCountClickability) {
-            const uniqueParticipants = new Set(sessionState.transcriptData.messages?.map(m => m.speaker) || []).size;
-            window.TranscriptManager.updateParticipantCountClickability(uniqueParticipants);
-        }
-
-        // Update UI for paused session
         if (window.UIManager) {
             window.UIManager.updateButtonVisibility('NEW');
         }
 
-        // Restore session duration display if available
         if (sessionState.sessionTotalDuration !== undefined && window.TimerManager) {
             window.StateManager?.setSessionTotalDuration(sessionState.sessionTotalDuration);
             if (window.TimerManager.updateDurationDisplay) {
@@ -379,40 +281,20 @@ async function applySessionStateRestoration(sessionState) {
             }
         }
 
-        console.log('⏸️ [POPUP] Paused session restored with "Rozpocznij nagrywanie" button');
-
     } else if (sessionState.sessionState === window.AppConstants.SESSION_STATES.HISTORICAL_SESSION) {
-        // Restore historical session
         console.log('📜 [POPUP] Restoring historical session');
 
-        // Display transcript data
-        if (sessionState.transcriptData && window.displayTranscript) {
-            window.displayTranscript(sessionState.transcriptData);
-        }
+        displayTranscriptAndStats(sessionState.transcriptData);
 
-        // Update stats
-        if (sessionState.transcriptData && window.updateStats) {
-            window.updateStats(sessionState.transcriptData);
-        }
-
-        // Update participant count clickability
-        if (sessionState.transcriptData && window.TranscriptManager && window.TranscriptManager.updateParticipantCountClickability) {
-            const uniqueParticipants = new Set(sessionState.transcriptData.messages?.map(m => m.speaker) || []).size;
-            window.TranscriptManager.updateParticipantCountClickability(uniqueParticipants);
-        }
-
-        // Update UI for historical session
         if (window.UIManager) {
             window.UIManager.updateButtonVisibility('HISTORICAL');
 
-            // Show meeting name if session exists in history
             const session = window.sessionHistory?.find(s => s.id === sessionState.currentSessionId);
             if (session) {
                 window.UIManager.showMeetingName(session.title, sessionState.currentSessionId);
             }
         }
 
-        // Highlight restored session in sidebar
         if (window.SessionUIManager && window.SessionUIManager.highlightActiveSession) {
             window.SessionUIManager.highlightActiveSession(sessionState.currentSessionId);
         }
@@ -420,83 +302,55 @@ async function applySessionStateRestoration(sessionState) {
 }
 
 /**
+ * Bind click handler to an element by ID, only if the element and handler exist
+ */
+function bindClick(elementId, handler) {
+    const element = document.getElementById(elementId);
+    if (element && handler) {
+        element.addEventListener('click', handler);
+    }
+}
+
+/**
  * Setup main application event listeners
  */
 function setupMainEventListeners() {
-    // Record button click handler
-    const recordBtn = document.getElementById('recordBtn');
-    if (recordBtn && window.RecordingManager) {
-        recordBtn.addEventListener('click', window.RecordingManager.handleRecordButtonClick.bind(window.RecordingManager));
+    if (window.RecordingManager) {
+        bindClick('recordBtn', window.RecordingManager.handleRecordButtonClick.bind(window.RecordingManager));
+    }
+    if (window.TranscriptRefreshManager) {
+        bindClick('refreshTranscriptBtn', window.TranscriptRefreshManager.handleRefreshClick.bind(window.TranscriptRefreshManager));
     }
 
-    // Refresh transcript button handler
-    const refreshBtn = document.getElementById('refreshTranscriptBtn');
-    if (refreshBtn && window.TranscriptRefreshManager) {
-        refreshBtn.addEventListener('click', window.TranscriptRefreshManager.handleRefreshClick.bind(window.TranscriptRefreshManager));
+    bindClick('closeSessionBtn', window.showEmptySession);
+    bindClick('clearBtn', window.clearCurrentSession);
+    bindClick('newSessionBtn', window.createNewSession);
+
+    bindClick('participantCount', () => {
+        const participantCount = document.getElementById('participantCount');
+        if (participantCount.classList.contains('stat-clickable') && window.transcriptData) {
+            if (window.SessionUIManager && window.SessionUIManager.showParticipantsList) {
+                window.SessionUIManager.showParticipantsList({
+                    title: 'Obecna sesja',
+                    transcript: window.transcriptData
+                });
+            }
+        }
+    });
+
+    if (window.UIManager) {
+        bindClick('sidebarToggle', () => window.UIManager.toggleSidebar());
     }
 
-    // Close session button handler
-    const closeSessionBtn = document.getElementById('closeSessionBtn');
-    if (closeSessionBtn && window.showEmptySession) {
-        closeSessionBtn.addEventListener('click', window.showEmptySession);
-    }
-    
-    // Clear button handler (delegated to SessionHistoryManager)
-    const clearBtn = document.getElementById('clearBtn');
-    if (clearBtn && window.clearCurrentSession) {
-        clearBtn.addEventListener('click', window.clearCurrentSession);
-    }
-    
-    // New session button handler
-    const newSessionBtn = document.getElementById('newSessionBtn');
-    if (newSessionBtn && window.createNewSession) {
-        newSessionBtn.addEventListener('click', window.createNewSession);
-    }
-    
-    // Theme toggle handler (now handled by ThemeManager)
-    // ThemeManager sets up its own event listeners in initialize()
-    
-    // Participant count click handler
-    const participantCount = document.getElementById('participantCount');
-    if (participantCount) {
-        participantCount.addEventListener('click', () => {
-            if (participantCount.classList.contains('stat-clickable') && window.transcriptData) {
-                // Show participants modal for current session
-                if (window.SessionUIManager && window.SessionUIManager.showParticipantsList) {
-                    const currentSession = {
-                        title: 'Obecna sesja',
-                        transcript: window.transcriptData
-                    };
-                    window.SessionUIManager.showParticipantsList(currentSession);
-                }
-            }
-        });
-    }
-    
-    // Sidebar toggle handler
-    const sidebarToggle = document.getElementById('sidebarToggle');
-    if (sidebarToggle && window.UIManager) {
-        sidebarToggle.addEventListener('click', () => {
-            window.UIManager.toggleSidebar();
-        });
-    }
-    
-    // Export button handler
-    const exportBtn = document.getElementById('exportBtn');
-    if (exportBtn) {
-        exportBtn.addEventListener('click', () => {
-            if (window.transcriptData && window.transcriptData.messages && window.transcriptData.messages.length > 0) {
-                if (window.ModalManager) {
-                    window.ModalManager.showModal('exportModal');
-                }
-            } else {
-                if (window.UIManager && window.UIManager.updateStatus) {
-                    window.UIManager.updateStatus('Brak danych do eksportu', 'error');
-                }
-            }
-        });
-    }
-    
+    bindClick('exportBtn', () => {
+        const hasData = window.transcriptData?.messages?.length > 0;
+        if (hasData && window.ModalManager) {
+            window.ModalManager.showModal('exportModal');
+        } else if (window.UIManager?.updateStatus) {
+            window.UIManager.updateStatus('Brak danych do eksportu', 'error');
+        }
+    });
+
     console.log('✅ Main event listeners setup complete');
 }
 
@@ -504,88 +358,17 @@ function setupMainEventListeners() {
  * Setup message listener for background script communication
  */
 function setupMessageListener() {
-    // Listen for messages from background script
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         if (request.action === 'updateGoogleUserName') {
-            // Update Google user name in SettingsManager
             console.log('⚙️ [POPUP] Received Google user name update:', request.userName);
-            
-            if (window.SettingsManager && window.SettingsManager.updateGoogleUserName) {
+            if (window.SettingsManager?.updateGoogleUserName) {
                 window.SettingsManager.updateGoogleUserName(request.userName);
             }
-            
             sendResponse({ success: true });
         }
-        
-        return true; // Keep message channel open for async response
+        return true;
     });
-    
     console.log('✅ Message listener setup complete');
-}
-
-/**
- * Handle clear button click
- */
-function handleClearButtonClick(event) {
-    if (window.realtimeMode) {
-        console.log('🔍 [CLEAR BTN] Disabled - recording active');
-        return;
-    }
-
-    if (window.currentSessionId && window.SessionHistoryManager && window.SessionHistoryManager.deleteSessionFromHistory) {
-        window.SessionHistoryManager.deleteSessionFromHistory(window.currentSessionId, event || new Event('click'));
-    } else {
-        console.log('🔍 [CLEAR BTN] No current session to delete');
-    }
-}
-
-/**
- * Initialize theme system
- */
-function initializeTheme() {
-    // Get saved theme or default to light
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    document.documentElement.setAttribute('data-theme', savedTheme);
-    
-    // Update theme toggle icon
-    updateThemeToggleIcon(savedTheme);
-    
-    console.log('✅ Theme initialized:', savedTheme);
-}
-
-/**
- * Toggle between light and dark themes
- */
-function toggleTheme() {
-    const currentTheme = document.documentElement.getAttribute('data-theme');
-    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-    
-    document.documentElement.setAttribute('data-theme', newTheme);
-    localStorage.setItem('theme', newTheme);
-    updateThemeToggleIcon(newTheme);
-    
-    console.log('🎨 Theme changed to:', newTheme);
-}
-
-/**
- * Update theme toggle icon based on current theme
- */
-function updateThemeToggleIcon(theme) {
-    const themeToggle = document.getElementById('themeToggle');
-    if (!themeToggle) return;
-    
-    const lightIcon = themeToggle.querySelector('.theme-icon-light');
-    const darkIcon = themeToggle.querySelector('.theme-icon-dark');
-    
-    if (lightIcon && darkIcon) {
-        if (theme === 'dark') {
-            lightIcon.style.display = 'none';
-            darkIcon.style.display = 'block';
-        } else {
-            lightIcon.style.display = 'block';
-            darkIcon.style.display = 'none';
-        }
-    }
 }
 
 /**
@@ -615,23 +398,17 @@ function showInitializationError(error) {
     document.body.appendChild(errorDiv);
 }
 
-/**
- * Utility functions for backward compatibility
- */
-
-// Export commonly used functions to global scope for compatibility
+// Utility functions exposed globally for backward compatibility
 window.generateSessionId = function() {
     return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 };
 
 window.generateSessionTitle = function() {
-    const now = new Date();
-    const date = now.toLocaleDateString('pl-PL');
-    const time = now.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+    const time = new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
     return `Spotkanie o ${time}`;
 };
 
-// Global error handler
+// Global error handlers
 window.addEventListener('error', function(event) {
     console.error('❌ [GLOBAL ERROR]', event.error);
 });
@@ -640,4 +417,4 @@ window.addEventListener('unhandledrejection', function(event) {
     console.error('❌ [UNHANDLED PROMISE REJECTION]', event.reason);
 });
 
-console.log('📝 Main popup.js loaded - waiting for DOMContentLoaded');
+console.log('📝 Main popup.js loaded');

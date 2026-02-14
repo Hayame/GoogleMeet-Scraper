@@ -1,11 +1,10 @@
 /**
  * Formatters - Utility functions for formatting various data types
- * Extracted from popup.js for better modularity
  */
 
 window.Formatters = {
     /**
-     * Format duration in seconds to display format (from popup.js lines 2606-2616)
+     * Format duration in seconds to display format
      * @param {number} seconds - Duration in seconds
      * @returns {string} Formatted duration string (H:MM:SS or M:SS)
      */
@@ -13,12 +12,11 @@ window.Formatters = {
         const hours = Math.floor(seconds / 3600);
         const minutes = Math.floor((seconds % 3600) / 60);
         const secs = seconds % 60;
-        
+
         if (hours > 0) {
             return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-        } else {
-            return `${minutes}:${secs.toString().padStart(2, '0')}`;
         }
+        return `${minutes}:${secs.toString().padStart(2, '0')}`;
     },
 
     /**
@@ -122,5 +120,3 @@ window.Formatters = {
         return text.substring(0, maxLength) + '...';
     }
 };
-
-console.log('Formatters module loaded');

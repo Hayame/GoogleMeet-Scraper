@@ -3,12 +3,7 @@
  * Centralizes chrome.storage.local.get/set/remove operations
  */
 
-/**
- * Get data from Chrome storage
- * @param {string|Array<string>} keys - Storage keys to retrieve
- * @returns {Promise<Object>} Storage data
- */
-async function getStorageData(keys) {
+function getStorageData(keys) {
     return new Promise((resolve, reject) => {
         chrome.storage.local.get(keys, (result) => {
             if (chrome.runtime.lastError) {
@@ -20,12 +15,7 @@ async function getStorageData(keys) {
     });
 }
 
-/**
- * Set data in Chrome storage
- * @param {Object} data - Data to store
- * @returns {Promise<void>}
- */
-async function setStorageData(data) {
+function setStorageData(data) {
     return new Promise((resolve, reject) => {
         chrome.storage.local.set(data, () => {
             if (chrome.runtime.lastError) {
@@ -37,12 +27,7 @@ async function setStorageData(data) {
     });
 }
 
-/**
- * Remove data from Chrome storage
- * @param {string|Array<string>} keys - Storage keys to remove
- * @returns {Promise<void>}
- */
-async function removeStorageData(keys) {
+function removeStorageData(keys) {
     return new Promise((resolve, reject) => {
         chrome.storage.local.remove(keys, () => {
             if (chrome.runtime.lastError) {
@@ -54,125 +39,90 @@ async function removeStorageData(keys) {
     });
 }
 
-/**
- * Save transcript data to storage
- * @param {Object} transcriptData - Transcript data to save
- */
 async function saveTranscriptData(transcriptData) {
-    await setStorageData({ 
-        [window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA]: transcriptData 
+    await setStorageData({
+        [window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA]: transcriptData
     });
 }
 
 /**
- * Save session state to storage
- * @param {Object} sessionState - Session state data
+ * Save session state to storage, only writing keys that are present in the input
  */
-async function saveSessionState(sessionState) {
+async function saveSessionState(state) {
+    const KEYS = window.AppConstants.STORAGE_KEYS;
     const storageData = {};
-    
-    if (sessionState.currentSessionId) {
-        storageData[window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID] = sessionState.currentSessionId;
+
+    const keyMap = {
+        currentSessionId: KEYS.CURRENT_SESSION_ID,
+        realtimeMode: KEYS.REALTIME_MODE,
+        recordingStartTime: KEYS.RECORDING_START_TIME,
+        sessionStartTime: KEYS.SESSION_START_TIME,
+        sessionTotalDuration: KEYS.SESSION_TOTAL_DURATION,
+        meetTabId: KEYS.MEET_TAB_ID
+    };
+
+    for (const [prop, storageKey] of Object.entries(keyMap)) {
+        if (state[prop] !== undefined && state[prop] !== null) {
+            storageData[storageKey] = state[prop];
+        }
     }
-    if (sessionState.realtimeMode !== undefined) {
-        storageData[window.AppConstants.STORAGE_KEYS.REALTIME_MODE] = sessionState.realtimeMode;
+
+    if (Object.keys(storageData).length > 0) {
+        await setStorageData(storageData);
     }
-    if (sessionState.recordingStartTime) {
-        storageData[window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME] = sessionState.recordingStartTime;
-    }
-    if (sessionState.sessionStartTime) {
-        storageData[window.AppConstants.STORAGE_KEYS.SESSION_START_TIME] = sessionState.sessionStartTime;
-    }
-    if (sessionState.sessionTotalDuration !== undefined) {
-        storageData[window.AppConstants.STORAGE_KEYS.SESSION_TOTAL_DURATION] = sessionState.sessionTotalDuration;
-    }
-    if (sessionState.meetTabId) {
-        storageData[window.AppConstants.STORAGE_KEYS.MEET_TAB_ID] = sessionState.meetTabId;
-    }
-    
-    await setStorageData(storageData);
 }
 
-/**
- * Save session history to storage
- * @param {Array} sessionHistory - Session history array
- */
 async function saveSessionHistory(sessionHistory) {
-    await setStorageData({ 
-        [window.AppConstants.STORAGE_KEYS.SESSION_HISTORY]: sessionHistory 
+    await setStorageData({
+        [window.AppConstants.STORAGE_KEYS.SESSION_HISTORY]: sessionHistory
     });
 }
 
-/**
- * Save expanded entries state
- * @param {Set} expandedEntries - Set of expanded entry IDs
- */
 async function saveExpandedEntries(expandedEntries) {
-    const expandedArray = Array.from(expandedEntries);
-    await setStorageData({ 
-        [window.AppConstants.STORAGE_KEYS.EXPANDED_ENTRIES]: expandedArray 
+    await setStorageData({
+        [window.AppConstants.STORAGE_KEYS.EXPANDED_ENTRIES]: Array.from(expandedEntries)
     });
 }
 
-
 /**
- * Execute atomic storage update (used by TransactionCoordinator)
- * Wrapper for setStorageData that makes the purpose explicit
- *
- * @param {Object} updates - Multiple key-value pairs to save atomically
- * @returns {Promise<void>}
+ * Wrapper for setStorageData used by TransactionCoordinator for explicit intent
  */
 async function executeAtomicUpdate(updates) {
     return setStorageData(updates);
 }
 
-/**
- * Clear current session duration (used to prevent accumulation)
- */
 async function clearCurrentSessionDuration() {
     await removeStorageData([window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_DURATION]);
 }
 
 /**
- * Save recording state for popup close without stopping recording
- */
-async function saveRecordingStateForPopupClose() {
-    // Keep REALTIME_MODE in storage when popup is minimized to allow proper restoration
-    console.log('💾 [STORAGE] Saving recording state for popup close - keeping recording active');
-
-    // Recording state should already be in storage - we don't remove REALTIME_MODE
-}
-
-/**
- * Set session to paused state when recording stops
+ * Set session to paused state: remove active recording keys but preserve session data.
+ * MEET_TAB_ID is preserved to enable background scanning restart.
  */
 async function setPausedSessionState() {
-    // Remove only active recording keys, preserve session data
-    // MEET_TAB_ID is preserved to enable background scanning restart
+    const KEYS = window.AppConstants.STORAGE_KEYS;
+
     await removeStorageData([
-        window.AppConstants.STORAGE_KEYS.REALTIME_MODE,
-        window.AppConstants.STORAGE_KEYS.RECORDING_START_TIME,
-        window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_DURATION
-        // meetTabId POZOSTAJE w storage - umożliwia restart skanowania!
+        KEYS.REALTIME_MODE,
+        KEYS.RECORDING_START_TIME,
+        KEYS.CURRENT_SESSION_DURATION
     ]);
-    
-    // Set session state to paused and save paused/stopped flags
+
     await setStorageData({
-        [window.AppConstants.STORAGE_KEYS.SESSION_STATE]: window.AppConstants.SESSION_STATES.PAUSED_SESSION,
-        [window.AppConstants.STORAGE_KEYS.RECORDING_PAUSED]: true,
-        [window.AppConstants.STORAGE_KEYS.RECORDING_STOPPED]: true
+        [KEYS.SESSION_STATE]: window.AppConstants.SESSION_STATES.PAUSED_SESSION,
+        [KEYS.RECORDING_PAUSED]: true,
+        [KEYS.RECORDING_STOPPED]: true
     });
-    
-    console.log('⏸️ [STORAGE] Set session to paused state - preserved transcript data and paused/stopped flags');
+
+    console.log('⏸️ [STORAGE] Set session to paused state');
 }
 
-// Export all storage functions
 window.StorageManager = {
     // Core operations
     getStorageData,
     setStorageData,
     removeStorageData,
-    executeAtomicUpdate,  // For TransactionCoordinator
+    executeAtomicUpdate,
 
     // Convenience methods
     saveTranscriptData,
@@ -181,41 +131,16 @@ window.StorageManager = {
     saveExpandedEntries,
     clearCurrentSessionDuration,
     setPausedSessionState,
-    saveRecordingStateForPopupClose,
 
-    /**
-     * Initialize StorageManager module
-     */
     initialize() {
         console.log('💾 [STORAGE] StorageManager initialized');
-        
-        // Set up global aliases for easier migration from direct chrome.storage calls
         this.setupGlobalAliases();
     },
 
-    /**
-     * Set up global storage function aliases for easier migration
-     */
     setupGlobalAliases() {
-        // Simple wrapper functions for common operations
-        window.storageGet = (keys) => {
-            return new Promise((resolve) => {
-                chrome.storage.local.get(keys, resolve);
-            });
-        };
-        
-        window.storageSet = (data) => {
-            return new Promise((resolve) => {
-                chrome.storage.local.set(data, resolve);
-            });
-        };
-        
-        window.storageRemove = (keys) => {
-            return new Promise((resolve) => {
-                chrome.storage.local.remove(keys, resolve);
-            });
-        };
-        
-        console.log('🔗 [STORAGE] Global storage wrapper functions created');
+        window.storageGet = (keys) => new Promise((resolve) => chrome.storage.local.get(keys, resolve));
+        window.storageSet = (data) => new Promise((resolve) => chrome.storage.local.set(data, resolve));
+        window.storageRemove = (keys) => new Promise((resolve) => chrome.storage.local.remove(keys, resolve));
+        console.log('🔗 [STORAGE] Global storage aliases created');
     }
 };

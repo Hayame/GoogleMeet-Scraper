@@ -1,27 +1,24 @@
 /**
  * Data Integrity Verification System
  * Detects and repairs data corruption issues automatically
- *
- * @module DataIntegrity
- * @version 1.0.0
  */
 
 window.DataIntegrity = {
     /**
      * Verify storage integrity and detect issues
-     * Runs 4 comprehensive checks on application data
-     *
+     * Runs comprehensive checks on application data
      * @returns {Promise<Array<Object>>} Array of detected issues
      */
     async verifyStorageIntegrity() {
-        console.log('🔍 [INTEGRITY] Starting verification...');
+        console.log('[INTEGRITY] Starting verification...');
         const issues = [];
 
         try {
+            const { STORAGE_KEYS } = window.AppConstants;
             const data = await window.StorageManager.getStorageData([
-                window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA,
-                window.AppConstants.STORAGE_KEYS.CURRENT_SESSION_ID,
-                window.AppConstants.STORAGE_KEYS.SESSION_HISTORY
+                STORAGE_KEYS.TRANSCRIPT_DATA,
+                STORAGE_KEYS.CURRENT_SESSION_ID,
+                STORAGE_KEYS.SESSION_HISTORY
             ]);
 
             // CHECK 1: Orphaned session (currentSessionId without session in history)
@@ -48,13 +45,12 @@ window.DataIntegrity = {
                 const uniqueHashes = new Set(hashes);
 
                 if (uniqueHashes.size !== hashes.length) {
-                    const duplicateCount = hashes.length - uniqueHashes.size;
                     issues.push({
                         type: 'DUPLICATE_MESSAGES',
                         severity: 'MEDIUM',
-                        description: `${duplicateCount} duplicate messages found`,
+                        description: `${hashes.length - uniqueHashes.size} duplicate messages found`,
                         data: {
-                            duplicateCount,
+                            duplicateCount: hashes.length - uniqueHashes.size,
                             totalMessages: hashes.length
                         },
                         autoFix: () => this._deduplicateMessages(data.transcriptData)
@@ -64,16 +60,12 @@ window.DataIntegrity = {
 
             // CHECK 3: Orphaned background scans (>1 hour old)
             const allKeys = await chrome.storage.local.get(null);
-            const orphanedScans = [];
-
-            for (const [key, value] of Object.entries(allKeys)) {
-                if (key.startsWith('backgroundScan_') || key.startsWith('checkpoint_')) {
-                    const age = Date.now() - (value.timestamp || 0);
-                    if (age > 3600000) { // 1 hour
-                        orphanedScans.push(key);
-                    }
-                }
-            }
+            const orphanedScans = Object.entries(allKeys)
+                .filter(([key, value]) =>
+                    (key.startsWith('backgroundScan_') || key.startsWith('checkpoint_')) &&
+                    Date.now() - (value.timestamp || 0) > 3600000
+                )
+                .map(([key]) => key);
 
             if (orphanedScans.length > 0) {
                 issues.push({
@@ -86,11 +78,10 @@ window.DataIntegrity = {
             }
 
             // CHECK 4: Stale transaction markers (>5 minutes)
-            const staleTransactions = Object.keys(allKeys).filter(k => {
-                if (!k.startsWith('__transaction_')) return false;
-                const age = Date.now() - (allKeys[k].timestamp || 0);
-                return age > 300000; // 5 minutes
-            });
+            const staleTransactions = Object.keys(allKeys).filter(k =>
+                k.startsWith('__transaction_') &&
+                Date.now() - (allKeys[k].timestamp || 0) > 300000
+            );
 
             if (staleTransactions.length > 0) {
                 issues.push({
@@ -102,48 +93,39 @@ window.DataIntegrity = {
                 });
             }
 
-            console.log(`🔍 [INTEGRITY] Verification complete: ${issues.length} issues found`);
+            console.log(`[INTEGRITY] Verification complete: ${issues.length} issues found`);
             return issues;
 
         } catch (error) {
-            console.error('❌ [INTEGRITY] Verification failed:', error);
+            console.error('[INTEGRITY] Verification failed:', error);
             return [];
         }
     },
 
     /**
      * Auto-fix detected issues
-     *
      * @param {Array<Object>} issues - Issues to fix
      * @returns {Promise<Array<Object>>} Fix results
      */
     async autoFixIssues(issues) {
-        console.log(`🔧 [INTEGRITY] Auto-fixing ${issues.length} issues...`);
+        console.log(`[INTEGRITY] Auto-fixing ${issues.length} issues...`);
         const results = [];
 
         for (const issue of issues) {
             try {
                 if (issue.autoFix) {
                     await issue.autoFix();
-                    results.push({
-                        type: issue.type,
-                        status: 'FIXED',
-                        severity: issue.severity
-                    });
-                    console.log(`✅ [INTEGRITY] Fixed: ${issue.type}`);
+                    results.push({ type: issue.type, status: 'FIXED', severity: issue.severity });
+                    console.log(`[INTEGRITY] Fixed: ${issue.type}`);
                 }
             } catch (error) {
-                console.error(`❌ [INTEGRITY] Failed to fix ${issue.type}:`, error);
-                results.push({
-                    type: issue.type,
-                    status: 'FAILED',
-                    error: error.message
-                });
+                console.error(`[INTEGRITY] Failed to fix ${issue.type}:`, error);
+                results.push({ type: issue.type, status: 'FAILED', error: error.message });
             }
         }
 
         const fixedCount = results.filter(r => r.status === 'FIXED').length;
-        console.log(`🔧 [INTEGRITY] Auto-fix complete: ${fixedCount}/${issues.length} fixed`);
+        console.log(`[INTEGRITY] Auto-fix complete: ${fixedCount}/${issues.length} fixed`);
         return results;
     },
 
@@ -152,6 +134,7 @@ window.DataIntegrity = {
      * @private
      */
     async _recreateSessionInHistory(data) {
+        const { STORAGE_KEYS } = window.AppConstants;
         const newSession = {
             id: data.currentSessionId,
             title: window.generateSessionTitle ? window.generateSessionTitle() : 'Recovered Session',
@@ -162,9 +145,9 @@ window.DataIntegrity = {
         data.sessionHistory.push(newSession);
 
         await window.StorageManager.setStorageData({
-            [window.AppConstants.STORAGE_KEYS.SESSION_HISTORY]: data.sessionHistory
+            [STORAGE_KEYS.SESSION_HISTORY]: data.sessionHistory
         });
-        console.log('✅ [INTEGRITY] Recreated session in history:', newSession.id);
+        console.log('[INTEGRITY] Recreated session in history:', newSession.id);
     },
 
     /**
@@ -173,20 +156,12 @@ window.DataIntegrity = {
      */
     async _deduplicateMessages(transcriptData) {
         const seen = new Set();
-        const uniqueMessages = [];
-
-        for (const message of transcriptData.messages) {
-            if (!message.hash) {
-                // No hash - keep it (might be old data)
-                uniqueMessages.push(message);
-                continue;
-            }
-
-            if (!seen.has(message.hash)) {
-                seen.add(message.hash);
-                uniqueMessages.push(message);
-            }
-        }
+        const uniqueMessages = transcriptData.messages.filter(message => {
+            if (!message.hash) return true;
+            if (seen.has(message.hash)) return false;
+            seen.add(message.hash);
+            return true;
+        });
 
         const removedCount = transcriptData.messages.length - uniqueMessages.length;
         transcriptData.messages = uniqueMessages;
@@ -194,7 +169,7 @@ window.DataIntegrity = {
         await window.StorageManager.setStorageData({
             [window.AppConstants.STORAGE_KEYS.TRANSCRIPT_DATA]: transcriptData
         });
-        console.log(`✅ [INTEGRITY] Removed ${removedCount} duplicate messages`);
+        console.log(`[INTEGRITY] Removed ${removedCount} duplicate messages`);
     },
 
     /**
@@ -203,13 +178,13 @@ window.DataIntegrity = {
      */
     async _cleanupOrphanedScans(keys) {
         await chrome.storage.local.remove(keys);
-        console.log(`✅ [INTEGRITY] Cleaned ${keys.length} orphaned scans`);
+        console.log(`[INTEGRITY] Cleaned ${keys.length} orphaned scans`);
     },
 
     /**
      * Initialize Data Integrity module
      */
     initialize() {
-        console.log('🔍 [INTEGRITY] DataIntegrity initialized');
+        console.log('[INTEGRITY] DataIntegrity initialized');
     }
 };

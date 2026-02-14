@@ -5,13 +5,13 @@
 
 window.UIManager = {
     /**
-     * Centralized UI state management for button visibility
-     * @param {string} sessionState - 'RECORDING', 'HISTORICAL', or 'NEW'
+     * Update button visibility based on session state: 'RECORDING', 'HISTORICAL', or 'NEW'
      */
     updateButtonVisibility(sessionState) {
         const recordBtn = document.getElementById('recordBtn');
         const closeSessionBtn = document.getElementById('closeSessionBtn');
         const refreshBtn = document.getElementById('refreshTranscriptBtn');
+        const recordText = document.querySelector('.record-text');
 
         if (!recordBtn || !closeSessionBtn) {
             console.error('Required buttons not found for visibility update');
@@ -20,7 +20,6 @@ window.UIManager = {
 
         switch (sessionState) {
             case 'RECORDING':
-                // During recording: show stop button, hide close button
                 recordBtn.style.display = 'flex';
                 recordBtn.classList.add('active');
                 closeSessionBtn.style.display = 'none';
@@ -30,16 +29,10 @@ window.UIManager = {
                     refreshBtn.style.gap = '6px';
                     refreshBtn.style.marginLeft = 'auto';
                 }
-
-                // Set proper button text for recording mode
-                const recordTextRecording = document.querySelector('.record-text');
-                if (recordTextRecording) {
-                    recordTextRecording.textContent = 'Zatrzymaj nagrywanie';
-                }
+                if (recordText) recordText.textContent = 'Zatrzymaj nagrywanie';
                 break;
 
             case 'HISTORICAL':
-                // Historical session: hide record button, show close button
                 recordBtn.style.display = 'none';
                 closeSessionBtn.style.display = 'block';
                 if (refreshBtn) refreshBtn.style.display = 'none';
@@ -47,15 +40,11 @@ window.UIManager = {
 
             case 'NEW':
             default:
-                // New session: show record button (inactive), hide close button
                 recordBtn.style.display = 'flex';
                 recordBtn.classList.remove('active');
                 closeSessionBtn.style.display = 'none';
                 if (refreshBtn) refreshBtn.style.display = 'none';
-                const recordText = document.querySelector('.record-text');
-                if (recordText) {
-                    recordText.textContent = 'Rozpocznij nagrywanie';
-                }
+                if (recordText) recordText.textContent = 'Rozpocznij nagrywanie';
                 break;
         }
     },
@@ -209,88 +198,45 @@ window.UIManager = {
     saveMeetingNameEdit() {
         const meetingTitle = document.querySelector('.meeting-name-text');
         const input = document.querySelector('.meeting-name-input');
-        
+
         if (!meetingTitle || !input) return;
-        
+
         const newName = input.value.trim();
         const sessionId = meetingTitle.getAttribute('data-session-id');
-        
+
         if (!newName) {
             this.cancelMeetingNameEdit();
             return;
         }
-        
-        // Update session in storage using StorageManager
-        if (window.StorageManager) {
-            window.StorageManager.getStorageData(['sessionHistory']).then((result) => {
-                const sessionHistory = result.sessionHistory || [];
-                const sessionIndex = sessionHistory.findIndex(s => s.id === sessionId);
-                
-                if (sessionIndex !== -1) {
-                    sessionHistory[sessionIndex].title = newName;
 
-                    // Update global sessionHistory variable
-                    window.sessionHistory = sessionHistory;
-                    
-                    window.StorageManager.saveSessionHistory(sessionHistory).then(() => {
-                        // Re-render session history to update the sidebar
-                        if (window.renderSessionHistory) {
-                            window.renderSessionHistory();
-                        }
-                    });
-                }
-            });
-        } else {
-            // Fallback: Use StorageManager directly
-            (async () => {
-                try {
-                    const result = await window.StorageManager.getStorageData(['sessionHistory']);
-                    const sessionHistory = result.sessionHistory || [];
-                    const sessionIndex = sessionHistory.findIndex(s => s.id === sessionId);
+        // Persist the updated name to storage
+        window.StorageManager.getStorageData(['sessionHistory']).then((result) => {
+            const sessionHistory = result.sessionHistory || [];
+            const sessionIndex = sessionHistory.findIndex(s => s.id === sessionId);
 
-                    if (sessionIndex !== -1) {
-                        sessionHistory[sessionIndex].title = newName;
+            if (sessionIndex !== -1) {
+                sessionHistory[sessionIndex].title = newName;
+                window.sessionHistory = sessionHistory;
 
-                        // Update global sessionHistory variable
-                        window.sessionHistory = sessionHistory;
-
-                        await window.StorageManager.saveSessionHistory(sessionHistory);
-
-                        if (window.renderSessionHistory) {
-                            window.renderSessionHistory();
-                        }
-
-                        console.log('✅ [UI] Meeting name updated (fallback path):', newName);
+                window.StorageManager.saveSessionHistory(sessionHistory).then(() => {
+                    if (window.renderSessionHistory) {
+                        window.renderSessionHistory();
                     }
-                } catch (error) {
-                    console.error('❌ [UI] Failed to update meeting name (fallback):', error);
-                }
-            })();
-        }
-        
+                });
+            }
+        });
+
         // Update display text and switch back to display mode
-        const meetingNameText = document.querySelector('.meeting-name-text');
-        const meetingNameDisplay = document.querySelector('.meeting-name-display');
-        const meetingNameEdit = document.querySelector('.meeting-name-edit');
-        
-        if (meetingNameText) {
-            meetingNameText.textContent = newName;
-        }
-        
-        // Switch back to display mode
-        if (meetingNameDisplay && meetingNameEdit) {
-            meetingNameEdit.style.display = 'none';
-            meetingNameDisplay.style.display = 'block';
-        }
-        
-        // Show success message briefly
+        meetingTitle.textContent = newName;
+        this.cancelMeetingNameEdit();
+
         this.updateStatus(`Zmieniono nazwę na: ${newName}`, 'success');
     },
 
     /**
-     * Update status message and appearance
-     * @param {string} message - Status message to display
-     * @param {string} type - Status type: 'success', 'error', 'info', or ''
+     * Update status message and dot indicator
+     * @param {string} message - Status message (empty string to hide)
+     * @param {string} type - 'success', 'error', 'info', or ''
      */
     updateStatus(message, type = '') {
         const statusDiv = document.getElementById('recordingStatus');
@@ -298,173 +244,118 @@ window.UIManager = {
             console.error('Status div not found');
             return;
         }
-        
+
         const statusText = statusDiv.querySelector('.status-text');
         const statusDot = statusDiv.querySelector('.status-dot');
-        
-        // Check if meeting name is currently visible
-        const isMeetingNameVisible = statusDiv.querySelector('.meeting-name-display');
-        
+
         if (!message) {
-            // Hide status when no message
             if (statusText) statusText.style.display = 'none';
             if (statusDot) statusDot.style.display = 'none';
             return;
-        } else if (isMeetingNameVisible) {
-            // Historical session - status should already be hidden by showMeetingName
-            return;
         }
-        
-        // Show status elements
+
+        // Don't show status text when meeting name is displayed (historical session)
+        if (statusDiv.querySelector('.meeting-name-display')) return;
+
         if (statusText) {
             statusText.textContent = message;
             statusText.style.display = 'block';
         }
-        
         if (statusDot) {
             statusDot.style.display = 'block';
             statusDot.className = `status-dot ${type}`;
         }
-        
-        // Show the status container
+
         statusDiv.style.display = 'flex';
-        
-        // Auto-hide success messages after delay
+
         if (type === 'success') {
-            setTimeout(() => {
-                this.updateStatus('', '');
-            }, 3000);
+            setTimeout(() => this.updateStatus('', ''), 3000);
         }
     },
 
-
     /**
-     * Format duration in seconds to HH:MM:SS or MM:SS format
-     * @param {number} seconds - Duration in seconds
-     * @returns {string} Formatted duration string
+     * Format seconds to H:MM:SS or M:SS display string
      */
     formatDuration(seconds) {
         const hours = Math.floor(seconds / 3600);
         const minutes = Math.floor((seconds % 3600) / 60);
         const secs = seconds % 60;
-        
+
         if (hours > 0) {
             return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-        } else {
-            return `${minutes}:${secs.toString().padStart(2, '0')}`;
         }
+        return `${minutes}:${secs.toString().padStart(2, '0')}`;
     },
 
-    /**
-     * Initialize UI Manager module
-     */
     initialize() {
         console.log('🎨 [UI] UIManager initialized');
         this.initializeStatusVisibility();
-        
-        // Set up global aliases for backward compatibility
         this.setupGlobalAliases();
     },
 
-    /**
-     * Set up global function aliases for backward compatibility
-     */
     setupGlobalAliases() {
-        // Expose UI functions globally as expected by other modules
         window.updateButtonVisibility = this.updateButtonVisibility.bind(this);
         window.updateStatus = this.updateStatus.bind(this);
         window.showMeetingName = this.showMeetingName.bind(this);
         window.hideMeetingName = this.hideMeetingName.bind(this);
         window.showInitializationError = this.showInitializationError.bind(this);
-        // NOTE: updateDurationDisplay is now handled by TimerManager
         window.formatDuration = this.formatDuration.bind(this);
-        
-        console.log('🔗 [UI] Global function aliases created for backward compatibility');
+        console.log('🔗 [UI] Global UI aliases created');
     },
 
-    /**
-     * Toggle sidebar collapsed state and save to storage
-     */
     async toggleSidebar() {
         const sidebar = document.querySelector('.sidebar');
         if (!sidebar) return;
-        
-        const wasCollapsed = sidebar.classList.contains('collapsed');
+
         sidebar.classList.toggle('collapsed');
         const isNowCollapsed = sidebar.classList.contains('collapsed');
-        
-        // Save state to storage
-        await window.StateManager.saveUIState({
-            sidebarCollapsed: isNowCollapsed
-        });
 
-        // Update tooltips after sidebar state change (collapsed: show tooltips, expanded: hide them)
-        if (window.SessionUIManager && window.SessionUIManager.updateSessionTooltips) {
+        await window.StateManager.saveUIState({ sidebarCollapsed: isNowCollapsed });
+
+        if (window.SessionUIManager?.updateSessionTooltips) {
             window.SessionUIManager.updateSessionTooltips();
-            console.log('🔍 [UI] Session tooltips updated after sidebar toggle');
         }
-        
+
         console.log('📐 [UI] Sidebar toggled, collapsed:', isNowCollapsed);
     },
 
-    /**
-     * Save current UI state to storage
-     */
     async saveCurrentUIState() {
         const sidebar = document.querySelector('.sidebar');
-        const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
-        
         const uiState = {
             sidebarCollapsed: sidebar?.classList.contains('collapsed') || false,
-            theme: currentTheme,
-            searchPanelOpen: false, // TODO: implement when search panel state tracking is added
-            filterPanelOpen: false  // TODO: implement when filter panel state tracking is added
+            theme: document.documentElement.getAttribute('data-theme') || 'light',
+            searchPanelOpen: false,
+            filterPanelOpen: false
         };
 
-        // Include filter state to prevent overwriting
         if (window.SearchFilterManager) {
             uiState.searchQuery = window.SearchFilterManager.getCurrentSearchQuery() || '';
             uiState.activeParticipantFilters = Array.from(window.SearchFilterManager.getActiveParticipantFilters() || []);
         }
-        
+
         await window.StateManager.saveUIState(uiState);
-        console.log('💾 [UI] Current UI state saved:', uiState);
     },
 
     /**
      * Restore UI state from provided state object
-     * Centralized UI state restoration to ensure consistency
      */
     restoreUIState(uiState) {
-        console.log('🎨 [UI] Restoring UI state through UIManager:', uiState);
+        console.log('🎨 [UI] Restoring UI state:', uiState);
 
-        // Restore sidebar collapsed state properly
         const sidebar = document.querySelector('.sidebar');
         if (sidebar) {
-            if (uiState.sidebarCollapsed) {
-                sidebar.classList.add('collapsed');
-                console.log('📐 [UI] Sidebar restored to collapsed state');
-            } else {
-                sidebar.classList.remove('collapsed');
-                console.log('📐 [UI] Sidebar restored to expanded state');
-            }
-        }
-        
-        // Restore theme (ensure consistency with theme system)
-        if (uiState.theme && uiState.theme !== 'light') {
-            document.documentElement.setAttribute('data-theme', uiState.theme);
-            console.log('🎨 [UI] Theme restored:', uiState.theme);
-        }
-        
-        // Restore search and filter states
-        if (window.SearchFilterManager && window.SearchFilterManager.restoreFilterState) {
-            window.SearchFilterManager.restoreFilterState(uiState);
-            console.log('🔍 [UI] Filter state restoration triggered');
+            sidebar.classList.toggle('collapsed', !!uiState.sidebarCollapsed);
         }
 
-        // Save the restored UI state back to storage to ensure persistence
+        if (uiState.theme && uiState.theme !== 'light') {
+            document.documentElement.setAttribute('data-theme', uiState.theme);
+        }
+
+        if (window.SearchFilterManager?.restoreFilterState) {
+            window.SearchFilterManager.restoreFilterState(uiState);
+        }
+
         this.saveCurrentUIState();
-        console.log('💾 [UI] Restored UI state saved to storage');
     },
 
     /**
