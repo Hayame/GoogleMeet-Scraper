@@ -18,29 +18,33 @@ window.ExportManager = {
     },
 
     /**
+     * Prepare export content with data validation.
+     * Returns null and shows error if no transcript data is available.
+     */
+    async _getExportContent() {
+        if (!window.transcriptData) {
+            this._updateStatus('Brak danych do eksportu', 'error');
+            return null;
+        }
+        const shouldWrapInPrompt = document.getElementById('exportAsLLMPrompt')?.checked ?? true;
+        return { content: await this.prepareExportContent(shouldWrapInPrompt), shouldWrapInPrompt };
+    },
+
+    /**
      * Setup export button event handlers
      */
     setupExportButtonHandlers() {
-        const exportAsLLMPrompt = document.getElementById('exportAsLLMPrompt');
-
-        // Toggle prompt selector visibility when checkbox changes
-        if (exportAsLLMPrompt) {
-            exportAsLLMPrompt.addEventListener('change', () => this.updatePromptSelectorVisibility());
-        }
+        document.getElementById('exportAsLLMPrompt')
+            ?.addEventListener('change', () => this.updatePromptSelectorVisibility());
 
         const exportTxtBtn = this._replaceWithClone('exportTxtBtn');
         if (exportTxtBtn) {
             exportTxtBtn.addEventListener('click', async () => {
-                if (!window.transcriptData) {
-                    this._updateStatus('Brak danych do eksportu', 'error');
-                    return;
-                }
+                const result = await this._getExportContent();
+                if (!result) return;
 
-                const shouldWrapInPrompt = exportAsLLMPrompt?.checked ?? true;
-                const content = await this.prepareExportContent(shouldWrapInPrompt);
-                const filename = shouldWrapInPrompt ? 'transkrypcja-z-promptem.txt' : 'transkrypcja-google-meet.txt';
-
-                this.downloadFile(content, filename, 'text/plain');
+                const filename = result.shouldWrapInPrompt ? 'transkrypcja-z-promptem.txt' : 'transkrypcja-google-meet.txt';
+                this.downloadFile(result.content, filename, 'text/plain');
                 this._updateStatus('Wyeksportowano do pliku!', 'success');
                 this._hideModal('exportModal');
             });
@@ -51,15 +55,10 @@ window.ExportManager = {
         const exportClipboardBtn = this._replaceWithClone('exportClipboardBtn');
         if (exportClipboardBtn) {
             exportClipboardBtn.addEventListener('click', async () => {
-                if (!window.transcriptData) {
-                    this._updateStatus('Brak danych do eksportu', 'error');
-                    return;
-                }
+                const result = await this._getExportContent();
+                if (!result) return;
 
-                const shouldWrapInPrompt = exportAsLLMPrompt?.checked ?? true;
-                const content = await this.prepareExportContent(shouldWrapInPrompt);
-
-                await this.copyToClipboard(content);
+                await this.copyToClipboard(result.content);
                 this._hideModal('exportModal');
             });
         } else {

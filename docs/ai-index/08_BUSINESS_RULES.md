@@ -105,10 +105,11 @@
 
 | Rule ID | Rule | Source IDs | Enforced at |
 |---------|------|------------|-------------|
-| BR100 | Built-in prompt cannot be edited or deleted | S098, S099 | SettingsManager.updatePrompt, deletePrompt |
+| BR100 | Built-in prompt (displayed as "Podsumowanie (systemowy)") cannot be edited or deleted | S098, S099 | SettingsManager.updatePrompt, deletePrompt |
 | BR101 | Only one prompt can be marked as default at a time | S100 | SettingsManager.setDefaultPrompt |
 | BR102 | If default prompt is deleted, built-in becomes default | S099 | SettingsManager.deletePrompt |
 | BR103 | Prompt titles must be unique (case-insensitive) | S097, S098, S102 | SettingsManager._handlePromptFormSave |
 | BR104 | On first load, old useDefaultPrompt/customPrompt migrated to promptsList | S092 | SettingsManager.loadPrompts |
 | BR105 | Export prompt selector shown only when >1 prompts AND LLM checkbox checked | S103 | ExportManager.updatePromptSelectorVisibility |
 | BR106 | Export prompt selector defaults to prompt marked as default | S103, S104 | ExportManager.updatePromptSelectorVisibility, getSelectedExportPrompt |
+| BR107 | Prompt form actions (Anuluj/Zapisz) live outside scroll container, visibility synced with form | S101, S102 | SettingsManager.renderPromptList, showPromptForm |

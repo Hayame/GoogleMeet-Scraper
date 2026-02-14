@@ -93,7 +93,7 @@ window.SettingsManager = {
     _createBuiltinPrompt() {
         return {
             id: 'builtin',
-            title: 'Wbudowany w rozszerzenie',
+            title: 'Podsumowanie (systemowy)',
             prompt: null,
             isBuiltin: true,
             isDefault: true
@@ -229,6 +229,7 @@ window.SettingsManager = {
         const formContainer = document.getElementById('promptFormContainer');
         if (listContainer) listContainer.style.display = '';
         if (formContainer) formContainer.style.display = 'none';
+        this._setPromptFormActionsVisible(false);
 
         tableBody.innerHTML = '';
 
@@ -332,6 +333,7 @@ window.SettingsManager = {
 
         listContainer.style.display = 'none';
         formContainer.style.display = '';
+        this._setPromptFormActionsVisible(true);
         if (titleError) { titleError.style.display = 'none'; titleError.textContent = ''; }
 
         // Hide settings footer while in prompt form
@@ -413,6 +415,14 @@ window.SettingsManager = {
         const div = document.createElement('div');
         div.textContent = str;
         return div.innerHTML;
+    },
+
+    /**
+     * Set the visibility of the prompt form action buttons
+     */
+    _setPromptFormActionsVisible(visible) {
+        const formActions = document.querySelector('#prompt-tab > .prompt-form-actions');
+        if (formActions) formActions.style.display = visible ? '' : 'none';
     },
 
     // ─── General Settings (Profile) ───
@@ -556,10 +566,7 @@ window.SettingsManager = {
      */
     hasUnsavedChanges() {
         const userNameInput = document.getElementById('userDisplayName');
-        if (userNameInput && userNameInput.value.trim() !== this.originalUserDisplayName) {
-            return true;
-        }
-        return false;
+        return userNameInput?.value.trim() !== this.originalUserDisplayName;
     },
 
     updateSettingsFooterVisibility(visible) {
@@ -579,56 +586,18 @@ window.SettingsManager = {
     // ─── Event Listeners ───
 
     setupEventListeners() {
-        const settingsBtn = document.getElementById('settingsBtn');
-        if (settingsBtn) {
-            settingsBtn.addEventListener('click', () => this.showSettingsModal());
+        function bindClick(id, handler) {
+            document.getElementById(id)?.addEventListener('click', handler);
         }
 
-        const saveAllSettingsBtn = document.getElementById('saveAllSettingsBtn');
-        if (saveAllSettingsBtn) {
-            saveAllSettingsBtn.addEventListener('click', () => this.handleSaveAllSettings());
-        }
-
-        const cancelAllSettingsBtn = document.getElementById('cancelAllSettingsBtn');
-        if (cancelAllSettingsBtn) {
-            cancelAllSettingsBtn.addEventListener('click', () => this.handleCancelAllSettings());
-        }
-
-        const saveSettingsBtn = document.getElementById('saveSettingsBtn');
-        if (saveSettingsBtn) {
-            saveSettingsBtn.addEventListener('click', () => this.handleSaveSettings());
-        }
-
-        const cancelSettingsBtn = document.getElementById('cancelSettingsBtn');
-        if (cancelSettingsBtn) {
-            cancelSettingsBtn.addEventListener('click', () => this.handleCancelSettings());
-        }
-
-        const detectBtn = document.getElementById('detectGoogleNameBtn');
-        if (detectBtn) {
-            detectBtn.addEventListener('click', () => this.handleManualDetection());
-        }
-
-        const clearAllSessionsBtn = document.getElementById('clearAllSessionsBtn');
-        if (clearAllSessionsBtn) {
-            clearAllSessionsBtn.addEventListener('click', () => this.handleClearAllSessions());
-        }
-
-        // Prompt form buttons
-        const addPromptBtn = document.getElementById('addPromptBtn');
-        if (addPromptBtn) {
-            addPromptBtn.addEventListener('click', () => this.showPromptForm('add'));
-        }
-
-        const promptFormSave = document.getElementById('promptFormSave');
-        if (promptFormSave) {
-            promptFormSave.addEventListener('click', () => this._handlePromptFormSave());
-        }
-
-        const promptFormCancel = document.getElementById('promptFormCancel');
-        if (promptFormCancel) {
-            promptFormCancel.addEventListener('click', () => this._handlePromptFormCancel());
-        }
+        bindClick('settingsBtn', () => this.showSettingsModal());
+        bindClick('saveAllSettingsBtn', () => this.handleSaveAllSettings());
+        bindClick('cancelAllSettingsBtn', () => this.handleCancelAllSettings());
+        bindClick('detectGoogleNameBtn', () => this.handleManualDetection());
+        bindClick('clearAllSessionsBtn', () => this.handleClearAllSessions());
+        bindClick('addPromptBtn', () => this.showPromptForm('add'));
+        bindClick('promptFormSave', () => this._handlePromptFormSave());
+        bindClick('promptFormCancel', () => this._handlePromptFormCancel());
 
         this.setupTabSwitching();
     },
@@ -646,19 +615,12 @@ window.SettingsManager = {
     },
 
     switchTab(targetTab) {
-        const allTabButtons = document.querySelectorAll('.tab-button');
-        allTabButtons.forEach(button => { button.classList.remove('active'); });
+        document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+        document.querySelector(`[data-tab="${targetTab}"]`)?.classList.add('active');
 
-        const targetButton = document.querySelector(`[data-tab="${targetTab}"]`);
-        if (targetButton) targetButton.classList.add('active');
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+        document.getElementById(`${targetTab}-tab`)?.classList.add('active');
 
-        const allTabPanes = document.querySelectorAll('.tab-pane');
-        allTabPanes.forEach(pane => { pane.classList.remove('active'); });
-
-        const targetPane = document.getElementById(`${targetTab}-tab`);
-        if (targetPane) targetPane.classList.add('active');
-
-        // Render prompt list when switching to prompt tab
         if (targetTab === 'prompt') {
             this.renderPromptList();
         }
@@ -772,9 +734,6 @@ window.SettingsManager = {
         this._closeSettingsModal();
     },
 
-    async handleSaveSettings() { return this.handleSaveAllSettings(); },
-    handleCancelSettings() { return this.handleCancelAllSettings(); },
-
     async handleClearAllSessions() {
         const sessionCount = window.sessionHistory?.length || 0;
         if (sessionCount === 0) {
@@ -853,16 +812,17 @@ window.SettingsManager = {
     },
 
     updateSessionCountInfo() {
-        const sessionCountInfo = document.getElementById('sessionCountInfo');
-        if (sessionCountInfo) {
-            const sessionCount = window.sessionHistory ? window.sessionHistory.length : 0;
-            if (sessionCount === 0) {
-                sessionCountInfo.textContent = 'Brak sesji';
-                sessionCountInfo.className = 'session-count-info empty';
-            } else {
-                sessionCountInfo.textContent = `${sessionCount} ${sessionCount === 1 ? 'sesja' : sessionCount < 5 ? 'sesje' : 'sesji'}`;
-                sessionCountInfo.className = 'session-count-info';
-            }
+        const el = document.getElementById('sessionCountInfo');
+        if (!el) return;
+
+        const count = window.sessionHistory?.length || 0;
+        if (count === 0) {
+            el.textContent = 'Brak sesji';
+            el.className = 'session-count-info empty';
+        } else {
+            const label = count === 1 ? 'sesja' : count < 5 ? 'sesje' : 'sesji';
+            el.textContent = `${count} ${label}`;
+            el.className = 'session-count-info';
         }
     },
 

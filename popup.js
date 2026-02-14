@@ -144,8 +144,6 @@ async function initializeApplication() {
 
     if (window.StateManager.validateStateRestoration) {
         window.StateManager.validateStateRestoration();
-    } else {
-        console.warn('⚠️ [INIT] StateManager.validateStateRestoration not available');
     }
 }
 
@@ -170,9 +168,7 @@ async function restoreCompleteApplicationState() {
         const uiState = await window.StateManager.restoreUIState();
 
         try {
-            if (window.UIManager && window.UIManager.restoreUIState) {
-                window.UIManager.restoreUIState(uiState);
-            }
+            window.UIManager?.restoreUIState?.(uiState);
         } catch (uiError) {
             console.error('❌ [RECOVERY] UI state restoration failed:', uiError);
             document.documentElement.setAttribute('data-theme', 'light');
@@ -182,9 +178,7 @@ async function restoreCompleteApplicationState() {
             await applySessionStateRestoration(sessionState);
         } catch (sessionError) {
             console.error('❌ [RECOVERY] Session state restoration failed:', sessionError);
-            if (window.StateManager) {
-                window.StateManager.exposeGlobalVariables();
-            }
+            window.StateManager?.exposeGlobalVariables();
         }
 
         console.log('✅ [POPUP] Complete state restoration finished', { sessionState, uiState });
@@ -205,13 +199,10 @@ async function restoreCompleteApplicationState() {
 function displayTranscriptAndStats(transcriptData) {
     if (!transcriptData) return;
 
-    if (window.displayTranscript) {
-        window.displayTranscript(transcriptData);
-    }
-    if (window.updateStats) {
-        window.updateStats(transcriptData);
-    }
-    if (window.TranscriptManager && window.TranscriptManager.updateParticipantCountClickability) {
+    window.displayTranscript?.(transcriptData);
+    window.updateStats?.(transcriptData);
+
+    if (window.TranscriptManager?.updateParticipantCountClickability) {
         const uniqueParticipants = new Set(transcriptData.messages?.map(m => m.speaker) || []).size;
         window.TranscriptManager.updateParticipantCountClickability(uniqueParticipants);
     }
@@ -232,9 +223,8 @@ async function applySessionStateRestoration(sessionState) {
         console.log('🔴 [POPUP] Restoring active recording state');
 
         // Reactivate background scanner (includes merge of accumulated data)
-        let reactivationResult = null;
-        if (window.BackgroundScanner && window.BackgroundScanner.reactivateAfterRestore) {
-            reactivationResult = await window.BackgroundScanner.reactivateAfterRestore();
+        const reactivationResult = await window.BackgroundScanner?.reactivateAfterRestore?.() ?? null;
+        if (reactivationResult) {
             console.log('✅ [POPUP] Background scanner reactivation completed:', reactivationResult);
         }
 
@@ -250,9 +240,7 @@ async function applySessionStateRestoration(sessionState) {
             window.updateStatus?.('Przywrócono zapisane dane (częściowo)', 'warning');
         }
 
-        if (window.UIManager) {
-            window.UIManager.updateButtonVisibility('RECORDING');
-        }
+        window.UIManager?.updateButtonVisibility('RECORDING');
 
         // Restart duration timer
         const recordingStartTime = window.StateManager?.getRecordingStartTime();
@@ -260,45 +248,32 @@ async function applySessionStateRestoration(sessionState) {
             window.TimerManager.startDurationTimer();
             console.log('⏰ [POPUP] Timer started with recordingStartTime:', recordingStartTime);
         } else {
-            console.warn('⚠️ [POPUP] Cannot start timer - recordingStartTime not available');
-            if (window.TimerManager?.updateDurationDisplay) {
-                window.TimerManager.updateDurationDisplay();
-            }
+            window.TimerManager?.updateDurationDisplay?.();
         }
 
     } else if (sessionState.sessionState === window.AppConstants.SESSION_STATES.PAUSED_SESSION) {
         console.log('⏸️ [POPUP] Restoring paused session');
 
         displayTranscriptAndStats(sessionState.transcriptData);
-
-        if (window.UIManager) {
-            window.UIManager.updateButtonVisibility('NEW');
-        }
+        window.UIManager?.updateButtonVisibility('NEW');
 
         if (sessionState.sessionTotalDuration !== undefined && window.TimerManager) {
             window.StateManager?.setSessionTotalDuration(sessionState.sessionTotalDuration);
-            if (window.TimerManager.updateDurationDisplay) {
-                window.TimerManager.updateDurationDisplay();
-            }
+            window.TimerManager.updateDurationDisplay?.();
         }
 
     } else if (sessionState.sessionState === window.AppConstants.SESSION_STATES.HISTORICAL_SESSION) {
         console.log('📜 [POPUP] Restoring historical session');
 
         displayTranscriptAndStats(sessionState.transcriptData);
+        window.UIManager?.updateButtonVisibility('HISTORICAL');
 
-        if (window.UIManager) {
-            window.UIManager.updateButtonVisibility('HISTORICAL');
-
-            const session = window.sessionHistory?.find(s => s.id === sessionState.currentSessionId);
-            if (session) {
-                window.UIManager.showMeetingName(session.title, sessionState.currentSessionId);
-            }
+        const session = window.sessionHistory?.find(s => s.id === sessionState.currentSessionId);
+        if (session) {
+            window.UIManager?.showMeetingName(session.title, sessionState.currentSessionId);
         }
 
-        if (window.SessionUIManager && window.SessionUIManager.highlightActiveSession) {
-            window.SessionUIManager.highlightActiveSession(sessionState.currentSessionId);
-        }
+        window.SessionUIManager?.highlightActiveSession?.(sessionState.currentSessionId);
     }
 }
 
