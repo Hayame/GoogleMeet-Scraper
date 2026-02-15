@@ -44,7 +44,7 @@ W folderze `dist/` znajdziesz gotowe do instalacji rozszerzenie:
    - `content.js`
    - `background.js`
    - `debug-config.js`
-   - `prompt.md`
+   - `prompts/` — LLM prompt templates (standard, daily scrum, marketing, project meeting)
    - `style.css`
    - `session-history.css`
    - folder `js/core/` ze wszystkimi modułami podstawowymi

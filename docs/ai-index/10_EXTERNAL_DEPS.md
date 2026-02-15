@@ -11,7 +11,7 @@ Note: This project has NO npm packages. All dependencies are browser/Chrome Exte
 | Runtime messaging | `chrome.runtime.onMessage` | S051, S063, S071, S014 | Message passing between popup, background, and content scripts |
 | Runtime sendMessage | `chrome.runtime.sendMessage` | S013, S014, S018, S063 | Send messages to background script (start/stop scanning) and relay updates to popup |
 | Runtime lastError | `chrome.runtime.lastError` | S002, S013, S014, S018, S019, S023 | Error checking after async Chrome API calls |
-| Runtime getURL | `chrome.runtime.getURL` | S019, S023 | Resolve extension-relative URLs for prompt.md resource |
+| Runtime getURL | `chrome.runtime.getURL` | S019, S023 | Resolve extension-relative URLs for prompts/standard.md resource |
 | Runtime onInstalled | `chrome.runtime.onInstalled` | S063 | Inject content scripts into existing Meet tabs on extension install |
 | Tabs query | `chrome.tabs.query` | S013, S018, S023, S014, S063 | Find active tab, Google Meet tabs for message routing |
 | Tabs sendMessage | `chrome.tabs.sendMessage` | S013, S023, S063 | Send scrapeTranscript/enableCaptions/updateUserDisplayName to content script |
@@ -42,7 +42,7 @@ Note: This project has NO npm packages. All dependencies are browser/Chrome Exte
 | Clipboard fallback | `document.execCommand('copy')` | S019 | Legacy clipboard copy for older browsers |
 | Blob API | `new Blob()` | S019, S021 | Create binary file objects for download |
 | URL API | `URL.createObjectURL` / `URL.revokeObjectURL` | S019, S021 | Generate temporary URLs for Blob downloads and release them |
-| Fetch API | `fetch()` | S019, S023 | Load prompt.md template from extension resources |
+| Fetch API | `fetch()` | S019, S023 | Load prompts/standard.md template from extension resources |
 | Web Storage | [REMOVED] `localStorage` no longer used | S022 | Theme now persisted via UIManager → chrome.storage.local |
 | Timers | `setInterval` / `clearInterval` | S001, S004, S014, S062, S063 | Duration tracking, background scanning (3s), meeting start detection (2s) |
 | Timers | `setTimeout` / `clearTimeout` | S001, S008, S017, S019, S020 | Debounced search, animation delays, toast auto-dismiss, state restoration polling |
@@ -74,7 +74,7 @@ No explicit CSP defined in manifest.json. Uses Chrome Manifest V3 defaults which
 
 | Resource | Type | Accessible from |
 |----------|------|-----------------|
-| `prompt.md` | Markdown template | `https://meet.google.com/*` only |
+| `prompts/*.md` | Markdown templates | `https://meet.google.com/*` only |
 
 ## External Resources
 
@@ -83,7 +83,7 @@ No explicit CSP defined in manifest.json. Uses Chrome Manifest V3 defaults which
 | `style.css` | Stylesheet | Local extension bundle |
 | `session-history.css` | Stylesheet | Local extension bundle |
 | `debug-config.js` | Configuration | Local extension bundle (loaded via `<script>` in popup, `importScripts` in service worker, content script injection in manifest) |
-| `prompt.md` | LLM prompt template | Local extension bundle (fetched via `chrome.runtime.getURL`) |
+| `prompts/standard.md` | LLM prompt template | Local extension bundle (fetched via `chrome.runtime.getURL`) |
 | SVG icons | Inline SVG | Embedded directly in `popup.html` (no external icon libraries) |
 
 No external CDNs, fonts, analytics, or third-party scripts are loaded. The extension is fully self-contained.

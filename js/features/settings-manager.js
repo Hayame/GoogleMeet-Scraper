@@ -120,12 +120,12 @@ window.SettingsManager = {
     },
 
     /**
-     * Fetch and cache the built-in prompt.md text
+     * Fetch and cache the built-in prompts/standard.md text
      */
     async getBuiltinPromptText() {
         if (this._builtinPromptCache) return this._builtinPromptCache;
         try {
-            const response = await fetch(chrome.runtime.getURL('prompt.md'));
+            const response = await fetch(chrome.runtime.getURL('prompts/standard.md'));
             this._builtinPromptCache = await response.text();
             return this._builtinPromptCache;
         } catch (error) {

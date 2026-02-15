@@ -304,8 +304,8 @@ Na podstawie poniższej transkrypcji stwórz szczegółowe podsumowanie w formac
     async getPromptTemplate() {
         const sm = window.SettingsManager;
         if (!sm) {
-            // Fallback: fetch built-in prompt.md directly
-            const response = await fetch(chrome.runtime.getURL('prompt.md'));
+            // Fallback: fetch built-in prompts/standard.md directly
+            const response = await fetch(chrome.runtime.getURL('prompts/standard.md'));
             return await response.text();
         }
 

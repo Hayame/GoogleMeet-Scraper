@@ -64,7 +64,7 @@
 | GoogleUserDetector (S009) | state.isDetecting | boolean | Continuous detection active flag |
 | SettingsManager (S023) | originalUserDisplayName | string | Undo value for cancel button |
 | SettingsManager (S023) | prompts | Array | In-memory list of all prompt objects |
-| SettingsManager (S023) | _builtinPromptCache | string\|null | Cached built-in prompt.md text |
+| SettingsManager (S023) | _builtinPromptCache | string\|null | Cached built-in prompts/standard.md text |
 | SettingsManager (S023) | _editingPromptId | string\|null | ID of prompt being edited in form |
 | SessionSearchManager (S105) | _query | string | Current global search query |
 | SessionSearchManager (S105) | _viewMode | string | Content area mode: 'NORMAL' or 'SEARCH_RESULTS' |

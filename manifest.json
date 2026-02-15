@@ -46,7 +46,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["prompt.md"],
+      "resources": ["prompts/*.md"],
       "matches": ["https://meet.google.com/*"]
     }
   ]

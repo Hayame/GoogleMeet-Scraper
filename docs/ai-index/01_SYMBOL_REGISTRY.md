@@ -138,7 +138,7 @@ See taxonomy-frontend.md for full type code definitions.
 | S092 | SettingsManager.loadPrompts | UTL | js/features/settings-manager.js | 59 | yes (window) | Load prompts from storage with migration from old useDefaultPrompt/customPrompt format |
 | S093 | SettingsManager.savePrompts | UTL | js/features/settings-manager.js | 106 | yes (window) | Persist prompts list to chrome.storage.sync |
 | S094 | SettingsManager.getDefaultPrompt | UTL | js/features/settings-manager.js | 118 | yes (window) | Return the prompt marked as default |
-| S095 | SettingsManager.getBuiltinPromptText | UTL | js/features/settings-manager.js | 125 | yes (window) | Fetch and cache built-in prompt.md text |
+| S095 | SettingsManager.getBuiltinPromptText | UTL | js/features/settings-manager.js | 125 | yes (window) | Fetch and cache built-in prompts/standard.md text |
 | S096 | SettingsManager.getPromptText | UTL | js/features/settings-manager.js | 140 | yes (window) | Resolve prompt object to its text (builtin → fetch, custom → return stored) |
 | S097 | SettingsManager.addPrompt | UTL | js/features/settings-manager.js | 166 | yes (window) | Add new custom prompt with generated ID |
 | S098 | SettingsManager.updatePrompt | UTL | js/features/settings-manager.js | 182 | yes (window) | Update existing prompt title/text (blocks builtin) |
