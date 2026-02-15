@@ -41,6 +41,7 @@ Google Meet Recorder Extension
 │   │   ├── js/features/transcript-refresh.js  (S018) — Manual refresh
 │   │   ├── js/features/export.js              (S019) — TXT/MD/clipboard export
 │   │   ├── js/features/import-manager.js      (S107) — JSON session import
+│   │   ├── js/features/export-sessions.js    (S114) — Bulk session JSON export
 │   │   ├── js/features/search-filter.js       (S020) — Search + participant filter
 │   │   ├── js/features/session-filter.js      (S113) — Session date/participant filter
 │   │   ├── js/features/meeting-stats.js       (S108) — Meeting statistics

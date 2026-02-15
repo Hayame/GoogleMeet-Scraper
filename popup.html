@@ -411,8 +411,17 @@
                             </div>
                         </div>
                         <div class="prompt-form-actions" style="display: none;">
-                            <button id="promptFormCancel" class="btn btn-secondary">Anuluj</button>
-                            <button id="promptFormSave" class="btn btn-primary">Zapisz</button>
+                            <button id="promptFormRestore" class="btn btn-secondary" style="display: none;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="1 4 1 10 7 10"/>
+                                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+                                </svg>
+                                Przywróć domyślną
+                            </button>
+                            <div class="prompt-form-actions-right">
+                                <button id="promptFormCancel" class="btn btn-secondary">Anuluj</button>
+                                <button id="promptFormSave" class="btn btn-primary">Zapisz</button>
+                            </div>
                         </div>
                     </div>
 
@@ -439,6 +448,29 @@
                                         <line x1="12" y1="3" x2="12" y2="15"/>
                                     </svg>
                                     Importuj sesję
+                                </button>
+                            </div>
+
+                            <!-- Export Section -->
+                            <div class="data-section">
+                                <div class="data-section-header">
+                                    <div class="data-section-icon">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                            <polyline points="7 10 12 15 17 10"/>
+                                            <line x1="12" y1="15" x2="12" y2="3"/>
+                                        </svg>
+                                    </div>
+                                    <span class="data-section-title">Eksportuj dane</span>
+                                </div>
+                                <p class="data-section-description">Eksportuj wybrane sesje do pliku JSON. Plik można później zaimportować.</p>
+                                <button id="exportSessionsBtn" class="btn btn-secondary btn-small">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <polyline points="7 10 12 15 17 10"/>
+                                        <line x1="12" y1="15" x2="12" y2="3"/>
+                                    </svg>
+                                    Eksportuj sesje
                                 </button>
                             </div>
 
@@ -661,6 +693,7 @@
                         <li><a href="#help-export" data-help-link>Eksport i import</a></li>
                         <li><a href="#help-stats" data-help-link>Statystyki spotkania</a></li>
                         <li><a href="#help-settings" data-help-link>Ustawienia</a></li>
+                        <li><a href="#help-prompts" data-help-link>Szablony promptów</a></li>
                         <li><a href="#help-shortcuts" data-help-link>Skróty klawiszowe</a></li>
                         <li><a href="#help-theme" data-help-link>Motyw</a></li>
                     </ul>
@@ -754,6 +787,20 @@
                     </ul>
                 </div>
 
+                <div class="help-section" id="help-prompts">
+                    <h4>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                        Szablony promptów
+                    </h4>
+                    <ul>
+                        <li><strong>Podsumowanie (systemowy)</strong> — uniwersalny prompt do tworzenia szczegółowego podsumowania spotkania (tylko do odczytu)</li>
+                        <li><strong>Daily Scrum (systemowy)</strong> — zwięzłe podsumowanie daily standup ze statusem zadań, blockerami i planami</li>
+                        <li><strong>Handel i Marketing (systemowy)</strong> — podsumowanie spotkań handlowych i marketingowych z kampaniami, wynikami i KPI</li>
+                        <li><strong>Spotkanie projektowe (systemowy)</strong> — podsumowanie spotkań projektowych ze statusem, ryzykami i harmonogramem</li>
+                    </ul>
+                    <p class="help-note">Trzy ostatnie szablony można edytować w zakładce <strong>Prompt</strong> w ustawieniach. Przycisk <strong>Przywróć domyślną</strong> pozwala przywrócić oryginalną treść szablonu.</p>
+                </div>
+
                 <div class="help-section" id="help-shortcuts">
                     <h4>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15 7.5V2H9v5.5l3 3 3-3zM7.5 9H2v6h5.5l3-3-3-3zM9 16.5V22h6v-5.5l-3-3-3 3zM16.5 9l-3 3 3 3H22V9h-5.5z"/></svg>
@@ -779,6 +826,23 @@
                     </ul>
                 </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="exportSessionsModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Eksportuj sesje</h3>
+                <button class="modal-close" data-modal="exportSessionsModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="merge-instructions">Wybierz sesje do eksportu jako plik JSON.</p>
+                <div id="exportSessionsList" class="export-sessions-list"></div>
+            </div>
+            <div class="modal-footer">
+                <button id="exportSessionsCancelBtn" class="btn btn-secondary">Anuluj</button>
+                <button id="exportSessionsConfirmBtn" class="btn btn-primary" disabled>Eksportuj zaznaczone</button>
             </div>
         </div>
     </div>
@@ -817,6 +881,7 @@
     <script src="js/features/transcript.js"></script>
     <script src="js/features/export.js"></script>
     <script src="js/features/import-manager.js"></script>
+    <script src="js/features/export-sessions.js"></script>
     <script src="js/features/search-filter.js"></script>
     <script src="js/features/meeting-stats.js"></script>
     <script src="js/features/transcript-refresh.js"></script>

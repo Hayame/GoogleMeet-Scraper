@@ -135,17 +135,24 @@ See taxonomy-frontend.md for full type code definitions.
 
 | ID | Symbol Name | Type | File Path | Line | Exported | Description |
 |----|-------------|------|-----------|------|----------|-------------|
-| S092 | SettingsManager.loadPrompts | UTL | js/features/settings-manager.js | 59 | yes (window) | Load prompts from storage with migration from old useDefaultPrompt/customPrompt format |
-| S093 | SettingsManager.savePrompts | UTL | js/features/settings-manager.js | 106 | yes (window) | Persist prompts list to chrome.storage.sync |
-| S094 | SettingsManager.getDefaultPrompt | UTL | js/features/settings-manager.js | 118 | yes (window) | Return the prompt marked as default |
-| S095 | SettingsManager.getBuiltinPromptText | UTL | js/features/settings-manager.js | 125 | yes (window) | Fetch and cache built-in prompts/standard.md text |
-| S096 | SettingsManager.getPromptText | UTL | js/features/settings-manager.js | 140 | yes (window) | Resolve prompt object to its text (builtin → fetch, custom → return stored) |
-| S097 | SettingsManager.addPrompt | UTL | js/features/settings-manager.js | 166 | yes (window) | Add new custom prompt with generated ID |
-| S098 | SettingsManager.updatePrompt | UTL | js/features/settings-manager.js | 182 | yes (window) | Update existing prompt title/text (blocks builtin) |
-| S099 | SettingsManager.deletePrompt | UTL | js/features/settings-manager.js | 194 | yes (window) | Delete prompt by ID (blocks builtin, reassigns default) |
-| S100 | SettingsManager.setDefaultPrompt | UTL | js/features/settings-manager.js | 213 | yes (window) | Mark one prompt as default (only one at a time) |
-| S101 | SettingsManager.renderPromptList | UTL | js/features/settings-manager.js | 223 | yes (window) | Render prompt table rows dynamically in prompt tab |
-| S102 | SettingsManager.showPromptForm | UTL | js/features/settings-manager.js | 323 | yes (window) | Show add/edit/copy inline form for prompts |
+| S092 | SettingsManager.loadPrompts | UTL | js/features/settings-manager.js | 59 | yes (window) | Load prompts from storage with migration; injects missing builtin prompts |
+| S093 | SettingsManager.savePrompts | UTL | js/features/settings-manager.js | 135 | yes (window) | Persist prompts list to chrome.storage.sync |
+| S094 | SettingsManager.getDefaultPrompt | UTL | js/features/settings-manager.js | 147 | yes (window) | Return the prompt marked as default |
+| S095 | SettingsManager.getBuiltinPromptText | UTL | js/features/settings-manager.js | 215 | yes (window) | Fetch and cache built-in prompts/standard.md text (delegates to getBuiltinPromptTextFromFile) |
+| S096 | SettingsManager.getPromptText | UTL | js/features/settings-manager.js | 222 | yes (window) | Resolve prompt object to its text (uses sourceFile for null prompts) |
+| S097 | SettingsManager.addPrompt | UTL | js/features/settings-manager.js | 253 | yes (window) | Add new custom prompt with generated ID |
+| S098 | SettingsManager.updatePrompt | UTL | js/features/settings-manager.js | 266 | yes (window) | Update existing prompt title/text (allows editable builtins) |
+| S099 | SettingsManager.deletePrompt | UTL | js/features/settings-manager.js | 275 | yes (window) | Delete prompt by ID (blocks builtin, reassigns default) |
+| S100 | SettingsManager.setDefaultPrompt | UTL | js/features/settings-manager.js | 293 | yes (window) | Mark one prompt as default (only one at a time) |
+| S101 | SettingsManager.renderPromptList | UTL | js/features/settings-manager.js | 307 | yes (window) | Render prompt table rows with 3 action variants (original/editable/custom) |
+| S102 | SettingsManager.showPromptForm | UTL | js/features/settings-manager.js | 412 | yes (window) | Show add/edit/copy inline form with restore button for editable builtins |
+| S115 | SettingsManager._createAllBuiltinPrompts | UTL | js/features/settings-manager.js | 145 | no | Create array of all 4 builtin prompt objects (1 read-only + 3 editable) |
+| S116 | SettingsManager.getBuiltinPromptTextFromFile | UTL | js/features/settings-manager.js | 200 | yes (window) | Fetch and cache builtin prompt text by sourceFile path |
+| S117 | SettingsManager._handlePromptFormRestore | UTL | js/features/settings-manager.js | 527 | no | Restore default text from sourceFile into textarea for editable builtins. Delegates to _showConfirmOverlay |
+| S118 | SettingsManager._handleDeletePrompt | UTL | js/features/settings-manager.js | 397 | no | Show confirmModal for prompt deletion; on OK deletes + toasts, on Cancel returns to settings. Delegates to _showConfirmOverlay |
+| S119 | SettingsManager._showConfirmOverlay | UTL | js/features/settings-manager.js | — | no | Shared confirm modal overlay helper: clones buttons, wires ok/cancel/backdrop handlers, manages z-index. Used by _handleDeletePrompt and _handlePromptFormRestore |
+| S120 | ImportManager._buildSession | UTL | js/features/import-manager.js | — | no | Build session object from transcript data with participant extraction and ID generation |
+| S121 | ImportManager._ensureSessionHistory | UTL | js/features/import-manager.js | — | no | Initialize window.sessionHistory array if not already present |
 | S103 | ExportManager.updatePromptSelectorVisibility | UTL | js/features/export.js | — | yes (window) | Populate and show/hide prompt selector dropdown in export modal |
 | S104 | ExportManager.getSelectedExportPrompt | UTL | js/features/export.js | — | yes (window) | Get selected prompt from dropdown or fall back to default |
 
@@ -161,6 +168,7 @@ See taxonomy-frontend.md for full type code definitions.
 | S110 | SessionMergeManager | SRV | js/features/session-merge.js | 5 | yes (window) | Merge multiple sessions with hash-based deduplication; selected item visual highlight via classList.toggle |
 | S111 | KeyboardShortcutsManager | SRV | js/features/keyboard-shortcuts.js | 5 | yes (window) | Popup keyboard shortcuts: Ctrl+Shift+R/C/E, Escape |
 | S113 | SessionFilterManager | SRV | js/features/session-filter.js | 5 | yes (window) | Session history filtering by date range and participants with collapsible multi-select dropdown UI. Internal: _toggleParticipantList() (expand/collapse participant list), _updateParticipantTriggerText() (dynamic trigger label: "Wszyscy"/"N z M"/"Brak"), _handleDateChange() (cross-constrains dateFrom.max/dateTo.min to prevent invalid date ranges, toggles .sf-date-has-value), clearAllFilters() (resets date constraints and participant selection) |
+| S114 | ExportSessionsManager | SRV | js/features/export-sessions.js | 5 | yes (window) | Export selected sessions as JSON from Data tab. Modal with checkbox list, select-all toggle, downloads file compatible with ImportManager array format |
 
 ## Registry — Updated Existing Modules
 
@@ -177,6 +185,6 @@ See taxonomy-frontend.md for full type code definitions.
 ## Numbering Rules
 - Sequential: S001–S113 (current max)
 | S067 | popup.initializeApp | FNC | popup.js now calls SessionSearchManager.restoreSearch() after session history init |
-- Next available ID: S114
+- Next available ID: S122
 - S113 updated: added _toggleParticipantList, _updateParticipantTriggerText, .sf-date-has-value indicator
 - Removed symbols: marked [REMOVED], ID never reused

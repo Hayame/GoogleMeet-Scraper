@@ -35,7 +35,8 @@
 28. js/features/meeting-stats.js (S108 → S019, S021)
 29. js/features/transcript-refresh.js (S018 → S002, S014, S017, S003)
 30. js/features/keyboard-shortcuts.js (S111 → S013, S019, S021)
-31. popup.js                     (S067 → all modules)
+31. js/features/export-sessions.js (S114 → S019, S021)
+32. popup.js                     (S067 → all modules)
 ```
 
 ### Module Dependency Relations
@@ -98,6 +99,14 @@ S023 —[USES]→ S003  (SettingsManager → UIManager.updateStatus)
 S023 —[USES]→ S015  (SettingsManager → SessionHistoryManager.clearAllSessionsFromHistory)
 S023 —[USES]→ S019  (SettingsManager → ExportManager.showToast for prompt CRUD feedback)
 S023 —[USES]→ S021  (SettingsManager → ModalManager.showModal)
+S118 —[USES]→ S119  (SettingsManager._handleDeletePrompt → _showConfirmOverlay)
+S118 —[USES]→ S099  (SettingsManager._handleDeletePrompt → deletePrompt)
+S118 —[USES]→ S101  (SettingsManager._handleDeletePrompt → renderPromptList)
+S118 —[USES]→ S019  (SettingsManager._handleDeletePrompt → ExportManager.showToast)
+S117 —[USES]→ S119  (SettingsManager._handlePromptFormRestore → _showConfirmOverlay)
+S119 —[USES]→ S021  (SettingsManager._showConfirmOverlay → confirmModal DOM elements)
+S120 —[USES]→ S010  (ImportManager._buildSession → generateSessionId pattern)
+S121 —[USES]→ S047  (ImportManager._ensureSessionHistory → window.sessionHistory)
 
 S105 —[USES]→ S016  (SessionSearchManager → SessionUIManager.renderSessionHistory)
 S105 —[USES]→ S113  (SessionSearchManager → SessionFilterManager.applyFilters/hasActiveFilters)
@@ -129,6 +138,8 @@ S111 —[USES]→ S021  (KeyboardShortcutsManager → ModalManager.hideModal via
 S014 —[USES]→ S003  (BackgroundScanner → UIManager.updateButtonVisibility on merge)
 S070 —[USES]→ S021  (setupMainEventListeners → ModalManager.showModal for helpModal)
 S014 —[UPDATES]→ DOM  (BackgroundScanner → caption warning visibility, checked BEFORE early return on empty messages)
+S114 —[USES]→ S019  (ExportSessionsManager → ExportManager.showToast, downloadFile)
+S114 —[USES]→ S021  (ExportSessionsManager → ModalManager.showModal/hideModal)
 ```
 
 ### Cross-Context Communication (Chrome Messaging)

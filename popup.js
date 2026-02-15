@@ -149,6 +149,7 @@ async function initializeApplication() {
     initModule('SearchFilterManager');
     initModule('ExportManager');
     initModule('ImportManager');
+    initModule('ExportSessionsManager');
     initModule('MeetingStatsManager');
     initModule('KeyboardShortcutsManager');
 
@@ -439,7 +440,7 @@ function setupHelpTocNavigation() {
 
 // Utility functions exposed globally for backward compatibility
 window.generateSessionId = function() {
-    return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    return 'session_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
 };
 
 window.generateSessionTitle = function() {

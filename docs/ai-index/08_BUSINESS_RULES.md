@@ -107,11 +107,16 @@
 
 | Rule ID | Rule | Source IDs | Enforced at |
 |---------|------|------------|-------------|
-| BR100 | Built-in prompt (displayed as "Podsumowanie (systemowy)") cannot be edited or deleted | S098, S099 | SettingsManager.updatePrompt, deletePrompt |
+| BR100 | Original builtin prompt ("Podsumowanie (systemowy)") cannot be edited or deleted; 3 editable builtins can be edited but not deleted | S098, S099 | SettingsManager.updatePrompt, deletePrompt |
 | BR101 | Only one prompt can be marked as default at a time | S100 | SettingsManager.setDefaultPrompt |
 | BR102 | If default prompt is deleted, built-in becomes default | S099 | SettingsManager.deletePrompt |
 | BR103 | Prompt titles must be unique (case-insensitive) | S097, S098, S102 | SettingsManager._handlePromptFormSave |
 | BR104 | On first load, old useDefaultPrompt/customPrompt migrated to promptsList | S092 | SettingsManager.loadPrompts |
+| BR106 | Builtin prompt titles and sourceFile synced with code on every load (migration) | S092, S115 | SettingsManager.loadPrompts |
+| BR108 | Editable builtin prompt saved as null when text matches original file (storage optimization) | S092, S117 | SettingsManager._handlePromptFormSave |
+| BR109 | Missing builtin prompts auto-injected after last existing builtin on load | S092, S115 | SettingsManager.loadPrompts |
+| BR110 | Restore default requires confirmModal confirmation (overlay on settings); fetches text from sourceFile without saving (user must click Save) | S117 | SettingsManager._handlePromptFormRestore |
 | BR105 | Export prompt selector shown only when >1 prompts AND LLM checkbox checked | S103 | ExportManager.updatePromptSelectorVisibility |
 | BR106 | Export prompt selector defaults to prompt marked as default | S103, S104 | ExportManager.updatePromptSelectorVisibility, getSelectedExportPrompt |
 | BR107 | Prompt form actions (Anuluj/Zapisz) live outside scroll container, visibility synced with form | S101, S102 | SettingsManager.renderPromptList, showPromptForm |
+| BR111 | Prompt deletion shows confirmModal as overlay on top of settings modal (z-index bump, no showModal); settings panel stays open throughout | S099, S118 | SettingsManager._handleDeletePrompt |

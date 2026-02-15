@@ -38,6 +38,13 @@ window.ImportManager = {
         try {
             const text = await file.text();
             const data = JSON.parse(text);
+
+            // Format: Array of sessions (from ExportSessionsManager)
+            if (Array.isArray(data) && data.length > 0 && data[0].transcript) {
+                await this._importMultipleSessions(data);
+                return;
+            }
+
             const validated = this._validateAndNormalize(data);
 
             if (!validated) {
@@ -105,37 +112,71 @@ window.ImportManager = {
         return hash.toString(36);
     },
 
-    async _importSession(transcript, filename) {
+    _buildSession(transcript, title, suffix) {
         const participants = [...new Set(transcript.messages.map(message => message.speaker))];
-        const sessionId = window.generateSessionId ? window.generateSessionId() : 'import_' + Date.now();
-        const title = this._generateTitle(filename);
+        const fallbackId = suffix ? 'import_' + Date.now() + '_' + suffix : 'import_' + Date.now();
+        const sessionId = window.generateSessionId ? window.generateSessionId() : fallbackId;
 
-        const session = {
+        return {
             id: sessionId,
-            title: title,
+            title,
             date: transcript.scrapedAt || new Date().toISOString(),
             entryCount: transcript.messages.length,
             participantCount: participants.length,
             participantNames: participants,
-            transcript: transcript,
+            transcript,
             imported: true
         };
+    },
 
+    _ensureSessionHistory() {
         if (!window.sessionHistory) {
             window.sessionHistory = [];
         }
+    },
+
+    async _importSession(transcript, filename) {
+        const title = this._generateTitle(filename);
+        const session = this._buildSession(transcript, title);
+
+        this._ensureSessionHistory();
         window.sessionHistory.unshift(session);
         await window.StorageManager?.setStorageData({ sessionHistory: window.sessionHistory });
 
-        // Re-render session list
         window.SessionUIManager?.renderSessionHistory();
-
         window.ExportManager?.showToast(
             `Sesja zaimportowana pomyślnie (${transcript.messages.length} wpisów)`,
             'success'
         );
 
         console.log('📥 [IMPORT] Session imported:', title, transcript.messages.length, 'messages');
+    },
+
+    async _importMultipleSessions(sessionsArray) {
+        this._ensureSessionHistory();
+        let imported = 0;
+
+        for (const sessionData of sessionsArray) {
+            const transcript = this._validateAndNormalize(sessionData);
+            if (!transcript) continue;
+
+            const title = sessionData.title || this._generateTitle('import');
+            const date = sessionData.date || transcript.scrapedAt || new Date().toISOString();
+            const session = this._buildSession(transcript, title, imported);
+            session.date = date;
+
+            window.sessionHistory.unshift(session);
+            imported++;
+        }
+
+        if (imported > 0) {
+            await window.StorageManager?.setStorageData({ sessionHistory: window.sessionHistory });
+            window.SessionUIManager?.renderSessionHistory();
+            window.ExportManager?.showToast(`Zaimportowano ${imported} sesji`, 'success');
+            console.log(`📥 [IMPORT] Imported ${imported} sessions from array`);
+        } else {
+            window.ExportManager?.showToast('Nie udało się zaimportować żadnej sesji', 'error');
+        }
     },
 
     _generateTitle(filename) {
