@@ -1995,14 +1995,14 @@ input[type="checkbox"] {
 }
 
 .filter-header {
-    padding: 10px 14px;
+    padding: 8px 12px 4px;
     border-bottom: 1px solid var(--border-primary);
     border-radius: var(--radius-xl) var(--radius-xl) 0 0;
 }
 
 .filter-header h4 {
     margin: 0;
-    font-size: var(--text-md);
+    font-size: var(--text-sm);
     font-weight: 600;
     color: var(--text-heading);
 }
@@ -2953,7 +2953,7 @@ input[type="checkbox"] {
 
 
 .filter-title {
-    font-size: var(--text-md);
+    font-size: var(--text-sm);
     font-weight: 600;
     color: var(--text-heading);
     margin: 0;
@@ -2963,7 +2963,7 @@ input[type="checkbox"] {
 /* Filter Items - Matching Participants Modal Style */
 .filter-item {
     position: relative;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 }
 
 .filter-item input[type="checkbox"] {
@@ -2976,7 +2976,7 @@ input[type="checkbox"] {
 .filter-item-content {
     display: flex;
     align-items: center;
-    padding: 6px 8px;
+    padding: 4px 8px;
     cursor: pointer;
     transition: all 0.15s ease;
     border-radius: var(--radius-md);
@@ -2988,17 +2988,17 @@ input[type="checkbox"] {
 }
 
 .filter-participant-avatar {
-    width: 28px;
-    height: 28px;
+    width: 22px;
+    height: 22px;
     border-radius: var(--radius-lg);
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 600;
-    font-size: var(--text-sm);
+    font-size: 10px;
     color: var(--color-white);
     flex-shrink: 0;
-    margin-right: 10px;
+    margin-right: 8px;
     box-shadow: var(--shadow-button);
 }
 
@@ -3007,13 +3007,13 @@ input[type="checkbox"] {
 .filter-item-text,
 .filter-participant-name {
     flex: 1;
-    font-size: var(--text-base);
+    font-size: var(--text-sm);
     font-weight: 400;
     color: var(--text-secondary);
 }
 
 .filter-checkbox-wrapper {
-    margin-right: 12px;
+    margin-right: 8px;
     order: -1;
     display: flex;
     align-items: center;
@@ -3022,10 +3022,10 @@ input[type="checkbox"] {
 }
 
 .filter-checkbox {
-    width: 18px;
-    height: 18px;
-    min-width: 18px;
-    min-height: 18px;
+    width: 14px;
+    height: 14px;
+    min-width: 14px;
+    min-height: 14px;
     border: 2px solid var(--border-primary);
     border-radius: var(--radius-sm);
     background: var(--bg-tertiary);
@@ -3053,12 +3053,12 @@ input[type="checkbox"] {
 .filter-item input[type="checkbox"]:checked + .filter-item-content .filter-checkbox::after {
     content: '';
     position: absolute;
-    left: 4px;
+    left: 3px;
     top: 1px;
-    width: 4px;
-    height: 8px;
+    width: 3px;
+    height: 6px;
     border: solid white;
-    border-width: 0 2px 2px 0;
+    border-width: 0 1.5px 1.5px 0;
     transform: rotate(45deg);
     opacity: 1;
 }

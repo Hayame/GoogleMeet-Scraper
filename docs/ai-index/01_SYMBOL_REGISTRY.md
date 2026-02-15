@@ -160,6 +160,7 @@ See taxonomy-frontend.md for full type code definitions.
 | S109 | PaginationManager | SRV | js/features/pagination.js | 5 | yes (window) | Transcript pagination with configurable page size, prev/next navigation |
 | S110 | SessionMergeManager | SRV | js/features/session-merge.js | 5 | yes (window) | Merge multiple sessions with hash-based deduplication; selected item visual highlight via classList.toggle |
 | S111 | KeyboardShortcutsManager | SRV | js/features/keyboard-shortcuts.js | 5 | yes (window) | Popup keyboard shortcuts: Ctrl+Shift+R/C/E, Escape |
+| S113 | SessionFilterManager | SRV | js/features/session-filter.js | 5 | yes (window) | Session history filtering by date range and participants with collapsible multi-select dropdown UI. Internal: _toggleParticipantList() (expand/collapse participant list), _updateParticipantTriggerText() (dynamic trigger label: "Wszyscy"/"N z M"/"Brak"), _handleDateChange() (cross-constrains dateFrom.max/dateTo.min to prevent invalid date ranges, toggles .sf-date-has-value indicator class) |
 
 ## Registry — Updated Existing Modules
 
@@ -174,6 +175,7 @@ See taxonomy-frontend.md for full type code definitions.
 | S003 | UIManager | SRV | Data-dependent visibility for actionGroupLeft (search+filter), actionSeparator, exportBtn, clearBtn, statsBtn, quickCopyBtn (all hidden when no transcript data) |
 
 ## Numbering Rules
-- Sequential: S001–S112 (current max)
-- Next available ID: S113
+- Sequential: S001–S113 (current max)
+- Next available ID: S114
+- S113 updated: added _toggleParticipantList, _updateParticipantTriggerText, .sf-date-has-value indicator
 - Removed symbols: marked [REMOVED], ID never reused
