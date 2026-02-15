@@ -5,10 +5,18 @@ Rozszerzenie do Chrome/Edge umożliwiające nagrywanie, pobieranie i eksportowan
 ## Funkcje
 
 - 🔴 **Nagrywanie transkrypcji w czasie rzeczywistym** - automatyczne przechwytywanie napisów podczas spotkania
+- 🎬 **Automatyczne włączanie napisów** - napisy uruchamiają się automatycznie przy starcie nagrywania
 - 📚 **Historia sesji** - przechowywanie do 50 sesji z możliwością przeglądania
 - 🔍 **Wyszukiwanie w transkrypcji** - szybkie znajdowanie fraz z podświetlaniem wyników w czasie rzeczywistym
+- 🔎 **Wyszukiwanie globalne** - przeszukiwanie wszystkich zapisanych sesji jednocześnie
 - 👥 **Filtrowanie według uczestników** - wyświetlanie wiadomości wybranych osób
-- 💾 **Eksport do pliku TXT i kopiowanie do schowka** - pobieranie transkrypcji oraz szybkie kopiowanie z opcją opakowania w prompt LLM
+- 💾 **Eksport do TXT i Markdown** - pobieranie transkrypcji z opcją opakowania w prompt LLM
+- 📋 **Kopiowanie do schowka** - szybkie kopiowanie transkrypcji z powiadomieniem
+- 📝 **Szablony promptów** - zarządzanie wieloma szablonami promptów LLM (standard, daily scrum, marketing, projekt)
+- 🔄 **Eksport i import sesji** - przenoszenie sesji między urządzeniami
+- 🔗 **Łączenie sesji** - scalanie wielu sesji w jedną
+- 📄 **Stronicowanie transkrypcji** - wygodne przeglądanie długich transkrypcji
+- ⌨️ **Skróty klawiszowe** - szybki dostęp do kluczowych funkcji
 - 🌓 **Tryb jasny/ciemny** - dostosowanie interfejsu do preferencji
 - ⏱️ **Śledzenie czasu** - pomiar czasu trwania spotkania i nagrywania
 - 🎨 **Kolorowe oznaczenia** - wizualne rozróżnienie uczestników
@@ -18,64 +26,8 @@ Rozszerzenie do Chrome/Edge umożliwiające nagrywanie, pobieranie i eksportowan
 - ⚙️ **Ustawienia użytkownika** - personalizacja nazwy twórcy konwersacji z wykrywaniem konta Google
 - 🗑️ **Zarządzanie danymi** - możliwość usunięcia wszystkich sesji jednocześnie
 - 📑 **Interfejs z zakładkami** - intuicyjny system tabów w ustawieniach
-
-## Instalacja
-
-### Opcja A: Gotowe rozszerzenie (zalecane)
-
-W folderze `dist/` znajdziesz gotowe do instalacji rozszerzenie:
-- `GoogleMeet-Scraper.crx` - spakowane rozszerzenie Chrome/Edge
-
-**Instalacja CRX:**
-1. Pobierz plik `GoogleMeet-Scraper.crx` z folderu `dist/`
-2. Otwórz Chrome/Edge i wejdź na `chrome://extensions/` lub `edge://extensions/`
-3. Włącz "Tryb dewelopera" 
-4. Przeciągnij plik `.crx` na stronę rozszerzeń
-5. Potwierdź instalację
-
-### Opcja B: Instalacja z kodu źródłowego
-
-### Krok 1: Przygotowanie plików
-1. Utwórz nowy folder na komputerze, np. `google-meet-transcript-scraper`
-2. Skopiuj wszystkie pliki do tego folderu:
-   - `manifest.json`
-   - `popup.html`
-   - `popup.js`
-   - `content.js`
-   - `background.js`
-   - `debug-config.js`
-   - `prompts/` — LLM prompt templates (standard, daily scrum, marketing, project meeting)
-   - `style.css`
-   - `session-history.css`
-   - folder `js/core/` ze wszystkimi modułami podstawowymi
-   - folder `js/utils/` ze wszystkimi modułami pomocniczymi
-   - folder `js/features/` ze wszystkimi modułami funkcjonalnymi
-
-### Krok 2: Dodanie ikon (opcjonalne)
-Utwórz proste ikony PNG o wymiarach:
-- `icon16.png` (16x16 px)
-- `icon48.png` (48x48 px)  
-- `icon128.png` (128x128 px)
-
-Możesz użyć dowolnego generatora ikon online lub utworzyć proste ikony z emoji 📝.
-
-### Krok 3: Instalacja w przeglądarce
-
-#### Chrome:
-1. Otwórz Chrome i wejdź na stronę: `chrome://extensions/`
-2. Włącz "Tryb dewelopera" (przełącznik w prawym górnym rogu)
-3. Kliknij "Załaduj rozpakowane"
-4. Wybierz folder z rozszerzeniem
-5. Rozszerzenie zostanie zainstalowane
-
-#### Edge:
-1. Otwórz Edge i wejdź na stronę: `edge://extensions/`
-2. Włącz "Tryb dewelopera" (przełącznik po lewej stronie)
-3. Kliknij "Załaduj rozpakowane"
-4. Wybierz folder z rozszerzeniem
-5. Rozszerzenie zostanie zainstalowane
-
-> **Uwaga:** Opcja A (gotowe CRX) jest szybsza i łatwiejsza. Opcja B jest przydatna dla programistów lub gdy chcesz modyfikować kod.
+- ❓ **Wbudowana pomoc** - szybki dostęp do dokumentacji w aplikacji
+- 👋 **Kreator powitalny** - interaktywne wprowadzenie dla nowych użytkowników
 
 ## Użytkowanie
 
@@ -92,11 +44,12 @@ Możesz użyć dowolnego generatora ikon online lub utworzyć proste ikony z emo
 
 ### Eksport transkrypcji
 1. **Kliknij przycisk eksportu** (ikona pobierania)
-2. **Opcjonalnie włącz "Eksportuj jako prompt dla LLM"** (domyślnie włączone):
-   - Gdy włączone: transkrypcja zostanie opakowana w szablon promptu do generowania podsumowania przez AI
+2. **Wybierz szablon promptu** - dostępne szablony: standard, daily scrum, marketing, spotkanie projektowe
+3. **Opcjonalnie włącz "Eksportuj jako prompt dla LLM"** (domyślnie włączone):
+   - Gdy włączone: transkrypcja zostanie opakowana w wybrany szablon promptu do generowania podsumowania przez AI
    - Gdy wyłączone: eksportowana będzie surowa transkrypcja
-3. **Wybierz sposób eksportu**:
-   - Eksportuj do pliku - pobieranie pliku TXT na dysk
+4. **Wybierz format i sposób eksportu**:
+   - Eksportuj do pliku TXT lub Markdown - pobieranie na dysk
    - Kopiuj do schowka - szybkie kopiowanie z powiadomieniem toast
 
 ### Historia sesji
@@ -152,8 +105,24 @@ Anna Nowak [15:26]:
 Cześć! Dziękuję za zaproszenie.
 ```
 
+### Format Markdown
+```markdown
+# Transkrypcja Google Meet
+
+**Data eksportu:** 2024-01-20 15:30:00
+**URL spotkania:** https://meet.google.com/xxx-xxxx-xxx
+
+---
+
+**Jan Kowalski** [15:25]:
+Dzień dobry wszystkim, witam na spotkaniu.
+
+**Anna Nowak** [15:26]:
+Cześć! Dziękuję za zaproszenie.
+```
+
 ### Format z promptem LLM
-Gdy opcja "Eksportuj jako prompt dla LLM" jest włączona, transkrypcja zostanie opakowana w szablon promptu:
+Gdy opcja "Eksportuj jako prompt dla LLM" jest włączona, transkrypcja zostanie opakowana w wybrany szablon promptu (np. standard, daily scrum, marketing, spotkanie projektowe):
 ```
 ## 🧠 Prompt: Stwórz szczegółowe podsumowanie konwersacji
 
@@ -198,7 +167,13 @@ Rozszerzenie wykorzystuje modułową architekturę JavaScript z 18+ wyspecjalizo
 - **SessionUIManager** - renderowanie interfejsu historii sesji
 - **TranscriptManager** - wyświetlanie i zarządzanie transkrypcją
 - **SearchFilterManager** - wyszukiwanie i filtrowanie w czasie rzeczywistym
-- **ExportManager** - eksport TXT/JSON i kopiowanie do schowka z opcją promptu LLM
+- **ExportManager** - eksport TXT/Markdown i kopiowanie do schowka z opcją promptu LLM
+- **ExportSessionsManager** - eksport sesji do pliku JSON
+- **ImportManager** - import sesji z pliku JSON
+- **SessionMergeManager** - łączenie wielu sesji w jedną
+- **SessionSearchManager** - wyszukiwanie globalne po wszystkich sesjach
+- **PaginationManager** - stronicowanie długich transkrypcji
+- **KeyboardShortcutsManager** - skróty klawiszowe dla kluczowych akcji
 - **ThemeManager** - obsługa motywów jasny/ciemny
 - **ModalManager** - zarządzanie oknami dialogowymi
 - **SettingsManager** - zarządzanie preferencjami użytkownika i ustawieniami
@@ -220,7 +195,10 @@ Rozszerzenie wykorzystuje modułową architekturę JavaScript z 18+ wyspecjalizo
 ## Skróty klawiszowe
 
 - **Ctrl+F** / **Cmd+F** - otwórz panel wyszukiwania
-- **ESC** - zamknij aktywne panele (wyszukiwanie, filtry)
+- **Ctrl+Shift+R** - rozpocznij/zatrzymaj nagrywanie
+- **Ctrl+Shift+C** - szybkie kopiowanie z promptem
+- **Ctrl+Shift+E** - otwórz panel eksportu
+- **ESC** - zamknij aktywne panele i okna modalne
 - **Enter** - zatwierdź edycję nazwy sesji
 - **Delete** - usuń sesję (po potwierdzeniu)
 
