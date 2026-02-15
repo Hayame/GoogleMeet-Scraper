@@ -120,6 +120,7 @@ See taxonomy-frontend.md for full type code definitions.
 | S077 | validateEssentialElements | UTL | popup.js | 57 | no (local) | Validate critical DOM elements exist |
 | S078 | bindClick | UTL | popup.js | 307 | no (local) | Bind click handler to element by ID |
 | S079 | showInitializationError | UTL | popup.js | 377 | no (local) | Display error overlay to user |
+| S112 | setupHelpTocNavigation | UTL | popup.js | 406 | no (local) | Help modal TOC smooth scrolling and active link tracking |
 
 ## Registry — Debug Config (debug-config.js)
 
@@ -173,6 +174,6 @@ See taxonomy-frontend.md for full type code definitions.
 | S003 | UIManager | SRV | Data-dependent visibility for actionGroupLeft (search+filter), actionSeparator, exportBtn, clearBtn, statsBtn, quickCopyBtn (all hidden when no transcript data) |
 
 ## Numbering Rules
-- Sequential: S001–S111 (current max)
-- Next available ID: S112
+- Sequential: S001–S112 (current max)
+- Next available ID: S113
 - Removed symbols: marked [REMOVED], ID never reused

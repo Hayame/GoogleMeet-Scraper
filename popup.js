@@ -345,6 +345,7 @@ function setupMainEventListeners() {
     bindClick('quickCopyBtn', () => window.ExportManager?.quickCopyWithPrompt());
 
     bindClick('helpBtn', () => window.ModalManager?.showModal('helpModal'));
+    setupHelpTocNavigation();
 
     bindClick('captionWarningDismiss', () => {
         const warningEl = document.getElementById('captionWarning');
@@ -397,6 +398,39 @@ function showInitializationError(error) {
         <p>Spróbuj odświeżyć stronę lub zrestartować rozszerzenie.</p>
     `;
     document.body.appendChild(errorDiv);
+}
+
+/**
+ * Setup help modal TOC navigation with smooth scrolling and active link tracking
+ */
+function setupHelpTocNavigation() {
+    const tocLinks = document.querySelectorAll('[data-help-link]');
+    const helpContent = document.querySelector('.help-content');
+    if (!tocLinks.length || !helpContent) return;
+
+    const sections = helpContent.querySelectorAll('.help-section[id]');
+
+    tocLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const target = helpContent.querySelector(link.getAttribute('href'));
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        });
+    });
+
+    helpContent.addEventListener('scroll', () => {
+        let activeId = '';
+        for (const section of sections) {
+            if (section.offsetTop - helpContent.scrollTop <= 30) {
+                activeId = section.id;
+            }
+        }
+        tocLinks.forEach(link => {
+            link.classList.toggle('active', link.getAttribute('href') === '#' + activeId);
+        });
+    });
 }
 
 // Utility functions exposed globally for backward compatibility

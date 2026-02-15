@@ -605,7 +605,21 @@
                 <button class="modal-close" data-modal="helpModal">&times;</button>
             </div>
             <div class="modal-body help-modal-body">
-                <div class="help-section">
+                <nav class="help-toc">
+                    <h4 class="help-toc-title">Spis treści</h4>
+                    <ul>
+                        <li><a href="#help-recording" data-help-link>Nagrywanie</a></li>
+                        <li><a href="#help-history" data-help-link>Historia sesji</a></li>
+                        <li><a href="#help-transcript" data-help-link>Transkrypcja</a></li>
+                        <li><a href="#help-export" data-help-link>Eksport i import</a></li>
+                        <li><a href="#help-stats" data-help-link>Statystyki spotkania</a></li>
+                        <li><a href="#help-settings" data-help-link>Ustawienia</a></li>
+                        <li><a href="#help-shortcuts" data-help-link>Skróty klawiszowe</a></li>
+                        <li><a href="#help-theme" data-help-link>Motyw</a></li>
+                    </ul>
+                </nav>
+                <div class="help-content">
+                <div class="help-section" id="help-recording">
                     <h4>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8" fill="#ef4444"/></svg>
                         Nagrywanie
@@ -613,13 +627,13 @@
                     <ul>
                         <li>Kliknij <strong>Rozpocznij nagrywanie</strong>, aby rozpocząć zbieranie transkrypcji z Google Meet</li>
                         <li>Napisy (CC) muszą być włączone w spotkaniu</li>
-                        <li>Transkrypcja jest automatycznie zapisywana co 30 sekund</li>
+                        <li>Transkrypcja jest skanowana co 3 sekundy i automatycznie zapisywana</li>
                         <li>Użyj przycisku <strong>Odśwież</strong>, aby ręcznie pobrać najnowsze napisy</li>
                         <li>Możesz kontynuować istniejącą sesję lub rozpocząć nową</li>
                     </ul>
                 </div>
 
-                <div class="help-section">
+                <div class="help-section" id="help-history">
                     <h4>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
                         Historia sesji
@@ -632,7 +646,7 @@
                     </ul>
                 </div>
 
-                <div class="help-section">
+                <div class="help-section" id="help-transcript">
                     <h4>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
                         Transkrypcja
@@ -645,7 +659,7 @@
                     </ul>
                 </div>
 
-                <div class="help-section">
+                <div class="help-section" id="help-export">
                     <h4>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
                         Eksport i import
@@ -658,7 +672,7 @@
                     </ul>
                 </div>
 
-                <div class="help-section">
+                <div class="help-section" id="help-stats">
                     <h4>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
                         Statystyki spotkania
@@ -669,7 +683,7 @@
                     </ul>
                 </div>
 
-                <div class="help-section">
+                <div class="help-section" id="help-settings">
                     <h4>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                         Ustawienia
@@ -681,7 +695,7 @@
                     </ul>
                 </div>
 
-                <div class="help-section">
+                <div class="help-section" id="help-shortcuts">
                     <h4>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15 7.5V2H9v5.5l3 3 3-3zM7.5 9H2v6h5.5l3-3-3-3zM9 16.5V22h6v-5.5l-3-3-3 3zM16.5 9l-3 3 3 3H22V9h-5.5z"/></svg>
                         Skróty klawiszowe
@@ -696,7 +710,7 @@
                     </table>
                 </div>
 
-                <div class="help-section">
+                <div class="help-section" id="help-theme">
                     <h4>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
                         Motyw
@@ -704,6 +718,7 @@
                     <ul>
                         <li>Przełączaj między jasnym a ciemnym motywem za pomocą ikony w nagłówku</li>
                     </ul>
+                </div>
                 </div>
             </div>
         </div>

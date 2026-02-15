@@ -3504,7 +3504,65 @@ input[type="checkbox"] {
 /* Help Modal */
 .help-modal-body {
     flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: row;
+    padding: 0 !important;
+}
+
+.help-toc {
+    width: 160px;
+    min-width: 160px;
+    padding: 16px;
+    border-right: 1px solid var(--border-primary);
     overflow-y: auto;
+    transition: var(--transition-theme);
+}
+
+.help-toc-title {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 10px 0;
+    transition: var(--transition-theme);
+}
+
+.help-toc ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.help-toc a {
+    display: block;
+    padding: 5px 8px;
+    font-size: var(--text-sm);
+    color: var(--text-tertiary);
+    text-decoration: none;
+    border-radius: var(--radius-sm);
+    transition: var(--transition-fast);
+}
+
+.help-toc a:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+}
+
+.help-toc a.active {
+    color: var(--accent-color);
+    background: var(--btn-primary-bg-alpha);
+    font-weight: 500;
+}
+
+.help-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
     display: flex;
     flex-direction: column;
     gap: 20px;
