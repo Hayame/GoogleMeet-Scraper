@@ -91,6 +91,8 @@
 | BR081 | New participants auto-selected during recording | S020 | SearchFilterManager.updateParticipantFiltersList |
 | BR082 | Filter state save debounce: 500ms | S020 | SearchFilterManager.saveFilterState |
 | BR083 | Participant filters deferred until transcript data available | S020 | SearchFilterManager._pendingRestoreState |
+| BR084 | saveUIState merges partial state with existing stored state (prevents field erasure) | S001 | StateManager.saveUIState |
+| BR085 | Empty restored participant filters reset _hasBeenInitialized to allow auto-select-all recovery | S020 | SearchFilterManager.restoreFilterState |
 
 ## UI Rules
 

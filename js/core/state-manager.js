@@ -147,13 +147,20 @@ function clearRealtimeInterval() {
 async function saveUIState(uiState) {
     try {
         const KEYS = window.AppConstants.STORAGE_KEYS;
+
+        // Read existing state to merge (not overwrite) — prevents partial
+        // callers (e.g. sidebar toggle) from clearing unrelated fields
+        const existingData = await window.StorageManager.getStorageData([KEYS.LAST_UI_STATE]);
+        const existingState = existingData[KEYS.LAST_UI_STATE] || {};
+        const mergedState = { ...existingState, ...uiState };
+
         const stateToSave = {
-            sidebarCollapsed: uiState.sidebarCollapsed || false,
-            searchPanelOpen: uiState.searchPanelOpen || false,
-            filterPanelOpen: uiState.filterPanelOpen || false,
-            searchQuery: uiState.searchQuery || '',
-            activeParticipantFilters: uiState.activeParticipantFilters || [],
-            theme: uiState.theme || 'light',
+            sidebarCollapsed: mergedState.sidebarCollapsed ?? false,
+            searchPanelOpen: mergedState.searchPanelOpen ?? false,
+            filterPanelOpen: mergedState.filterPanelOpen ?? false,
+            searchQuery: mergedState.searchQuery ?? '',
+            activeParticipantFilters: mergedState.activeParticipantFilters ?? [],
+            theme: mergedState.theme ?? 'light',
             timestamp: Date.now()
         };
 

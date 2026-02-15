@@ -7,7 +7,7 @@ See taxonomy-frontend.md for full type code definitions.
 
 | ID | Symbol Name | Type | File Path | Line | Exported | Description |
 |----|-------------|------|-----------|------|----------|-------------|
-| S001 | StateManager | SRV | js/core/state-manager.js | 561 | yes (window) | Global state management, storage restoration, UI state persistence |
+| S001 | StateManager | SRV | js/core/state-manager.js | 561 | yes (window) | Global state management, storage restoration, UI state persistence (saveUIState merges partial state) |
 | S002 | StorageManager | SRV | js/core/storage-manager.js | 120 | yes (window) | Chrome storage CRUD operations wrapper |
 | S003 | UIManager | SRV | js/core/ui-manager.js | 6 | yes (window) | Button visibility (data-dependent: export/clear/stats/quickCopy hidden when no transcript), status messages, sidebar toggle, meeting name editing |
 | S004 | TimerManager | SRV | js/core/timer-manager.js | 6 | yes (window) | Duration tracking based on recordingStartTime, periodic persistence |
