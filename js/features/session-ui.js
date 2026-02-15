@@ -63,21 +63,36 @@ window.SessionUIManager = {
         const dateStr = date.toLocaleDateString('pl-PL');
         const timeStr = date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
 
-        const metaDiv = this._el('div', 'session-meta');
-        metaDiv.innerHTML = `${dateStr} ${timeStr} • `;
-        metaDiv.appendChild(this._createParticipantsSpan(session));
-        metaDiv.appendChild(document.createTextNode(` • ${session.entryCount} wpisów`));
+        const metaGrid = this._el('div', 'session-meta-grid');
+
+        const dateItem = this._el('div', 'session-meta-item');
+        dateItem.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+        dateItem.appendChild(document.createTextNode(` ${dateStr} ${timeStr}`));
+
+        const participantsItem = this._el('div', 'session-meta-item');
+        participantsItem.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
+        participantsItem.appendChild(document.createTextNode(' '));
+        participantsItem.appendChild(this._createParticipantsSpan(session));
+
+        const entriesItem = this._el('div', 'session-meta-item');
+        entriesItem.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+        entriesItem.appendChild(document.createTextNode(` ${session.entryCount} wpisów`));
+
+        metaGrid.append(dateItem, participantsItem, entriesItem);
 
         sessionInfo.appendChild(titleDiv);
-        sessionInfo.appendChild(metaDiv);
+        sessionInfo.appendChild(metaGrid);
 
         const deleteBtn = this._el('button', 'delete-btn');
-        deleteBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>';
+        deleteBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>';
         deleteBtn.title = 'Usuń sesję';
         deleteBtn.onclick = (e) => {
             window.SessionHistoryManager?.deleteSessionFromHistory(session.id, e);
         };
 
+        const timeBadge = this._el('div', 'session-time-badge', timeStr);
+
+        sessionDiv.appendChild(timeBadge);
         sessionDiv.appendChild(sessionInfo);
         sessionDiv.appendChild(deleteBtn);
 
@@ -98,9 +113,6 @@ window.SessionUIManager = {
         if (session.participantCount > 0) {
             span.className = 'participants-clickable';
             span.title = 'Kliknij aby zobaczyć listę uczestników';
-            span.style.cursor = 'pointer';
-            span.style.textDecoration = 'underline';
-            span.style.color = 'var(--btn-primary-bg)';
             span.onclick = (e) => {
                 e.stopPropagation();
                 this.showParticipantsList(session);
@@ -108,8 +120,6 @@ window.SessionUIManager = {
         } else {
             span.className = 'participants-non-clickable';
             span.title = 'Brak uczestników';
-            span.style.cursor = 'default';
-            span.style.color = 'var(--text-muted)';
         }
 
         return span;
@@ -227,7 +237,7 @@ window.SessionUIManager = {
     /** Build tooltip HTML for a session item */
     _buildSessionTooltipHTML(item) {
         const title = item.querySelector('.session-title')?.textContent || 'Sesja';
-        const meta = item.querySelector('.session-meta')?.textContent || '';
+        const meta = item.querySelector('.session-meta-grid')?.textContent || '';
         const icons = this._tooltipIcons;
 
         const titleHTML = `<div class="session-tooltip-title">${icons.document}<span>${title}</span></div>`;
