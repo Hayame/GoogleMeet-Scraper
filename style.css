@@ -1600,7 +1600,7 @@ input[type="checkbox"] {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 6px 12px;
+    padding: 10px 12px 6px 12px;
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-primary);
     transition: var(--transition-theme);
@@ -1625,7 +1625,7 @@ input[type="checkbox"] {
 .action-group-right {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 8px;
 }
 
 .action-group-left {
@@ -3254,8 +3254,8 @@ input[type="checkbox"] {
 /* Filter badge */
 .filter-badge {
     position: absolute;
-    top: -6px;
-    right: -6px;
+    top: -4px;
+    right: -4px;
     background: var(--btn-primary-bg);
     color: white;
     font-size: var(--text-xs);

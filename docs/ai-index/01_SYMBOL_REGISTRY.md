@@ -157,7 +157,7 @@ See taxonomy-frontend.md for full type code definitions.
 | S107 | ImportManager | SRV | js/features/import-manager.js | 5 | yes (window) | Import JSON session files with format validation and normalization |
 | S108 | MeetingStatsManager | SRV | js/features/meeting-stats.js | 5 | yes (window) | Per-speaker analytics: message count, word count, speaking time with theme-aware CSS bar charts |
 | S109 | PaginationManager | SRV | js/features/pagination.js | 5 | yes (window) | Transcript pagination with configurable page size, prev/next navigation |
-| S110 | SessionMergeManager | SRV | js/features/session-merge.js | 5 | yes (window) | Merge multiple sessions with hash-based deduplication; selected item visual highlight |
+| S110 | SessionMergeManager | SRV | js/features/session-merge.js | 5 | yes (window) | Merge multiple sessions with hash-based deduplication; selected item visual highlight via classList.toggle |
 | S111 | KeyboardShortcutsManager | SRV | js/features/keyboard-shortcuts.js | 5 | yes (window) | Popup keyboard shortcuts: Ctrl+Shift+R/C/E, Escape |
 
 ## Registry — Updated Existing Modules
