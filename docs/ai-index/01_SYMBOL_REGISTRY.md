@@ -27,7 +27,7 @@ See taxonomy-frontend.md for full type code definitions.
 | S018 | TranscriptRefreshManager | SRV | js/features/transcript-refresh.js | 5 | yes (window) | Manual transcript reload and scanner restart |
 | S019 | ExportManager | SRV | js/features/export.js | 7 | yes (window) | TXT/MD export via format dropdown, clipboard copy, LLM prompt wrapping, prompt selector dropdown, toast notifications. Internal: FORMAT_CONFIG, _getSelectedFormat(), _getValidatedExportContent(format), _prepareContent() |
 | S020 | SearchFilterManager | SRV | js/features/search-filter.js | 7 | yes (window) | Inline debounced search, participant filtering, filter state persistence |
-| S021 | ModalManager | SRV | js/features/modal-manager.js | 6 | yes (window) | Modal show/hide, ESC/backdrop close, confirm/resume/export/stop modals |
+| S021 | ModalManager | SRV | js/features/modal-manager.js | 6 | yes (window) | Modal show/hide, ESC/backdrop close (except promptOnboardingModal), confirm/resume/export/stop/onboarding modals |
 | S022 | ThemeManager | SRV | js/features/theme-manager.js | 5 | yes (window) | Light/dark theme toggle via data-theme attribute, persisted through UIManager/chrome.storage |
 | S023 | SettingsManager | SRV | js/features/settings-manager.js | 6 | yes (window) | User display name, multi-prompt CRUD, Google name detection, tab UI |
 
@@ -174,7 +174,7 @@ See taxonomy-frontend.md for full type code definitions.
 
 | ID | Symbol Name | Type | Update Description |
 |----|-------------|------|--------------------|
-| S006 | AppConstants | CNS | Added EXPORT_FORMATS.MD, TIMING.PAGINATION_PAGE_SIZE/CAPTION_CHECK_INTERVAL/AUTO_SAVE_FLUSH_DELAY, STORAGE_KEYS.AUTO_SAVE_DATA/KEYBOARD_SHORTCUTS/GLOBAL_SEARCH_QUERY, IMPORT_LIMITS |
+| S006 | AppConstants | CNS | Added EXPORT_FORMATS.MD, TIMING.PAGINATION_PAGE_SIZE/CAPTION_CHECK_INTERVAL/AUTO_SAVE_FLUSH_DELAY, STORAGE_KEYS.AUTO_SAVE_DATA/KEYBOARD_SHORTCUTS/GLOBAL_SEARCH_QUERY/LAST_SEEN_VERSION, IMPORT_LIMITS, PROMPT_ONBOARDING_VERSION |
 | S019 | ExportManager | SRV | Added generateMdContent(), prepareExportContentMd(), quickCopyWithPrompt(), Markdown export handlers. Refactored: consolidated _getExportContent→_getValidatedExportContent(format), shared _prepareContent() for TXT/MD. Simplified: replaced 4-button grid with format dropdown (#exportFormatSelect) + 2 action buttons, removed _setupExportButton/_setupClipboardButton helpers, added _getSelectedFormat() |
 | S051 | scrapeTranscript | UTL | Now returns captionsEnabled field |
 | S016 | SessionUIManager | SRV | renderSessionHistory() now uses SessionSearchManager.getFilteredSessions() |
@@ -182,9 +182,12 @@ See taxonomy-frontend.md for full type code definitions.
 | S020 | SearchFilterManager | SRV | Resets PaginationManager on search/filter change |
 | S003 | UIManager | SRV | Data-dependent visibility for actionGroupLeft (search+filter), actionSeparator, exportBtn, clearBtn, statsBtn, quickCopyBtn (all hidden when no transcript data) |
 
+| S122 | ModalManager.showPromptOnboardingModal | UTL | js/features/modal-manager.js | — | yes (window) | Show prompt onboarding modal on first run of new version; compares manifest.version with lastSeenVersion in storage |
+| S123 | PROMPT_ONBOARDING_VERSION | CNS | js/utils/constants.js | — | yes (window) | Version threshold for showing prompt onboarding modal ('1.2.0') |
+
 ## Numbering Rules
-- Sequential: S001–S113 (current max)
-| S067 | popup.initializeApp | FNC | popup.js now calls SessionSearchManager.restoreSearch() after session history init |
-- Next available ID: S122
+- Sequential: S001–S123 (current max)
+| S067 | popup.initializeApp | FNC | popup.js now calls SessionSearchManager.restoreSearch() after session history init, then ModalManager.showPromptOnboardingModal() |
+- Next available ID: S124
 - S113 updated: added _toggleParticipantList, _updateParticipantTriggerText, .sf-date-has-value indicator
 - Removed symbols: marked [REMOVED], ID never reused

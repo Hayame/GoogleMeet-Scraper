@@ -8,21 +8,21 @@ window.ModalManager = {
      * Initialize modal system with global event handlers
      */
     initializeModalSystem() {
-        // ESC key closes the topmost open modal
+        // ESC key closes the topmost open modal (except onboarding)
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 const openModal = document.querySelector('.modal.show');
-                if (openModal) {
+                if (openModal && openModal.id !== 'promptOnboardingModal') {
                     this.hideModal(openModal.id);
                 }
             }
         });
 
-        // Single click handler for close buttons and backdrop clicks
+        // Single click handler for close buttons and backdrop clicks (except onboarding)
         document.addEventListener('click', (e) => {
             if (e.target.classList.contains('modal-close') && e.target.dataset.modal) {
                 this.hideModal(e.target.dataset.modal);
-            } else if (e.target.classList.contains('modal')) {
+            } else if (e.target.classList.contains('modal') && e.target.id !== 'promptOnboardingModal') {
                 this.hideModal(e.target.id);
             }
         });
@@ -446,6 +446,46 @@ window.ModalManager = {
         document.body.removeChild(a);
 
         URL.revokeObjectURL(url);
+    },
+
+    /**
+     * Show prompt onboarding modal if version changed or first run
+     */
+    async showPromptOnboardingModal() {
+        const currentVersion = chrome.runtime.getManifest().version;
+        const storageKey = window.AppConstants.STORAGE_KEYS.LAST_SEEN_VERSION;
+        const result = await window.storageGet([storageKey]);
+        const lastSeenVersion = result[storageKey];
+
+        // Already seen this version -- nothing to show
+        if (lastSeenVersion === currentVersion) return;
+
+        // Version predates onboarding feature -- silently mark as seen
+        if (currentVersion < window.AppConstants.PROMPT_ONBOARDING_VERSION) {
+            await window.storageSet({ [storageKey]: currentVersion });
+            return;
+        }
+
+        this.showModal('promptOnboardingModal');
+
+        const saveBtn = document.getElementById('onboardingSaveBtn');
+        if (!saveBtn) return;
+
+        // Remove existing listeners by cloning (matches pattern used elsewhere)
+        const newSaveBtn = saveBtn.cloneNode(true);
+        saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+
+        newSaveBtn.addEventListener('click', async () => {
+            const selected = document.querySelector('input[name="onboardingPrompt"]:checked');
+            if (!selected) return;
+
+            if (window.SettingsManager?.setDefaultPrompt) {
+                await window.SettingsManager.setDefaultPrompt(selected.value);
+            }
+
+            await window.storageSet({ [storageKey]: currentVersion });
+            this.hideModal('promptOnboardingModal');
+        });
     },
 
     /**

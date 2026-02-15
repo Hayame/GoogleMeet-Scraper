@@ -165,6 +165,11 @@ async function initializeApplication() {
     if (window.StateManager.validateStateRestoration) {
         window.StateManager.validateStateRestoration();
     }
+
+    // Show prompt onboarding modal on first run of new version
+    if (window.ModalManager?.showPromptOnboardingModal) {
+        window.ModalManager.showPromptOnboardingModal();
+    }
 }
 
 /**

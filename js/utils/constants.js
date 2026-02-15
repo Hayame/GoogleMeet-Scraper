@@ -44,8 +44,12 @@ const STORAGE_KEYS = {
     PROMPTS_LIST: 'promptsList',
     AUTO_SAVE_DATA: 'autoSaveData',
     KEYBOARD_SHORTCUTS: 'keyboardShortcuts',
-    GLOBAL_SEARCH_QUERY: 'globalSearchQuery'
+    GLOBAL_SEARCH_QUERY: 'globalSearchQuery',
+    LAST_SEEN_VERSION: 'lastSeenVersion'
 };
+
+// Version that introduced prompt onboarding modal
+const PROMPT_ONBOARDING_VERSION = '1.2.0';
 
 // Application states
 const APP_STATES = {
@@ -110,5 +114,6 @@ window.AppConstants = {
     THEMES,
     LOG_LEVELS,
     DEBUG_CONFIG,
-    IMPORT_LIMITS
+    IMPORT_LIMITS,
+    PROMPT_ONBOARDING_VERSION
 };

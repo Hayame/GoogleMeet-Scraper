@@ -120,3 +120,11 @@
 | BR106 | Export prompt selector defaults to prompt marked as default | S103, S104 | ExportManager.updatePromptSelectorVisibility, getSelectedExportPrompt |
 | BR107 | Prompt form actions (Anuluj/Zapisz) live outside scroll container, visibility synced with form | S101, S102 | SettingsManager.renderPromptList, showPromptForm |
 | BR111 | Prompt deletion shows confirmModal as overlay on top of settings modal (z-index bump, no showModal); settings panel stays open throughout | S099, S118 | SettingsManager._handleDeletePrompt |
+
+## Onboarding Rules
+
+| Rule ID | Rule | Source IDs | Enforced at |
+|---------|------|------------|-------------|
+| BR112 | Prompt onboarding modal shown once per version when version >= PROMPT_ONBOARDING_VERSION | S122, S123 | ModalManager.showPromptOnboardingModal |
+| BR113 | Prompt onboarding modal cannot be dismissed by ESC, backdrop click, or X button | S021, S122 | ModalManager.initializeModalSystem, popup.html (no close button) |
+| BR114 | Prompt onboarding modal saves selected prompt as default and stores lastSeenVersion on confirm | S122, S100 | ModalManager.showPromptOnboardingModal |

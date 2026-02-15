@@ -2114,6 +2114,81 @@ input[type="checkbox"] {
     border-top: 1px solid var(--border-primary);
 }
 
+/* Prompt Onboarding Modal Styles */
+#promptOnboardingModal {
+    cursor: default;
+}
+
+#promptOnboardingModal .modal-body {
+    overflow-y: auto;
+}
+
+.onboarding-intro {
+    margin: 0 0 16px;
+    color: var(--text-secondary);
+    font-size: var(--text-base);
+    line-height: 1.5;
+}
+
+.onboarding-prompts {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.onboarding-prompt-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 2px solid var(--border-primary);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: var(--transition-fast);
+    background: var(--bg-tertiary);
+}
+
+.onboarding-prompt-card:hover {
+    border-color: var(--border-hover);
+    background: var(--bg-hover);
+}
+
+.onboarding-prompt-card:has(input:checked) {
+    border-color: var(--accent-color);
+    background: var(--btn-primary-bg-alpha);
+}
+
+.onboarding-prompt-card input[type="radio"] {
+    margin-top: 2px;
+    flex-shrink: 0;
+    accent-color: var(--accent-color);
+}
+
+.onboarding-prompt-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.onboarding-prompt-name {
+    font-weight: 600;
+    font-size: var(--text-md);
+    color: var(--text-heading);
+}
+
+.onboarding-prompt-desc {
+    font-size: var(--text-sm);
+    color: var(--text-tertiary);
+    line-height: 1.4;
+}
+
+.onboarding-hint {
+    margin: 10px 0 0;
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    text-align: center;
+}
+
 /* Resume Recording Modal Styles */
 .resume-options {
     display: flex;

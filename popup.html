@@ -847,6 +847,51 @@
         </div>
     </div>
 
+    <div id="promptOnboardingModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Nowa funkcja: Szablony promptów</h3>
+            </div>
+            <div class="modal-body">
+                <p class="onboarding-intro">Rozszerzenie obsługuje teraz wiele szablonów promptów do generowania podsumowań. Wybierz domyślny szablon:</p>
+                <div class="onboarding-prompts">
+                    <label class="onboarding-prompt-card">
+                        <input type="radio" name="onboardingPrompt" value="builtin" checked>
+                        <div class="onboarding-prompt-content">
+                            <span class="onboarding-prompt-name">Podsumowanie</span>
+                            <span class="onboarding-prompt-desc">Uniwersalny prompt do szczegółowego podsumowania spotkania</span>
+                        </div>
+                    </label>
+                    <label class="onboarding-prompt-card">
+                        <input type="radio" name="onboardingPrompt" value="builtin_daily_scrum">
+                        <div class="onboarding-prompt-content">
+                            <span class="onboarding-prompt-name">Daily Scrum</span>
+                            <span class="onboarding-prompt-desc">Zwięzłe podsumowanie daily standup: statusy, blockery, plany</span>
+                        </div>
+                    </label>
+                    <label class="onboarding-prompt-card">
+                        <input type="radio" name="onboardingPrompt" value="builtin_marketing">
+                        <div class="onboarding-prompt-content">
+                            <span class="onboarding-prompt-name">Handel i Marketing</span>
+                            <span class="onboarding-prompt-desc">Spotkania handlowe i marketingowe: kampanie, wyniki, KPI</span>
+                        </div>
+                    </label>
+                    <label class="onboarding-prompt-card">
+                        <input type="radio" name="onboardingPrompt" value="builtin_project">
+                        <div class="onboarding-prompt-content">
+                            <span class="onboarding-prompt-name">Spotkanie projektowe</span>
+                            <span class="onboarding-prompt-desc">Spotkania projektowe: status, ryzyka, harmonogram</span>
+                        </div>
+                    </label>
+                </div>
+                <p class="onboarding-hint">Domyślny szablon możesz zmienić w każdej chwili w Ustawieniach → Prompt.</p>
+            </div>
+            <div class="modal-footer">
+                <button id="onboardingSaveBtn" class="btn btn-primary">Zapisz wybór</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Debug configuration (load FIRST) -->
     <script src="debug-config.js"></script>
     
