@@ -237,20 +237,15 @@ window.SessionUIManager = {
     /** Build tooltip HTML for a session item */
     _buildSessionTooltipHTML(item) {
         const title = item.querySelector('.session-title')?.textContent || 'Sesja';
-        const meta = item.querySelector('.session-meta-grid')?.textContent || '';
         const icons = this._tooltipIcons;
-
         const titleHTML = `<div class="session-tooltip-title">${icons.document}<span>${title}</span></div>`;
 
-        const parts = meta.split(' • ').slice(0, 3);
-        if (parts.length < 2) {
-            if (!meta) return titleHTML;
-            return titleHTML + `<div class="session-tooltip-meta"><div class="session-tooltip-row">${icons.calendar}<span>${meta}</span></div></div>`;
-        }
+        const metaItems = item.querySelectorAll('.session-meta-item');
+        if (!metaItems.length) return titleHTML;
 
         const metaIcons = [icons.calendar, icons.users, icons.message];
-        const rows = parts.map((part, i) =>
-            `<div class="session-tooltip-row">${metaIcons[i]}<span>${part}</span></div>`
+        const rows = Array.from(metaItems).slice(0, 3).map((el, i) =>
+            `<div class="session-tooltip-row">${metaIcons[i]}<span>${el.textContent.trim()}</span></div>`
         ).join('');
 
         return titleHTML + `<div class="session-tooltip-meta">${rows}</div>`;
