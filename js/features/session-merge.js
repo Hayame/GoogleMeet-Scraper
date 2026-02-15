@@ -61,11 +61,13 @@ window.SessionMergeManager = {
 
             const checkbox = item.querySelector('input');
             checkbox.addEventListener('change', (changeEvent) => {
-                if (changeEvent.target.checked) {
+                const checked = changeEvent.target.checked;
+                if (checked) {
                     this._selectedSessionIds.add(session.id);
                 } else {
                     this._selectedSessionIds.delete(session.id);
                 }
+                item.classList.toggle('selected', checked);
                 this._updateMergeButtonState();
             });
 

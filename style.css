@@ -1208,7 +1208,8 @@ input[type="checkbox"] {
     padding: 12px 16px 16px 16px;
     border-bottom: 1px solid var(--border-primary);
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .sidebar-title {
@@ -3474,7 +3475,17 @@ input[type="checkbox"] {
 }
 .merge-checkbox {
     flex-shrink: 0;
-    accent-color: var(--accent-color);
+    width: 18px;
+    height: 18px;
+    accent-color: var(--btn-primary-bg);
+}
+.merge-session-item.selected {
+    background: var(--btn-primary-bg-alpha);
+    border-left: 3px solid var(--btn-primary-bg);
+}
+.merge-session-item.selected .merge-session-title {
+    color: var(--btn-primary-bg);
+    font-weight: 600;
 }
 .merge-session-info {
     display: flex;
