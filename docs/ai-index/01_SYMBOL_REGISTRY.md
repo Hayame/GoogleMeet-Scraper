@@ -160,7 +160,7 @@ See taxonomy-frontend.md for full type code definitions.
 | S109 | PaginationManager | SRV | js/features/pagination.js | 5 | yes (window) | Transcript pagination with configurable page size, prev/next navigation |
 | S110 | SessionMergeManager | SRV | js/features/session-merge.js | 5 | yes (window) | Merge multiple sessions with hash-based deduplication; selected item visual highlight via classList.toggle |
 | S111 | KeyboardShortcutsManager | SRV | js/features/keyboard-shortcuts.js | 5 | yes (window) | Popup keyboard shortcuts: Ctrl+Shift+R/C/E, Escape |
-| S113 | SessionFilterManager | SRV | js/features/session-filter.js | 5 | yes (window) | Session history filtering by date range and participants with collapsible multi-select dropdown UI. Internal: _toggleParticipantList() (expand/collapse participant list), _updateParticipantTriggerText() (dynamic trigger label: "Wszyscy"/"N z M"/"Brak"), _handleDateChange() (cross-constrains dateFrom.max/dateTo.min to prevent invalid date ranges, toggles .sf-date-has-value indicator class) |
+| S113 | SessionFilterManager | SRV | js/features/session-filter.js | 5 | yes (window) | Session history filtering by date range and participants with collapsible multi-select dropdown UI. Internal: _toggleParticipantList() (expand/collapse participant list), _updateParticipantTriggerText() (dynamic trigger label: "Wszyscy"/"N z M"/"Brak"), _handleDateChange() (cross-constrains dateFrom.max/dateTo.min to prevent invalid date ranges, toggles .sf-date-has-value), clearAllFilters() (resets date constraints and participant selection) |
 
 ## Registry — Updated Existing Modules
 

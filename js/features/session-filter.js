@@ -30,8 +30,8 @@ window.SessionFilterManager = {
 
         const dateFrom = document.getElementById('sessionFilterDateFrom');
         const dateTo = document.getElementById('sessionFilterDateTo');
-        if (dateFrom) dateFrom.addEventListener('change', (e) => this._handleDateChange());
-        if (dateTo) dateTo.addEventListener('change', (e) => this._handleDateChange());
+        if (dateFrom) dateFrom.addEventListener('change', () => this._handleDateChange());
+        if (dateTo) dateTo.addEventListener('change', () => this._handleDateChange());
 
         const allCheckbox = document.getElementById('sessionFilterAllParticipants');
         if (allCheckbox) {
@@ -350,8 +350,16 @@ window.SessionFilterManager = {
 
         const dateFrom = document.getElementById('sessionFilterDateFrom');
         const dateTo = document.getElementById('sessionFilterDateTo');
-        if (dateFrom) { dateFrom.value = ''; dateFrom.max = ''; dateFrom.classList.remove('sf-date-has-value'); }
-        if (dateTo) { dateTo.value = ''; dateTo.min = ''; dateTo.classList.remove('sf-date-has-value'); }
+        if (dateFrom) {
+            dateFrom.value = '';
+            dateFrom.max = '';
+            dateFrom.classList.remove('sf-date-has-value');
+        }
+        if (dateTo) {
+            dateTo.value = '';
+            dateTo.min = '';
+            dateTo.classList.remove('sf-date-has-value');
+        }
 
         const checkboxes = document.querySelectorAll('#sessionFilterParticipantsList input[type="checkbox"]');
         checkboxes.forEach(cb => { cb.checked = true; });
