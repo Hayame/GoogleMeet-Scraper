@@ -114,14 +114,18 @@ async function initializeApplication() {
         await window.AutoSaveManager.initialize();
     }
 
-    // Session search (before session history so it's ready for filtering)
+    // Session search and filters (before session history so they're ready for filtering)
     initModule('SessionSearchManager');
+    initModule('SessionFilterManager');
 
     // Session history (both modules needed together)
     if (window.SessionHistoryManager && window.SessionUIManager) {
         await window.SessionHistoryManager.initialize();
         window.SessionUIManager.initialize();
     }
+
+    // Restore global search state after sessions are loaded
+    await window.SessionSearchManager?.restoreSearch?.();
 
     // Session merge (after session history so sessions are available)
     initModule('SessionMergeManager');

@@ -43,7 +43,8 @@ const STORAGE_KEYS = {
     RECORDING_STOPPED: 'recordingStopped',
     PROMPTS_LIST: 'promptsList',
     AUTO_SAVE_DATA: 'autoSaveData',
-    KEYBOARD_SHORTCUTS: 'keyboardShortcuts'
+    KEYBOARD_SHORTCUTS: 'keyboardShortcuts',
+    GLOBAL_SEARCH_QUERY: 'globalSearchQuery'
 };
 
 // Application states

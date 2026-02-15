@@ -153,7 +153,7 @@ See taxonomy-frontend.md for full type code definitions.
 
 | ID | Symbol Name | Type | File Path | Line | Exported | Description |
 |----|-------------|------|-----------|------|----------|-------------|
-| S105 | SessionSearchManager | SRV | js/features/session-search.js | 5 | yes (window) | Session history search by title/participant/date with debounced input |
+| S105 | SessionSearchManager | SRV | js/features/session-search.js | 6 | yes (window) | Session history search with grouped results view in content area |
 | S106 | AutoSaveManager | SRV | js/features/auto-save-manager.js | 5 | yes (window) | Auto-recover transcript data saved when Meet tab closes during recording |
 | S107 | ImportManager | SRV | js/features/import-manager.js | 5 | yes (window) | Import JSON session files with format validation and normalization |
 | S108 | MeetingStatsManager | SRV | js/features/meeting-stats.js | 5 | yes (window) | Per-speaker analytics: message count, word count, speaking time with theme-aware CSS bar charts |
@@ -166,16 +166,17 @@ See taxonomy-frontend.md for full type code definitions.
 
 | ID | Symbol Name | Type | Update Description |
 |----|-------------|------|--------------------|
-| S006 | AppConstants | CNS | Added EXPORT_FORMATS.MD, TIMING.PAGINATION_PAGE_SIZE/CAPTION_CHECK_INTERVAL/AUTO_SAVE_FLUSH_DELAY, STORAGE_KEYS.AUTO_SAVE_DATA/KEYBOARD_SHORTCUTS, IMPORT_LIMITS |
+| S006 | AppConstants | CNS | Added EXPORT_FORMATS.MD, TIMING.PAGINATION_PAGE_SIZE/CAPTION_CHECK_INTERVAL/AUTO_SAVE_FLUSH_DELAY, STORAGE_KEYS.AUTO_SAVE_DATA/KEYBOARD_SHORTCUTS/GLOBAL_SEARCH_QUERY, IMPORT_LIMITS |
 | S019 | ExportManager | SRV | Added generateMdContent(), prepareExportContentMd(), quickCopyWithPrompt(), Markdown export handlers. Refactored: consolidated _getExportContent→_getValidatedExportContent(format), shared _prepareContent() for TXT/MD. Simplified: replaced 4-button grid with format dropdown (#exportFormatSelect) + 2 action buttons, removed _setupExportButton/_setupClipboardButton helpers, added _getSelectedFormat() |
 | S051 | scrapeTranscript | UTL | Now returns captionsEnabled field |
 | S016 | SessionUIManager | SRV | renderSessionHistory() now uses SessionSearchManager.getFilteredSessions() |
-| S017 | TranscriptManager | SRV | displayTranscript() now integrates PaginationManager |
+| S017 | TranscriptManager | SRV | displayTranscript() and updateStats() guard against SEARCH_RESULTS viewMode; integrates PaginationManager |
 | S020 | SearchFilterManager | SRV | Resets PaginationManager on search/filter change |
 | S003 | UIManager | SRV | Data-dependent visibility for actionGroupLeft (search+filter), actionSeparator, exportBtn, clearBtn, statsBtn, quickCopyBtn (all hidden when no transcript data) |
 
 ## Numbering Rules
 - Sequential: S001–S113 (current max)
+| S067 | popup.initializeApp | FNC | popup.js now calls SessionSearchManager.restoreSearch() after session history init |
 - Next available ID: S114
 - S113 updated: added _toggleParticipantList, _updateParticipantTriggerText, .sf-date-has-value indicator
 - Removed symbols: marked [REMOVED], ID never reused

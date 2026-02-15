@@ -10,6 +10,8 @@ window.TranscriptManager = {
      * Display transcript with optional incremental updates
      */
     displayTranscript(data, changes = null) {
+        if (window.SessionSearchManager?.isSearchResultsView()) return;
+
         const previewDiv = document.getElementById('transcriptContent');
         if (!previewDiv) {
             return;
@@ -300,6 +302,8 @@ window.TranscriptManager = {
      * Update transcript statistics (entry count, participant count, duration)
      */
     updateStats(data) {
+        if (window.SessionSearchManager?.isSearchResultsView()) return;
+
         const statsDiv = document.getElementById('transcriptStats');
         const entryCountSpan = document.getElementById('entryCount');
         const participantCountSpan = document.getElementById('participantCount');

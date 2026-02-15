@@ -251,6 +251,7 @@
 | Stale data cleanup | 1-hour threshold for scan data, 5-minute threshold for transaction markers | S005, S011, S014 |
 | Selective DOM queries | CSS selectors target specific Google Meet UI elements to minimize DOM traversal | content.js |
 | Event listener cleanup | Clone-and-replace pattern to remove old listeners before attaching new ones | S021 `showDeleteConfirmation()`, `initializeStopRecordingModalEventListeners()` |
+| CSS class visibility override | `.search-results-hidden { display: none !important }` class toggle instead of inline styles to prevent other modules from overriding visibility during search results view | S105 `_setNormalViewVisibility()` |
 | Conditional module loading | `initModule()` skips missing modules rather than failing | popup.js |
 | Global variable protection | `initializeGlobalVariables()` only sets globals if `undefined`, preserves existing data | S001 |
 

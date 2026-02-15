@@ -32,7 +32,7 @@ Google Meet Recorder Extension
 │   │   ├── js/features/recording.js           (S013) — Record start/stop/resume
 │   │   ├── js/features/background-scanner.js  (S014) — Merge queue + data recovery
 │   │   ├── js/features/auto-save-manager.js   (S106) — Auto-save on tab close
-│   │   ├── js/features/session-search.js      (S105) — Session history search
+│   │   ├── js/features/session-search.js      (S105) — Session search + grouped results view
 │   │   ├── js/features/session-history.js     (S015) — Session CRUD + auto-save
 │   │   ├── js/features/session-merge.js       (S110) — Session merging + dedup
 │   │   ├── js/features/session-ui.js          (S016) — Session list rendering
@@ -42,6 +42,7 @@ Google Meet Recorder Extension
 │   │   ├── js/features/export.js              (S019) — TXT/MD/clipboard export
 │   │   ├── js/features/import-manager.js      (S107) — JSON session import
 │   │   ├── js/features/search-filter.js       (S020) — Search + participant filter
+│   │   ├── js/features/session-filter.js      (S113) — Session date/participant filter
 │   │   ├── js/features/meeting-stats.js       (S108) — Meeting statistics
 │   │   └── js/features/keyboard-shortcuts.js  (S111) — Keyboard shortcuts
 │   │

@@ -14,6 +14,7 @@
 | sessionHistory | S047 | Array | SessionHistoryManager (S015) | SessionHistoryManager.initializeSessionHistory |
 | expandedEntries | S049 | Array | TranscriptManager (S017) | StateManager (not currently restored) |
 | sessionState | — | enum string | StorageManager.setPausedSessionState, SessionHistoryManager | StateManager.restoreStateFromStorage |
+| globalSearchQuery | — | string | SessionSearchManager._persistQuery (S105) | SessionSearchManager.restoreSearch (S105) |
 | recordingPaused | — | boolean | StorageManager.setPausedSessionState | StateManager._restorePausedSession |
 | recordingStopped | — | boolean | StorageManager.setPausedSessionState | StateManager._restorePausedSession |
 
@@ -65,6 +66,9 @@
 | SettingsManager (S023) | prompts | Array | In-memory list of all prompt objects |
 | SettingsManager (S023) | _builtinPromptCache | string\|null | Cached built-in prompt.md text |
 | SettingsManager (S023) | _editingPromptId | string\|null | ID of prompt being edited in form |
+| SessionSearchManager (S105) | _query | string | Current global search query |
+| SessionSearchManager (S105) | _viewMode | string | Content area mode: 'NORMAL' or 'SEARCH_RESULTS' |
+| SessionSearchManager (S105) | _searchResults | Array\|null | Enriched results with matched messages per session |
 | TransactionCoordinator (S005) | _activeTransactions | Map | In-flight transaction tracking |
 | StateManager (S001) | sessionState | Object | recordingStartTime, sessionStartTime, totalDuration, flags |
 
