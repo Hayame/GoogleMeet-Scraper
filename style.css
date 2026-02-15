@@ -19,7 +19,7 @@
     
     /* Accent colors */
     --accent-bg: #f3f4f6;
-    --accent-color: #6366f1;
+    --accent-color: #3b82f6;
     
     /* Status Colors */
     --status-default-bg: #e5e7eb;
@@ -132,8 +132,8 @@
     --status-recording-text: #fef3c7;
     
     /* Button Colors (Dark) */
-    --btn-primary-bg: #3b82f6;
-    --btn-primary-hover: #2563eb;
+    --btn-primary-bg: #818cf8;
+    --btn-primary-hover: #6366f1;
     --btn-secondary-bg: #1a1f2e;
     --btn-secondary-text: #e4e5e7;
     --btn-secondary-border: #2f3640;
@@ -150,11 +150,11 @@
     --shadow-md: 0 1px 3px rgba(0, 0, 0, 0.4);
     --shadow-lg: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
     --shadow-xl: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
-    --shadow-focus: 0 0 0 3px rgba(59, 130, 246, 0.3);
+    --shadow-focus: 0 0 0 3px rgba(129, 140, 248, 0.3);
     --shadow-button: 0 1px 3px rgba(0, 0, 0, 0.3);
     --shadow-dropdown: 0 4px 12px rgba(0, 0, 0, 0.4);
     --shadow-modal: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
-    --btn-primary-bg-alpha: rgba(59, 130, 246, 0.3);
+    --btn-primary-bg-alpha: rgba(129, 140, 248, 0.3);
 
     /* Highlight Colors (Dark) */
     --highlight-bg: #d97706; --highlight-text: #fef3c7;
@@ -392,7 +392,6 @@ body {
     color: var(--text-primary);
     font-size: var(--text-md);
     transition: var(--transition-fast);
-    margin-bottom: 8px;
 }
 
 .setting-input:focus {
@@ -587,14 +586,18 @@ body {
 .input-group {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 4px;
+}
+
+.input-group + .input-group {
+    margin-top: 16px;
 }
 
 .input-label {
     font-weight: 500;
     color: var(--text-primary);
     font-size: var(--text-md);
-    margin: 0 0 8px 0;
+    margin: 0;
 }
 
 .input-description {
@@ -614,7 +617,6 @@ body {
     width: 100%;
     flex: 1;
     min-height: 100px;
-    margin-top: 12px;
     padding: 12px;
     border: 1px solid var(--border-primary);
     border-radius: var(--radius-lg);
@@ -909,54 +911,70 @@ input[type="checkbox"] {
     box-shadow: var(--shadow-focus);
 }
 
-/* Tab actions */
-.tab-actions {
+/* Data tab — Shared section styles */
+.data-section,
+.danger-zone {
+    padding: 16px;
+    border-radius: var(--radius-lg);
+}
+
+.data-section-header,
+.danger-zone-header {
     display: flex;
     align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
 }
 
-/* Danger notice for data tab */
-.danger-notice {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 16px;
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(239, 68, 68, 0.12));
-    border: 1px solid rgba(239, 68, 68, 0.25);
-    border-radius: var(--radius-lg);
-    border-left: 4px solid var(--btn-danger-bg);
-}
-
-.danger-notice-icon {
-    flex-shrink: 0;
+.data-section-icon,
+.danger-zone-icon {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: var(--radius-full);
-    background: var(--btn-danger-bg);
-    color: var(--color-white);
 }
 
-.danger-notice-content {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.danger-notice-content strong {
+.data-section-title,
+.danger-zone-title {
     font-size: var(--text-md);
     font-weight: 600;
-    color: var(--btn-danger-bg);
 }
 
-.danger-notice-content span {
+.data-section-description,
+.danger-zone-description {
     font-size: var(--text-base);
     color: var(--text-secondary);
     line-height: 1.4;
+    margin: 0 0 12px 0;
+}
+
+/* Data tab — Import section */
+.data-section {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-primary);
+    margin-bottom: 16px;
+}
+
+.data-section-icon { color: var(--btn-primary-bg); }
+.data-section-title { color: var(--text-heading); }
+
+/* Data tab — Danger zone */
+.danger-zone {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.05), rgba(239, 68, 68, 0.08));
+    border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.danger-zone-icon,
+.danger-zone-title { color: var(--btn-danger-bg); }
+
+.danger-zone-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+[data-theme="dark"] .danger-zone {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.14));
+    border-color: rgba(239, 68, 68, 0.3);
 }
 
 /* Session count info styling */
@@ -1105,13 +1123,6 @@ input[type="checkbox"] {
         justify-content: center;
     }
     
-    .danger-notice {
-        padding: 12px;
-        flex-direction: column;
-        text-align: center;
-        gap: 8px;
-    }
-    
     .clear-all-sessions-warning {
         flex-direction: column;
         gap: 16px;
@@ -1124,17 +1135,6 @@ input[type="checkbox"] {
         height: 56px;
     }
     
-    .tab-actions {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 8px;
-    }
-    
-    .tab-actions .btn {
-        width: 100%;
-        justify-content: center;
-    }
-
     /* Toast — consolidated from separate block */
     .toast-container {
         top: 10px;
@@ -1151,16 +1151,6 @@ input[type="checkbox"] {
 /* Dark theme adjustments */
 [data-theme="dark"] .tab-button.active {
     background: var(--bg-tertiary);
-    color: #818cf8;
-}
-
-[data-theme="dark"] .tab-button.active::after {
-    background: #818cf8;
-}
-
-[data-theme="dark"] .danger-notice {
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(239, 68, 68, 0.15));
-    border-color: rgba(239, 68, 68, 0.3);
 }
 
 [data-theme="dark"] .warning-icon {
@@ -3352,7 +3342,7 @@ input[type="checkbox"] {
     font-size: var(--text-xs, 11px);
 }
 .stats-button:hover {
-    color: var(--accent-primary, #4f46e5);
+    color: var(--accent-color);
     background: var(--bg-hover, rgba(0,0,0,0.05));
 }
 .stats-summary {
@@ -3446,7 +3436,7 @@ input[type="checkbox"] {
 }
 .pagination-btn:hover:not(:disabled) {
     background: var(--bg-hover, rgba(0,0,0,0.05));
-    border-color: var(--accent-primary, #4f46e5);
+    border-color: var(--accent-color);
 }
 .pagination-btn:disabled {
     opacity: 0.5;
@@ -3484,7 +3474,7 @@ input[type="checkbox"] {
 }
 .merge-checkbox {
     flex-shrink: 0;
-    accent-color: var(--accent-primary, #4f46e5);
+    accent-color: var(--accent-color);
 }
 .merge-session-info {
     display: flex;
