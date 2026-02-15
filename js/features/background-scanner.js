@@ -23,6 +23,14 @@ window.BackgroundScanner = {
             return;
         }
 
+        // Update caption warning (must run before early returns — captions off means no messages)
+        if (window.realtimeMode) {
+            const warningEl = document.getElementById('captionWarning');
+            if (warningEl && warningEl.dataset.dismissed !== 'true') {
+                warningEl.style.display = data?.captionsEnabled === false ? 'flex' : 'none';
+            }
+        }
+
         if (!data?.messages?.length) {
             return;
         }
@@ -166,6 +174,11 @@ window.BackgroundScanner = {
         window.displayTranscript?.(window.transcriptData, changes);
         window.updateStats?.(window.transcriptData);
         window.SearchFilterManager?.completePendingRestoration?.();
+
+        // Show data-dependent buttons when first transcript data arrives
+        if (window.realtimeMode) {
+            window.UIManager?.updateButtonVisibility('RECORDING');
+        }
 
         const exportTxtBtn = document.getElementById('exportTxtBtn');
         if (exportTxtBtn) {
@@ -364,12 +377,11 @@ window.BackgroundScanner = {
             || await this._tryCheckpoints(tabId)
             || await this._tryMeetingUrlMatch();
 
-        if (data) {
-            return data;
+        if (!data) {
+            console.log('⚠️ [RETRIEVE] No accumulated data found');
         }
 
-        console.log('⚠️ [RETRIEVE] No accumulated data found');
-        return null;
+        return data;
     },
 
     /**

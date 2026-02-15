@@ -10,7 +10,7 @@ window.SettingsManager = {
 
     // Multi-prompt system
     prompts: [],
-    _builtinPromptCache: null,
+    _builtinPromptCache: {},
     _editingPromptId: null,
 
     // Track original values for change detection (profile tab only)
@@ -61,10 +61,48 @@ window.SettingsManager = {
             chrome.storage.sync.get(['promptsList', 'useDefaultPrompt', 'customPrompt'], (result) => {
                 if (result.promptsList && result.promptsList.length > 0) {
                     this.prompts = result.promptsList;
+
+                    // Sync builtin prompt titles and add sourceFile if missing
+                    const allBuiltins = this._createAllBuiltinPrompts();
+                    let needsSave = false;
+
+                    for (const canonical of allBuiltins) {
+                        const existing = this.prompts.find(p => p.id === canonical.id);
+                        if (existing) {
+                            if (existing.title !== canonical.title) {
+                                existing.title = canonical.title;
+                                needsSave = true;
+                            }
+                            if (!existing.sourceFile && canonical.sourceFile) {
+                                existing.sourceFile = canonical.sourceFile;
+                                needsSave = true;
+                            }
+                            if (canonical.isEditable && !existing.isEditable) {
+                                existing.isEditable = canonical.isEditable;
+                                needsSave = true;
+                            }
+                        }
+                    }
+
+                    // Migrate: inject missing builtin prompts after the last existing builtin
+                    const missingBuiltins = allBuiltins.filter(
+                        cb => !this.prompts.find(p => p.id === cb.id)
+                    );
+                    if (missingBuiltins.length > 0) {
+                        const lastBuiltinIdx = this.prompts.reduce(
+                            (maxIdx, p, idx) => p.isBuiltin ? idx : maxIdx, 0
+                        );
+                        this.prompts.splice(lastBuiltinIdx + 1, 0, ...missingBuiltins);
+                        needsSave = true;
+                        console.log('⚙️ [SETTINGS] Injected', missingBuiltins.length, 'new builtin prompts');
+                    }
+
+                    if (needsSave) this.savePrompts();
+
                     console.log('⚙️ [SETTINGS] Loaded prompts list:', this.prompts.length, 'prompts');
                 } else {
-                    // Migration from old format
-                    this.prompts = [this._createBuiltinPrompt()];
+                    // Fresh install or migration from old format
+                    this.prompts = this._createAllBuiltinPrompts();
 
                     const hadCustomPrompt = result.useDefaultPrompt === false && result.customPrompt;
                     if (hadCustomPrompt) {
@@ -88,7 +126,7 @@ window.SettingsManager = {
     },
 
     /**
-     * Create the built-in prompt entry
+     * Create the built-in prompt entry (original, non-editable)
      */
     _createBuiltinPrompt() {
         return {
@@ -96,8 +134,45 @@ window.SettingsManager = {
             title: 'Podsumowanie (systemowy)',
             prompt: null,
             isBuiltin: true,
-            isDefault: true
+            isDefault: true,
+            sourceFile: 'prompts/standard.md'
         };
+    },
+
+    /**
+     * Create all built-in prompts (original + 3 editable)
+     */
+    _createAllBuiltinPrompts() {
+        return [
+            this._createBuiltinPrompt(),
+            {
+                id: 'builtin_daily_scrum',
+                title: 'Daily Scrum (systemowy)',
+                prompt: null,
+                isBuiltin: true,
+                isEditable: true,
+                isDefault: false,
+                sourceFile: 'prompts/daily_scrum.md'
+            },
+            {
+                id: 'builtin_marketing',
+                title: 'Handel i Marketing (systemowy)',
+                prompt: null,
+                isBuiltin: true,
+                isEditable: true,
+                isDefault: false,
+                sourceFile: 'prompts/marketing_meeting.md'
+            },
+            {
+                id: 'builtin_project',
+                title: 'Spotkanie projektowe (systemowy)',
+                prompt: null,
+                isBuiltin: true,
+                isEditable: true,
+                isDefault: false,
+                sourceFile: 'prompts/project_meeting.md'
+            }
+        ];
     },
 
     /**
@@ -120,18 +195,25 @@ window.SettingsManager = {
     },
 
     /**
-     * Fetch and cache the built-in prompt.md text
+     * Fetch and cache a built-in prompt text from its source file
      */
-    async getBuiltinPromptText() {
-        if (this._builtinPromptCache) return this._builtinPromptCache;
+    async getBuiltinPromptTextFromFile(sourceFile) {
+        if (this._builtinPromptCache[sourceFile]) return this._builtinPromptCache[sourceFile];
         try {
-            const response = await fetch(chrome.runtime.getURL('prompt.md'));
-            this._builtinPromptCache = await response.text();
-            return this._builtinPromptCache;
+            const response = await fetch(chrome.runtime.getURL(sourceFile));
+            this._builtinPromptCache[sourceFile] = await response.text();
+            return this._builtinPromptCache[sourceFile];
         } catch (error) {
-            console.error('❌ [SETTINGS] Error loading built-in prompt:', error);
+            console.error('❌ [SETTINGS] Error loading built-in prompt from', sourceFile, ':', error);
             return null;
         }
+    },
+
+    /**
+     * Fetch and cache the built-in prompts/standard.md text (legacy shortcut)
+     */
+    async getBuiltinPromptText() {
+        return this.getBuiltinPromptTextFromFile('prompts/standard.md');
     },
 
     /**
@@ -139,10 +221,12 @@ window.SettingsManager = {
      */
     async getPromptText(promptObj) {
         if (!promptObj) promptObj = this.getDefaultPrompt();
-        if (promptObj.isBuiltin || promptObj.prompt === null) {
-            return await this.getBuiltinPromptText();
+        if (promptObj.prompt !== null) {
+            return promptObj.prompt;
         }
-        return promptObj.prompt;
+        // prompt is null — fetch from sourceFile or fallback to standard.md
+        const sourceFile = promptObj.sourceFile || 'prompts/standard.md';
+        return await this.getBuiltinPromptTextFromFile(sourceFile);
     },
 
     /**
@@ -181,7 +265,7 @@ window.SettingsManager = {
      */
     async updatePrompt(id, title, promptText) {
         const prompt = this.getPromptById(id);
-        if (!prompt || prompt.isBuiltin) return false;
+        if (!prompt || (prompt.isBuiltin && !prompt.isEditable)) return false;
         prompt.title = title.trim();
         prompt.prompt = promptText;
         await this.savePrompts();
@@ -245,21 +329,25 @@ window.SettingsManager = {
             const title = this._escapeHtml(prompt.title);
 
             let actions = '';
-            if (prompt.isBuiltin) {
-                actions = `<button class="prompt-action-btn" title="Kopiuj" data-action="copy" data-id="${prompt.id}">
+            const copyBtn = `<button class="prompt-action-btn" title="Kopiuj" data-action="copy" data-id="${prompt.id}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                 </button>`;
-            } else {
-                actions = `
-                    <button class="prompt-action-btn" title="Edytuj" data-action="edit" data-id="${prompt.id}">
+            const editBtn = `<button class="prompt-action-btn" title="Edytuj" data-action="edit" data-id="${prompt.id}">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                    </button>
-                    <button class="prompt-action-btn" title="Kopiuj" data-action="copy" data-id="${prompt.id}">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                    </button>
-                    <button class="prompt-action-btn prompt-action-delete" title="Usuń" data-action="delete" data-id="${prompt.id}">
+                    </button>`;
+            const deleteBtn = `<button class="prompt-action-btn prompt-action-delete" title="Usuń" data-action="delete" data-id="${prompt.id}">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                     </button>`;
+
+            if (prompt.isBuiltin && prompt.isEditable) {
+                // Editable builtin: edit + copy (no delete)
+                actions = editBtn + copyBtn;
+            } else if (prompt.isBuiltin) {
+                // Original builtin: copy only
+                actions = copyBtn;
+            } else {
+                // Custom: edit + copy + delete
+                actions = editBtn + copyBtn + deleteBtn;
             }
 
             row.innerHTML = `
@@ -304,18 +392,78 @@ window.SettingsManager = {
     },
 
     /**
+     * Show the confirm modal as an overlay on top of the settings modal.
+     * Handles button cloning, backdrop clicks, and cleanup.
+     * Returns false if modal elements are missing.
+     */
+    _showConfirmOverlay({ message, okText, onConfirm }) {
+        const confirmModal = document.getElementById('confirmModal');
+        const confirmMessage = document.getElementById('confirmMessage');
+        const confirmOk = document.getElementById('confirmOk');
+        const confirmCancel = document.getElementById('confirmCancel');
+
+        if (!confirmModal || !confirmMessage || !confirmOk || !confirmCancel) {
+            console.error('❌ [SETTINGS] Required modal elements not found');
+            return false;
+        }
+
+        confirmMessage.innerHTML = message;
+        confirmOk.textContent = okText;
+        confirmOk.className = 'btn btn-danger';
+        confirmCancel.textContent = 'Anuluj';
+
+        const newConfirmOk = confirmOk.cloneNode(true);
+        confirmOk.parentNode.replaceChild(newConfirmOk, confirmOk);
+        const newConfirmCancel = confirmCancel.cloneNode(true);
+        confirmCancel.parentNode.replaceChild(newConfirmCancel, confirmCancel);
+
+        const hideOverlay = () => {
+            confirmModal.classList.remove('show');
+            confirmModal.style.zIndex = '';
+            confirmModal.removeEventListener('click', backdropHandler);
+        };
+
+        const backdropHandler = (e) => {
+            if (e.target === confirmModal) hideOverlay();
+        };
+
+        newConfirmOk.addEventListener('click', async () => {
+            hideOverlay();
+            await onConfirm();
+        });
+
+        newConfirmCancel.addEventListener('click', () => {
+            hideOverlay();
+        });
+
+        confirmModal.addEventListener('click', backdropHandler);
+        confirmModal.style.zIndex = 'var(--z-max)';
+        confirmModal.classList.add('show');
+        return true;
+    },
+
+    /**
      * Handle prompt deletion with confirmation
      */
-    async _handleDeletePrompt(id) {
+    _handleDeletePrompt(id) {
         const prompt = this.getPromptById(id);
         if (!prompt) return;
 
-        const confirmed = confirm(`Usunąć prompt "${prompt.title}"?`);
-        if (!confirmed) return;
-
-        await this.deletePrompt(id);
-        this.renderPromptList();
-        window.ExportManager?.showToast?.('Prompt usunięty', 'success');
+        this._showConfirmOverlay({
+            message: `
+                <p>Czy na pewno chcesz usunąć ten prompt?</p>
+                <div class="delete-session-info">
+                    <div class="delete-session-title">${prompt.title}</div>
+                </div>
+                <div class="delete-warning">Ta akcja jest nieodwracalna!</div>
+            `,
+            okText: 'Usuń',
+            onConfirm: async () => {
+                await this.deletePrompt(id);
+                this.renderPromptList();
+                window.ExportManager?.showToast?.('Prompt usunięty', 'success');
+            }
+        });
     },
 
     /**
@@ -328,6 +476,7 @@ window.SettingsManager = {
         const textInput = document.getElementById('promptTextInput');
         const formTitle = document.getElementById('promptFormTitle');
         const titleError = document.getElementById('promptTitleError');
+        const restoreBtn = document.getElementById('promptFormRestore');
 
         if (!listContainer || !formContainer || !titleInput || !textInput) return;
 
@@ -336,30 +485,24 @@ window.SettingsManager = {
         this._setPromptFormActionsVisible(true);
         if (titleError) { titleError.style.display = 'none'; titleError.textContent = ''; }
 
+        // Show restore button only for editable builtins in edit mode
+        const showRestore = mode === 'edit' && promptData?.isBuiltin && promptData?.isEditable;
+        if (restoreBtn) restoreBtn.style.display = showRestore ? '' : 'none';
+
         // Hide settings footer while in prompt form
         this.updateSettingsFooterVisibility(false);
 
-        if (mode === 'edit') {
-            this._editingPromptId = promptData.id;
-            formTitle.textContent = 'Edytuj prompt';
-            titleInput.value = promptData.title;
-            textInput.value = promptData.prompt || '';
-        } else if (mode === 'copy') {
-            this._editingPromptId = null;
-            formTitle.textContent = 'Kopiuj prompt';
-            titleInput.value = '';
-            // For builtin prompt, fetch the actual text
-            if (promptData.isBuiltin || promptData.prompt === null) {
-                textInput.value = await this.getBuiltinPromptText() || '';
-            } else {
-                textInput.value = promptData.prompt || '';
-            }
-        } else {
-            // 'add'
+        if (mode === 'add') {
             this._editingPromptId = null;
             formTitle.textContent = 'Nowy prompt';
             titleInput.value = '';
             textInput.value = '';
+        } else {
+            const isEdit = mode === 'edit';
+            this._editingPromptId = isEdit ? promptData.id : null;
+            formTitle.textContent = isEdit ? 'Edytuj prompt' : 'Kopiuj prompt';
+            titleInput.value = isEdit ? promptData.title : '';
+            textInput.value = await this.getPromptText(promptData) || '';
         }
 
         titleInput.focus();
@@ -376,7 +519,7 @@ window.SettingsManager = {
         if (!titleInput || !textInput) return;
 
         const title = titleInput.value.trim();
-        const promptText = textInput.value.trim();
+        let promptText = textInput.value.trim();
 
         // Validation
         if (!title) {
@@ -389,6 +532,17 @@ window.SettingsManager = {
             if (titleError) { titleError.textContent = 'Prompt o takiej nazwie już istnieje'; titleError.style.display = 'block'; }
             titleInput.focus();
             return;
+        }
+
+        // For editable builtins: if text matches the original file, store null (saves storage, allows auto-update)
+        if (this._editingPromptId) {
+            const editingPrompt = this.getPromptById(this._editingPromptId);
+            if (editingPrompt?.isBuiltin && editingPrompt?.isEditable && editingPrompt?.sourceFile) {
+                const originalText = await this.getBuiltinPromptTextFromFile(editingPrompt.sourceFile);
+                if (originalText && promptText === originalText.trim()) {
+                    promptText = null;
+                }
+            }
         }
 
         if (this._editingPromptId) {
@@ -409,6 +563,34 @@ window.SettingsManager = {
     _handlePromptFormCancel() {
         this._editingPromptId = null;
         this.renderPromptList();
+    },
+
+    /**
+     * Handle restore default text for editable builtin prompt
+     */
+    _handlePromptFormRestore() {
+        if (!this._editingPromptId) return;
+        const prompt = this.getPromptById(this._editingPromptId);
+        if (!prompt?.isBuiltin || !prompt?.isEditable || !prompt?.sourceFile) return;
+
+        this._showConfirmOverlay({
+            message: `
+                <p>Czy na pewno chcesz przywrócić domyślną treść promptu?</p>
+                <div class="delete-session-info">
+                    <div class="delete-session-title">${this._escapeHtml(prompt.title)}</div>
+                </div>
+                <div class="delete-warning">Twoje zmiany w polu tekstowym zostaną utracone!</div>
+            `,
+            okText: 'Przywróć',
+            onConfirm: async () => {
+                const originalText = await this.getBuiltinPromptTextFromFile(prompt.sourceFile);
+                if (originalText) {
+                    const textInput = document.getElementById('promptTextInput');
+                    if (textInput) textInput.value = originalText;
+                    window.ExportManager?.showToast?.('Przywrócono domyślną treść', 'info');
+                }
+            }
+        });
     },
 
     _escapeHtml(str) {
@@ -598,6 +780,7 @@ window.SettingsManager = {
         bindClick('addPromptBtn', () => this.showPromptForm('add'));
         bindClick('promptFormSave', () => this._handlePromptFormSave());
         bindClick('promptFormCancel', () => this._handlePromptFormCancel());
+        bindClick('promptFormRestore', () => this._handlePromptFormRestore());
 
         this.setupTabSwitching();
     },

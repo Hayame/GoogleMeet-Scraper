@@ -71,7 +71,11 @@ GoogleMeet-Scraper/
 ├── content.js                       # Content script (DOM scraping)
 ├── background.js                    # Service Worker (background scanning)
 ├── debug-config.js                  # Debug toggle (loaded FIRST everywhere)
-├── prompt.md                        # Default LLM prompt template
+├── prompts/                         # LLM prompt templates directory
+│   ├── standard.md                  # Default LLM prompt template
+│   ├── daily_scrum.md               # Daily scrum meeting prompt
+│   ├── marketing_meeting.md         # Marketing meeting prompt
+│   └── project_meeting.md           # Project meeting prompt
 ├── style.css                        # Main UI styles + theme variables
 ├── session-history.css              # Session list styles
 ├── icon16.png / icon48.png / icon128.png
@@ -391,7 +395,7 @@ popup.html loads
 
 ### TXT Format (with optional LLM prompt)
 - Plain text with speaker names and timestamps
-- Optionally wrapped in a prompt template from `prompt.md`
+- Optionally wrapped in a prompt template from `prompts/standard.md`
 - Downloaded via `chrome.downloads.download()` or copied to clipboard
 
 ### Transcript Data Structure (in storage)

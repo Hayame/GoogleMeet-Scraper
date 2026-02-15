@@ -1,7 +1,7 @@
 /**
  * Export Functionality Module
  *
- * Handles TXT export functionality
+ * Handles TXT and Markdown export functionality
  */
 
 window.ExportManager = {
@@ -18,16 +18,45 @@ window.ExportManager = {
     },
 
     /**
-     * Prepare export content with data validation.
-     * Returns null and shows error if no transcript data is available.
+     * Format-specific configuration for exports.
      */
-    async _getExportContent() {
+    FORMAT_CONFIG: {
+        md: {
+            prepareFn: 'prepareExportContentMd',
+            mimeType: 'text/markdown',
+            filename: 'transkrypcja.md',
+            filenameWithPrompt: 'transkrypcja-z-promptem.md',
+        },
+        txt: {
+            prepareFn: 'prepareExportContent',
+            mimeType: 'text/plain',
+            filename: 'transkrypcja-google-meet.txt',
+            filenameWithPrompt: 'transkrypcja-z-promptem.txt',
+        },
+    },
+
+    /**
+     * Prepare export content with data validation for a given format.
+     * Returns null and shows error if no transcript data is available.
+     * @param {'txt'|'md'} format - Export format
+     */
+    async _getValidatedExportContent(format = 'txt') {
         if (!window.transcriptData) {
             this._updateStatus('Brak danych do eksportu', 'error');
             return null;
         }
         const shouldWrapInPrompt = document.getElementById('exportAsLLMPrompt')?.checked ?? true;
-        return { content: await this.prepareExportContent(shouldWrapInPrompt), shouldWrapInPrompt };
+        const config = this.FORMAT_CONFIG[format] || this.FORMAT_CONFIG.md;
+        const content = await this[config.prepareFn](shouldWrapInPrompt);
+        return { content, shouldWrapInPrompt, config };
+    },
+
+    /**
+     * Get the currently selected export format from the dropdown.
+     * @returns {'txt'|'md'}
+     */
+    _getSelectedFormat() {
+        return document.getElementById('exportFormatSelect')?.value || 'md';
     },
 
     /**
@@ -37,32 +66,47 @@ window.ExportManager = {
         document.getElementById('exportAsLLMPrompt')
             ?.addEventListener('change', () => this.updatePromptSelectorVisibility());
 
-        const exportTxtBtn = this._replaceWithClone('exportTxtBtn');
-        if (exportTxtBtn) {
-            exportTxtBtn.addEventListener('click', async () => {
-                const result = await this._getExportContent();
+        const fileBtn = this._replaceWithClone('exportFileBtn');
+        if (fileBtn) {
+            fileBtn.addEventListener('click', async () => {
+                const result = await this._getValidatedExportContent(this._getSelectedFormat());
                 if (!result) return;
 
-                const filename = result.shouldWrapInPrompt ? 'transkrypcja-z-promptem.txt' : 'transkrypcja-google-meet.txt';
-                this.downloadFile(result.content, filename, 'text/plain');
+                const { config } = result;
+                const filename = result.shouldWrapInPrompt ? config.filenameWithPrompt : config.filename;
+
+                this.downloadFile(result.content, filename, config.mimeType);
                 this._updateStatus('Wyeksportowano do pliku!', 'success');
                 this._hideModal('exportModal');
             });
-        } else {
-            console.error('Export TXT button not found');
         }
 
-        const exportClipboardBtn = this._replaceWithClone('exportClipboardBtn');
-        if (exportClipboardBtn) {
-            exportClipboardBtn.addEventListener('click', async () => {
-                const result = await this._getExportContent();
+        const clipboardBtn = this._replaceWithClone('exportClipboardBtn');
+        if (clipboardBtn) {
+            clipboardBtn.addEventListener('click', async () => {
+                const result = await this._getValidatedExportContent(this._getSelectedFormat());
                 if (!result) return;
 
                 await this.copyToClipboard(result.content);
                 this._hideModal('exportModal');
             });
-        } else {
-            console.error('Export clipboard button not found');
+        }
+    },
+
+    /**
+     * Quick copy transcript with default LLM prompt to clipboard (no modal)
+     */
+    async quickCopyWithPrompt() {
+        if (!window.transcriptData?.messages?.length) {
+            this.showToast('Brak danych do skopiowania', 'error');
+            return;
+        }
+        try {
+            const content = await this.prepareExportContent(true);
+            await this.copyToClipboard(content);
+        } catch (error) {
+            console.error('❌ [EXPORT] Quick copy failed:', error);
+            this.showToast('Błąd kopiowania do schowka', 'error');
         }
     },
 
@@ -163,6 +207,47 @@ window.ExportManager = {
         return lines.join('\n');
     },
 
+    /**
+     * Generate Markdown content for export
+     * @param {Object} dataSnapshot - Immutable snapshot of transcript data
+     */
+    generateMdContent(dataSnapshot) {
+        if (!dataSnapshot?.messages) {
+            console.error('No transcript data available in snapshot');
+            return '';
+        }
+
+        const lines = [
+            '# Transkrypcja Google Meet',
+            '',
+            `**Data eksportu:** ${new Date(dataSnapshot.exportedAt).toLocaleString('pl-PL')}`,
+            `**URL spotkania:** ${dataSnapshot.meetingUrl || 'Nieznany'}`,
+            `**Liczba wiadomości:** ${dataSnapshot.messageCount}`,
+            '',
+            '---',
+            ''
+        ];
+
+        let lastSpeaker = null;
+
+        for (const entry of dataSnapshot.messages) {
+            if (entry.speaker !== lastSpeaker) {
+                lines.push(`### ${entry.speaker}`);
+                lines.push('');
+                lastSpeaker = entry.speaker;
+            }
+
+            if (entry.timestamp) {
+                lines.push(`*[${entry.timestamp}]*`);
+            }
+
+            lines.push(`> ${entry.text}`);
+            lines.push('');
+        }
+
+        return lines.join('\n');
+    },
+
     FALLBACK_PROMPT: `# Prompt: Stwórz szczegółowe podsumowanie konwersacji
 
 Na podstawie poniższej transkrypcji stwórz szczegółowe podsumowanie w formacie Markdown.
@@ -174,13 +259,30 @@ Na podstawie poniższej transkrypcji stwórz szczegółowe podsumowanie w formac
      * Creates immutable snapshot to prevent corruption during active recording.
      */
     async prepareExportContent(shouldWrapInPrompt) {
+        return this._prepareContent(this.generateTxtContent, shouldWrapInPrompt);
+    },
+
+    /**
+     * Prepare Markdown export content based on user preferences.
+     * Creates immutable snapshot to prevent corruption during active recording.
+     */
+    async prepareExportContentMd(shouldWrapInPrompt) {
+        return this._prepareContent(this.generateMdContent, shouldWrapInPrompt);
+    },
+
+    /**
+     * Shared implementation for preparing export content in any format.
+     * @param {Function} generateFn - Content generator (receives dataSnapshot)
+     * @param {boolean} shouldWrapInPrompt - Whether to prepend the LLM prompt
+     */
+    async _prepareContent(generateFn, shouldWrapInPrompt) {
         const dataSnapshot = this.createDataSnapshot();
-        const transcriptContent = this.generateTxtContent(dataSnapshot);
+        const content = generateFn.call(this, dataSnapshot);
 
         if (!shouldWrapInPrompt) {
-            return transcriptContent;
+            return content;
         }
-        return await this.wrapWithLLMPrompt(transcriptContent);
+        return await this.wrapWithLLMPrompt(content);
     },
 
     /**
@@ -202,8 +304,8 @@ Na podstawie poniższej transkrypcji stwórz szczegółowe podsumowanie w formac
     async getPromptTemplate() {
         const sm = window.SettingsManager;
         if (!sm) {
-            // Fallback: fetch built-in prompt.md directly
-            const response = await fetch(chrome.runtime.getURL('prompt.md'));
+            // Fallback: fetch built-in prompts/standard.md directly
+            const response = await fetch(chrome.runtime.getURL('prompts/standard.md'));
             return await response.text();
         }
 

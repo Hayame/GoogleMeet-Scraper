@@ -10,6 +10,8 @@ window.TranscriptManager = {
      * Display transcript with optional incremental updates
      */
     displayTranscript(data, changes = null) {
+        if (window.SessionSearchManager?.isSearchResultsView()) return;
+
         const previewDiv = document.getElementById('transcriptContent');
         if (!previewDiv) {
             return;
@@ -43,6 +45,13 @@ window.TranscriptManager = {
 
         if (window.SearchFilterManager) {
             messagesToDisplay = window.SearchFilterManager.applyFilters(messagesToDisplay);
+        }
+
+        // Pagination integration
+        if (window.PaginationManager) {
+            window.PaginationManager.setTotalItems(messagesToDisplay.length);
+            messagesToDisplay = window.PaginationManager.getCurrentPageItems(messagesToDisplay);
+            window.PaginationManager.renderControls();
         }
 
         if (messagesToDisplay.length === 0) {
@@ -293,6 +302,8 @@ window.TranscriptManager = {
      * Update transcript statistics (entry count, participant count, duration)
      */
     updateStats(data) {
+        if (window.SessionSearchManager?.isSearchResultsView()) return;
+
         const statsDiv = document.getElementById('transcriptStats');
         const entryCountSpan = document.getElementById('entryCount');
         const participantCountSpan = document.getElementById('participantCount');

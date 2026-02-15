@@ -40,6 +40,7 @@
 
 ## Recent Changes (cosmetic, no symbol impact)
 - **UI Cleanup (2026-02-14)**: CSS dedup (~150 lines removed from style.css), design token migration in session-history.css, unified trash icons to stroke-based SVG across S016 (SessionUIManager) and S023 (SettingsManager), compacted settings tabs. No new/removed symbols; only innerHTML markup and CSS values changed.
+- **Sidebar Redesign (2026-02-15)**: SaaS-quality sidebar overhaul. Collapsed state: replaced blue dots with monospace time badges (HH:MM) in 40×36px rounded rectangles with inset blue accent. Expanded state: flat list items with border-bottom separators, blue left accent bar on active, tighter padding. Ghost-style merge button, search focus ring, thin scrollbar. S016 _buildSessionItem() now emits `.session-time-badge` element. No new/removed symbols.
 
 ## Index Health Metrics
 | Metric | Value | Status |

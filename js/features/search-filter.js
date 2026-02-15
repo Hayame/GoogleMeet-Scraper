@@ -69,6 +69,7 @@ window.SearchFilterManager = {
      */
     performSearch(query) {
         this._currentSearchQuery = query;
+        window.PaginationManager?.resetToFirstPage();
         this._refreshTranscriptDisplay();
         this.saveFilterState();
     },
@@ -382,6 +383,7 @@ window.SearchFilterManager = {
      * Apply participant filters to transcript display
      */
     applyParticipantFilters() {
+        window.PaginationManager?.resetToFirstPage();
         if (window.transcriptData?.messages && window.TranscriptManager) {
             window.TranscriptManager.displayTranscript(window.transcriptData);
         }
@@ -574,12 +576,18 @@ window.SearchFilterManager = {
             }
             
             // Restore participant filters
-            if (uiState.activeParticipantFilters && Array.isArray(uiState.activeParticipantFilters)) {
+            if (Array.isArray(uiState.activeParticipantFilters)) {
                 this._activeParticipantFilters = new Set(uiState.activeParticipantFilters);
-                this._hasBeenInitialized = true; // Mark as initialized from storage to prevent auto-selection
+
+                // Only mark as initialized if filters were actually saved.
+                // An empty array likely means a partial saveUIState() wiped the
+                // filters — allow auto-select-all recovery in that case.
+                if (uiState.activeParticipantFilters.length > 0) {
+                    this._hasBeenInitialized = true;
+                }
                 
                 // Update participant list UI if transcript data is available
-                if (window.transcriptData && window.transcriptData.messages) {
+                if (window.transcriptData?.messages) {
                     this.updateParticipantFiltersList();
                     this.updateFilterBadge();
                 } else {

@@ -11,12 +11,28 @@ window.UIManager = {
         const recordBtn = document.getElementById('recordBtn');
         const closeSessionBtn = document.getElementById('closeSessionBtn');
         const refreshBtn = document.getElementById('refreshTranscriptBtn');
+        const quickCopyBtn = document.getElementById('quickCopyBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const statsBtn = document.getElementById('statsBtn');
         const recordText = document.querySelector('.record-text');
 
         if (!recordBtn || !closeSessionBtn) {
             console.error('Required buttons not found for visibility update');
             return;
         }
+
+        // Data-dependent UI: only visible when transcript has content
+        const hasTranscriptData = window.transcriptData?.messages?.length > 0;
+        const dataDisplay = hasTranscriptData ? 'flex' : 'none';
+        const actionGroupLeft = document.getElementById('actionGroupLeft');
+        const separator = document.getElementById('actionSeparator');
+        if (actionGroupLeft) actionGroupLeft.style.display = dataDisplay;
+        if (separator) separator.style.display = hasTranscriptData ? 'block' : 'none';
+        if (quickCopyBtn) quickCopyBtn.style.display = dataDisplay;
+        if (exportBtn) exportBtn.style.display = dataDisplay;
+        if (clearBtn) clearBtn.style.display = dataDisplay;
+        if (statsBtn) statsBtn.style.display = dataDisplay;
 
         switch (sessionState) {
             case 'RECORDING':

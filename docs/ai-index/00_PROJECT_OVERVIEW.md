@@ -30,7 +30,11 @@ GoogleMeet-Scraper/
 ├── debug-config.js         # Global debug logging toggle
 ├── style.css               # Main popup styles
 ├── session-history.css     # Session history styles
-├── prompt.md               # Default LLM export prompt template
+├── prompts/                # LLM prompt templates directory
+│   ├── standard.md         # Default LLM export prompt template
+│   ├── daily_scrum.md      # Daily scrum meeting prompt
+│   ├── marketing_meeting.md # Marketing meeting prompt
+│   └── project_meeting.md  # Project meeting prompt
 ├── icon16.png / icon48.png / icon128.png
 ├── js/
 │   ├── core/
@@ -77,7 +81,7 @@ GoogleMeet-Scraper/
 |------|------|
 | manifest.json | Extension permissions, script registration, icons |
 | debug-config.js | Global DEBUG_ENABLED flag (suppresses console.log when false) |
-| prompt.md | Default LLM prompt template for transcript export |
+| prompts/standard.md | Default LLM prompt template for transcript export |
 
 ## Execution Contexts
 | Context | Scripts | Communication |

@@ -70,6 +70,36 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
 });
 
+// Auto-save: when a Meet tab closes while scanning
+chrome.tabs.onRemoved.addListener(async (tabId) => {
+    try {
+        const result = await chrome.storage.local.get('scanningState');
+        if (!result.scanningState?.isScanning) return;
+
+        // Check if the closed tab had scan data
+        const scanKey = `backgroundScan_${tabId}`;
+        const scanData = await chrome.storage.local.get(scanKey);
+        const data = scanData[scanKey]?.data;
+
+        if (data?.messages?.length > 0) {
+            await chrome.storage.local.set({
+                autoSaveData: {
+                    transcript: data,
+                    sessionId: result.scanningState.sessionId,
+                    timestamp: Date.now(),
+                    source: 'tab_close'
+                }
+            });
+            console.log('💾 [BACKGROUND] Auto-saved', data.messages.length, 'messages from closed tab');
+        }
+
+        // Clean up scanning state
+        await chrome.storage.local.remove(['scanningState', scanKey]);
+    } catch (error) {
+        console.error('❌ [BACKGROUND] Auto-save on tab close failed:', error);
+    }
+});
+
 /**
  * Find the first Meet tab that is actively scanning.
  * @returns {Promise<{tab: Object, status: Object}|null>} The matching tab and its status, or null
@@ -126,3 +156,12 @@ async function _relayScanningStatus(sendResponse) {
         sendResponse({ isScanning: false, tabId: null, error: error.message });
     }
 }
+
+// Keyboard shortcut: global toggle recording command
+chrome.commands.onCommand.addListener((command) => {
+    if (command === 'toggle-recording') {
+        console.log('⌨️ [BACKGROUND] Toggle recording command received');
+        // Open popup - the keyboard shortcut in popup context will handle the action
+        chrome.action.openPopup?.();
+    }
+});
