@@ -120,10 +120,10 @@ window.SessionHistoryManager = {
 
     /**
      * Load a session from history
-     * Handles session switching with recording state management
      */
     loadSessionFromHistory(sessionId) {
         window.UIManager?.cancelMeetingNameEdit?.();
+        window.SessionSearchManager?.exitResultsView();
 
         const session = window.sessionHistory?.find(s => s.id === sessionId);
         if (!session) {
@@ -480,7 +480,6 @@ window.SessionHistoryManager = {
 
     /**
      * Show empty session state
-     * Displays UI for a new empty session with no data
      */
     showEmptySession() {
         console.log('🆕 [EMPTY SESSION] Showing empty session');
@@ -500,6 +499,10 @@ window.SessionHistoryManager = {
         window.TranscriptManager?.updateParticipantCountClickability(0);
         window.TimerManager?.updateDurationDisplay();
         window.UIManager?.updateButtonVisibility('NEW');
+
+        if (window.SessionSearchManager?.isSearchActive()) {
+            window.SessionSearchManager._performSearch();
+        }
     },
 
     setupGlobalAliases() {

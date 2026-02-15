@@ -366,6 +366,19 @@ window.SessionSearchManager = {
         return this._viewMode === 'SEARCH_RESULTS';
     },
 
+    /**
+     * Exit search results view without clearing the query
+     */
+    exitResultsView() {
+        if (this._viewMode !== 'SEARCH_RESULTS') {
+            return;
+        }
+
+        this._viewMode = 'NORMAL';
+        this._searchResults = null;
+        this._setNormalViewVisibility(true);
+    },
+
     clearSearch() {
         this._query = '';
         this._filteredSessions = null;

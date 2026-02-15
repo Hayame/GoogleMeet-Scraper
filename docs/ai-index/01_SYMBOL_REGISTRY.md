@@ -21,7 +21,7 @@ See taxonomy-frontend.md for full type code definitions.
 | S012 | DebugManager | UTL | js/utils/debug-manager.js | 5 | yes (window) | debugState, testSessionLoading, testStatePersistence, testAllModules |
 | S013 | RecordingManager | SRV | js/features/recording.js | 6 | yes (window) | Recording start/stop, auto-enable captions, state persistence |
 | S014 | BackgroundScanner | SRV | js/features/background-scanner.js | 6 | yes (window) | Priority merge queue, accumulated data recovery, background scan coordination |
-| S015 | SessionHistoryManager | SRV | js/features/session-history.js | 6 | yes (window) | Session CRUD, auto-save, load/delete with confirmation dialogs |
+| S015 | SessionHistoryManager | SRV | js/features/session-history.js | 6 | yes (window) | Session CRUD, auto-save, load/delete with confirmation dialogs. loadSessionFromHistory exits search results view; showEmptySession restores search results if query active |
 | S016 | SessionUIManager | SRV | js/features/session-ui.js | 6 | yes (window) | Session list rendering with time badges (collapsed state), participant modal, DOM-based tooltips with inline SVG icons. Internal: _el(), _buildSessionItem() (adds .session-time-badge HH:MM), _buildParticipantItem(), _createParticipantsSpan() (uses .participants-clickable/.participants-non-clickable CSS classes), _tooltipIcons, _removeTooltip(), _showTooltip(), _buildSessionTooltipHTML() (queries .session-meta-grid), _clearTooltip(), _attachTooltip() |
 | S017 | TranscriptManager | SRV | js/features/transcript.js | 7 | yes (window) | Transcript display with incremental updates, search highlighting, stats |
 | S018 | TranscriptRefreshManager | SRV | js/features/transcript-refresh.js | 5 | yes (window) | Manual transcript reload and scanner restart |
@@ -153,7 +153,7 @@ See taxonomy-frontend.md for full type code definitions.
 
 | ID | Symbol Name | Type | File Path | Line | Exported | Description |
 |----|-------------|------|-----------|------|----------|-------------|
-| S105 | SessionSearchManager | SRV | js/features/session-search.js | 6 | yes (window) | Session history search with grouped results view in content area |
+| S105 | SessionSearchManager | SRV | js/features/session-search.js | 6 | yes (window) | Session history search with grouped results view in content area. Public: exitResultsView() (exit results view preserving query), clearSearch(), isSearchActive(), isSearchResultsView() |
 | S106 | AutoSaveManager | SRV | js/features/auto-save-manager.js | 5 | yes (window) | Auto-recover transcript data saved when Meet tab closes during recording |
 | S107 | ImportManager | SRV | js/features/import-manager.js | 5 | yes (window) | Import JSON session files with format validation and normalization |
 | S108 | MeetingStatsManager | SRV | js/features/meeting-stats.js | 5 | yes (window) | Per-speaker analytics: message count, word count, speaking time with theme-aware CSS bar charts |
