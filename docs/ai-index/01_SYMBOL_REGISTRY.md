@@ -22,7 +22,7 @@ See taxonomy-frontend.md for full type code definitions.
 | S013 | RecordingManager | SRV | js/features/recording.js | 6 | yes (window) | Recording start/stop, auto-enable captions, state persistence |
 | S014 | BackgroundScanner | SRV | js/features/background-scanner.js | 6 | yes (window) | Priority merge queue, accumulated data recovery, background scan coordination |
 | S015 | SessionHistoryManager | SRV | js/features/session-history.js | 6 | yes (window) | Session CRUD, auto-save, load/delete with confirmation dialogs |
-| S016 | SessionUIManager | SRV | js/features/session-ui.js | 6 | yes (window) | Session list rendering, participant modal, tooltips. Internal: _el() DOM helper, _buildSessionItem(), _buildParticipantItem() |
+| S016 | SessionUIManager | SRV | js/features/session-ui.js | 6 | yes (window) | Session list rendering, participant modal, DOM-based tooltips with inline SVG icons. Internal: _el(), _buildSessionItem(), _buildParticipantItem(), _tooltipIcons, _removeTooltip(), _showTooltip(), _buildSessionTooltipHTML(), _clearTooltip(), _attachTooltip() |
 | S017 | TranscriptManager | SRV | js/features/transcript.js | 7 | yes (window) | Transcript display with incremental updates, search highlighting, stats |
 | S018 | TranscriptRefreshManager | SRV | js/features/transcript-refresh.js | 5 | yes (window) | Manual transcript reload and scanner restart |
 | S019 | ExportManager | SRV | js/features/export.js | 7 | yes (window) | TXT/MD export via format dropdown, clipboard copy, LLM prompt wrapping, prompt selector dropdown, toast notifications. Internal: FORMAT_CONFIG, _getSelectedFormat(), _getValidatedExportContent(format), _prepareContent() |
