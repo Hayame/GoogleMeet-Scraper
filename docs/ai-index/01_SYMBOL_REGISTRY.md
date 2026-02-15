@@ -110,7 +110,7 @@ See taxonomy-frontend.md for full type code definitions.
 | S067 | initializeApplication | UTL | popup.js | 91 | no (local) | Module initialization sequence orchestrator |
 | S068 | restoreCompleteApplicationState | UTL | popup.js | 165 | no (local) | Full state restoration (session + UI) |
 | S069 | applySessionStateRestoration | UTL | popup.js | 223 | no (local) | Apply restored session state (recording/paused/historical) |
-| S070 | setupMainEventListeners | UTL | popup.js | 317 | no (local) | Bind main button click handlers |
+| S070 | setupMainEventListeners | UTL | popup.js | 304 | no (local) | Bind main button click handlers (incl. helpBtn → helpModal) |
 | S071 | setupMessageListener | UTL | popup.js | 360 | no (local) | Chrome runtime message listener for popup |
 | S072 | requireModule | UTL | popup.js | 70 | no (local) | Validate required module on window |
 | S073 | initModule | UTL | popup.js | 80 | no (local) | Safe optional module initialization |

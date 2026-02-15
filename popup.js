@@ -344,6 +344,8 @@ function setupMainEventListeners() {
 
     bindClick('quickCopyBtn', () => window.ExportManager?.quickCopyWithPrompt());
 
+    bindClick('helpBtn', () => window.ModalManager?.showModal('helpModal'));
+
     bindClick('captionWarningDismiss', () => {
         const warningEl = document.getElementById('captionWarning');
         if (warningEl) {

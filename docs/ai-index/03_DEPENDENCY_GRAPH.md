@@ -118,6 +118,7 @@ S111 —[USES]→ S013  (KeyboardShortcutsManager → RecordingManager.handleRec
 S111 —[USES]→ S019  (KeyboardShortcutsManager → ExportManager.quickCopyWithPrompt)
 S111 —[USES]→ S021  (KeyboardShortcutsManager → ModalManager.hideModal via DOM query)
 S014 —[USES]→ S003  (BackgroundScanner → UIManager.updateButtonVisibility on merge)
+S070 —[USES]→ S021  (setupMainEventListeners → ModalManager.showModal for helpModal)
 S014 —[UPDATES]→ DOM  (BackgroundScanner → caption warning visibility, checked BEFORE early return on empty messages)
 ```
 
