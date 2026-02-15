@@ -117,50 +117,56 @@
     background: var(--btn-record-bg);
 }
 
-/* Universal tooltip system for all elements with data-tooltip */
-
-/* General tooltip for collapsed sidebar elements */
-.sidebar.collapsed [data-tooltip]:hover::after {
-    content: attr(data-tooltip) !important;
-    position: absolute !important;
-    left: 55px !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-    background: var(--bg-secondary) !important;
-    color: var(--text-primary) !important;
-    padding: var(--space-8) 18px !important;
-    border-radius: var(--radius-xl) !important;
-    font-size: var(--text-base) !important;
-    font-weight: 400 !important;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-    white-space: pre-line !important;
-    z-index: var(--z-max) !important;
-    box-shadow:
-        0 20px 25px -5px rgba(0, 0, 0, 0.1),
-        0 10px 10px -5px rgba(0, 0, 0, 0.04),
-        0 0 0 1px var(--border-primary) !important;
-    max-width: 320px !important;
-    min-width: 180px !important;
-    pointer-events: none !important;
-    line-height: 1.5 !important;
-    display: block !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-    text-align: left !important;
-    word-wrap: break-word !important;
-    overflow-wrap: break-word !important;
-    backdrop-filter: blur(12px) !important;
-    transition: opacity 0.2s ease !important;
+/* DOM-based tooltip for collapsed sidebar */
+.session-tooltip {
+    position: fixed;
+    z-index: var(--z-max, 9999);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    padding: var(--space-4) var(--space-6);
+    border-radius: var(--radius-lg);
+    font-size: var(--text-sm);
+    line-height: 1.4;
+    pointer-events: none;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 0 0 1px var(--border-primary);
 }
 
+.session-tooltip-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    font-size: var(--text-base);
+    font-weight: 500;
+    color: var(--text-primary);
+}
 
-/* Dark theme tooltip adjustments for all collapsed elements */
-[data-theme="dark"] .sidebar.collapsed [data-tooltip]:hover::after {
-    background: var(--bg-tertiary) !important;
-    box-shadow:
-        0 20px 25px -5px rgba(0, 0, 0, 0.25),
-        0 10px 10px -5px rgba(0, 0, 0, 0.1),
-        0 0 0 1px var(--border-primary) !important;
+.session-tooltip-title svg,
+.session-tooltip-row svg {
+    flex-shrink: 0;
+    color: var(--text-tertiary);
+}
+
+.session-tooltip-meta {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    margin-top: var(--space-3);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--border-primary);
+}
+
+.session-tooltip-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    color: var(--text-secondary);
+}
+
+/* Dark theme tooltip */
+[data-theme="dark"] .session-tooltip {
+    background: var(--bg-tertiary);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), 0 0 0 1px var(--border-primary);
 }
 
 .sidebar.collapsed .empty-sessions {

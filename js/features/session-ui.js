@@ -196,9 +196,80 @@ window.SessionUIManager = {
         return participantDiv;
     },
 
-    /**
-     * Update session tooltips for collapsed sidebar.
-     */
+    /** SVG icons for tooltips (14px, stroke-based) */
+    _tooltipIcons: {
+        document: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+        calendar: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+        users: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+        message: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+        plus: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+    },
+
+    /** Remove any existing tooltip from the DOM */
+    _removeTooltip() {
+        document.querySelector('.session-tooltip')?.remove();
+    },
+
+    /** Show a DOM tooltip next to the given element */
+    _showTooltip(el, html) {
+        this._removeTooltip();
+        const tip = document.createElement('div');
+        tip.className = 'session-tooltip';
+        tip.innerHTML = html;
+        document.body.appendChild(tip);
+
+        const rect = el.getBoundingClientRect();
+        tip.style.left = `${rect.right + 8}px`;
+        tip.style.top = `${rect.top + rect.height / 2}px`;
+        tip.style.transform = 'translateY(-50%)';
+    },
+
+    /** Build tooltip HTML for a session item */
+    _buildSessionTooltipHTML(item) {
+        const title = item.querySelector('.session-title')?.textContent || 'Sesja';
+        const meta = item.querySelector('.session-meta')?.textContent || '';
+        const icons = this._tooltipIcons;
+
+        const titleHTML = `<div class="session-tooltip-title">${icons.document}<span>${title}</span></div>`;
+
+        const parts = meta.split(' • ').slice(0, 3);
+        if (parts.length < 2) {
+            if (!meta) return titleHTML;
+            return titleHTML + `<div class="session-tooltip-meta"><div class="session-tooltip-row">${icons.calendar}<span>${meta}</span></div></div>`;
+        }
+
+        const metaIcons = [icons.calendar, icons.users, icons.message];
+        const rows = parts.map((part, i) =>
+            `<div class="session-tooltip-row">${metaIcons[i]}<span>${part}</span></div>`
+        ).join('');
+
+        return titleHTML + `<div class="session-tooltip-meta">${rows}</div>`;
+    },
+
+    /** Remove tooltip listeners and data attributes from an element */
+    _clearTooltip(el) {
+        if (!el) return;
+        el.removeAttribute('data-tooltip');
+        el._tooltipCleanup?.();
+    },
+
+    /** Attach mouseenter/mouseleave tooltip listeners to an element */
+    _attachTooltip(el, htmlFn) {
+        if (!el) return;
+        el._tooltipCleanup?.();
+
+        const onEnter = () => this._showTooltip(el, htmlFn());
+        const onLeave = () => this._removeTooltip();
+        el.addEventListener('mouseenter', onEnter);
+        el.addEventListener('mouseleave', onLeave);
+        el._tooltipCleanup = () => {
+            el.removeEventListener('mouseenter', onEnter);
+            el.removeEventListener('mouseleave', onLeave);
+            delete el._tooltipCleanup;
+        };
+    },
+
+    /** Update session tooltips for collapsed sidebar */
     updateSessionTooltips() {
         const sidebar = document.querySelector('.sidebar');
         const sessionItems = document.querySelectorAll('.session-item');
@@ -206,30 +277,19 @@ window.SessionUIManager = {
         const isCollapsed = sidebar?.classList.contains('collapsed');
 
         if (!isCollapsed) {
-            sessionItems.forEach(item => item.removeAttribute('data-tooltip'));
-            newSessionBtn?.removeAttribute('data-tooltip');
+            sessionItems.forEach(item => this._clearTooltip(item));
+            this._clearTooltip(newSessionBtn);
+            this._removeTooltip();
             return;
         }
 
         for (const item of sessionItems) {
-            const title = item.querySelector('.session-title')?.textContent || 'Sesja';
-            const meta = item.querySelector('.session-meta')?.textContent || '';
-            const parts = meta.split(' • ');
-
-            const lines = [`📝 ${title}`];
-            const icons = ['📅', '👥', '💬'];
-            if (parts.length >= 2) {
-                for (let i = 0; i < Math.min(parts.length, 3); i++) {
-                    lines.push(`${icons[i]} ${parts[i]}`);
-                }
-            } else if (meta) {
-                lines.push(`📋 ${meta}`);
-            }
-
-            item.setAttribute('data-tooltip', lines.join('\n\n'));
+            this._attachTooltip(item, () => this._buildSessionTooltipHTML(item));
         }
 
-        newSessionBtn?.setAttribute('data-tooltip', '➕ Nowa sesja');
+        this._attachTooltip(newSessionBtn, () =>
+            `<div class="session-tooltip-title">${this._tooltipIcons.plus}<span>Nowa sesja</span></div>`
+        );
     },
 
     /**
